@@ -37,6 +37,8 @@ async function run(browser, server, tag, viewport, dsf, colorScheme) {
   // Signed out first.
   let { page, cdp, ctx, errors } = await L.newApp(browser, server, { viewport, dsf, colorScheme, hf });
   await page.waitForSelector('#v-start:not([hidden])');
+  await shoot(page, '01-start-first');
+  await page.fill('#start-writer', 'Finn');
   await shoot(page, '01-start');
   await page.click('#start-go');
   await page.waitForSelector('#cap[data-state="write"]');

@@ -37,7 +37,7 @@ function promptIds() {
       await page.waitForSelector('#cap[data-state="write"]');
       await L.until(async () => (await page.textContent('#cap-total')).startsWith('2 Zeilen geschrieben'));
       L.check('tree listing followed both pages', treeCalls.length === 2 && treeCalls[0].includes('recursive=true'), treeCalls.join(' '));
-      L.check('progress restored from file names: 2 done (only this writer's folder)', (await page.textContent('#cap-total')).startsWith('2 Zeilen geschrieben'), await page.textContent('#cap-total'));
+      L.check('progress restored from file names: 2 done (only the folder of this writer)', (await page.textContent('#cap-total')).startsWith('2 Zeilen geschrieben'), await page.textContent('#cap-total'));
       const shown = await page.evaluate(() => window.__hw.app.prompts.prompts.find((p) => p.text === document.getElementById('cap-prompt').textContent).id);
       L.check('next prompt is the first one not in the dataset', shown === ids[2], shown);
       L.check('Zeile 3 of block 1', /Block 1 · Zeile 3 von/.test(await page.textContent('#cap-progress')));

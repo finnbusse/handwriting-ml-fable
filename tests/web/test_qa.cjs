@@ -94,6 +94,8 @@ async function writeLine(page, cdp, nStrokes, stray) {
     const page2 = await ctx2.newPage();
     await page2.goto(server.url + '#/erfassen');
     await page2.waitForFunction(() => window.__hwReady);
+    await page2.fill('#start-writer', 'Finn');
+    await page2.click('#start-go');
     await page2.waitForSelector('#cap[data-state="nocaps"]', { timeout: 5000 }).catch(() => {});
     L.check('missing getCoalescedEvents: capture screen blocks with a hint', (await page2.getAttribute('#cap', 'data-state')) === 'nocaps'
       && (await page2.isVisible('#nocaps-text')) && (await page2.textContent('#nocaps-text')).includes('Chrome'));
