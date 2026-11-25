@@ -24,6 +24,7 @@
     <symbol id="i-again" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19 4v4h-4"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
     <symbol id="i-cloud-alert" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 10.5 3.75 3.75 0 0 0 7 18z"/><path d="M12 9.5v3.5"/><path d="M12 15.4v.2"/></symbol>
+    <symbol id="i-cloud-check" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 10.5 3.75 3.75 0 0 0 7 18z"/><path d="M9.4 13.4l1.9 1.9 3.5-3.6"/></symbol>
     <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 10.5 3.75 3.75 0 0 0 7 18z"/><path d="M12 15v-5M9.8 12.2 12 10l2.2 2.2"/></symbol>
     <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1.2-4.4L15.8 5a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.4 18.8 4 20z"/><path d="M14 6.8l3.2 3.2"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></symbol>
@@ -303,11 +304,22 @@
 
       <section class="group" aria-labelledby="g-upload">
         <h2 id="g-upload">Hochladen</h2>
-        <div class="row">
-          <p id="up-status">Alles hochgeladen.</p>
-          <div class="row-actions"><button class="btn" id="up-now" type="button"><svg class="ic"><use href="#i-cloud"/></svg><span>Jetzt hochladen</span></button></div>
+        <div class="safe" id="safe" data-level="none" role="status">
+          <svg class="ic safe-ic" aria-hidden="true"><use id="safe-icon" href="#i-cloud"/></svg>
+          <div class="safe-body">
+            <p class="safe-main" id="safe-main">Noch keine Zeilen auf diesem Gerät.</p>
+            <p id="safe-local" hidden></p>
+            <p id="up-status" hidden></p>
+            <p id="safe-pending" hidden></p>
+            <p class="muted" id="safe-check-text">Noch nicht geprüft.</p>
+          </div>
         </div>
-        <p class="muted up-where">Gespeichert in deinem Hugging-Face-Konto (privat).</p>
+        <p class="safe-help" id="safe-help" hidden></p>
+        <div class="row-actions safe-actions">
+          <button class="btn" id="safe-check" type="button"><svg class="ic"><use href="#i-again"/></svg><span>Jetzt prüfen</span></button>
+          <button class="btn" id="up-now" type="button" hidden><svg class="ic"><use href="#i-cloud"/></svg><span>Jetzt hochladen</span></button>
+        </div>
+        <p class="muted up-where">Gespeichert in deinem Hugging-Face-Konto (privat). Als sicher gilt eine Zeile erst, wenn die App sie dort wiedergefunden hat.</p>
         <p class="muted" id="up-rejected" hidden></p>
       </section>
 

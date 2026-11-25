@@ -9,6 +9,7 @@ const L = require('./lib.cjs');
   let tokenValid = true;      // whoami answers 401 while false (a revoked token)
   let createMode = 'ok';
   const commits = [];
+  const previewCommits = [];   // the second, best-effort commit (preview/...): counted apart
   const hf = (req) => {
     const u = new URL(req.url);
     if (u.pathname === '/api/whoami-v2') {
@@ -20,6 +21,9 @@ const L = require('./lib.cjs');
       commits.push(Object.assign({ mode: 'create-' + createMode }, req));
       if (createMode === '409') return { status: 409, headers: { 'x-error-message': 'You already created this dataset repo' } };
       mode = 'ok'; return { status: 200, body: { url: 'x' } };
+    }
+    if (u.pathname.endsWith('/commit/main') && req.body.includes('"path":"preview/')) {
+      previewCommits.push(req); return { status: 200, body: { success: true } };
     }
     if (u.pathname.endsWith('/commit/main')) {
       commits.push(Object.assign({ mode }, req));
@@ -100,8 +104,10 @@ const L = require('./lib.cjs');
     const byPath = new Map(entries.map((e) => [e.path, e]));
     L.check('file paths are raw/v1/<writer>/<session>/<prompt>__<id>.json of the stored lines', nd.slice(1).every((x) => byPath.has(x.value.path) && /^raw\/v1\/finn\/[^/]+\/[^/]+__[0-9a-f-]{36}\.json$/.test(x.value.path)));
     L.check('file content is the stored record', nd.slice(1).every((x) => JSON.parse(x.value.content).id === byPath.get(x.value.path).id));
-    L.check('lines marked uploaded only after 2xx', entries.every((e) => e.state === 'uploaded' && e.uploaded_at), entries.map((e) => e.state).join());
-    L.check('indicator hidden when nothing waits', await page.isHidden('#waiting'));
+    L.check('lines marked sent only after 2xx', entries.every((e) => e.state === 'sent' && e.uploaded_at), entries.map((e) => e.state).join());
+    L.check('a listing that fails (401 RepoNotFound) verifies nothing: still "sent"', entries.every((e) => e.state === 'sent' && !e.verified_at));
+    await L.until(async () => (await page.textContent('#waiting-text')) === '5 Zeilen werden geprüft', 3000).catch(() => {});
+    L.check('indicator: nothing waits, 5 lines are still being checked', (await page.textContent('#waiting-text')) === '5 Zeilen werden geprüft', await page.textContent('#waiting-text'));
 
     // Missing dataset, answered with 401 RepoNotFound -> offer to create it (no sign-out) -> upload.
     mode = '401repo';
@@ -165,7 +171,7 @@ const L = require('./lib.cjs');
     });
     await L.until(async () => (await queued()) === 0);
     const states = await page.evaluate(async () => (await window.__hw.store.allLines()).filter((e) => /poison|good-/.test(e.prompt_id)).map((e) => `${e.prompt_id}:${e.state}`).sort());
-    L.check('a refused line is set aside, the 5 others are uploaded', states.join() === 'good-1:uploaded,good-2:uploaded,good-3:uploaded,good-4:uploaded,good-5:uploaded,poison-line:rejected', states.join());
+    L.check('a refused line is set aside, the 5 others are uploaded', states.join() === 'good-1:sent,good-2:sent,good-3:sent,good-4:sent,good-5:sent,poison-line:rejected', states.join());
     L.check('no back-off is left behind', await page.evaluate(() => !window.__hw.outbox.status().lastError && !window.__hw.outbox.status().notBefore), `${commits.length - before2} commits`);
     await page.click('a[data-route="einstellungen"]');
     await page.waitForSelector('#up-rejected:not([hidden])', { timeout: 3000 }).catch(() => {});

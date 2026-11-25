@@ -51,6 +51,7 @@ async function newApp(browser, server, opts = {}) {
     }
     return route.abort('connectionrefused');
   });
+  if (opts.init) await ctx.addInitScript(opts.init);
   if (opts.signedIn) {
     await ctx.addInitScript(([token, name]) => {
       if (!localStorage.getItem('hw.auth')) localStorage.setItem('hw.auth', JSON.stringify({ token, name, source: 'token', expiresAt: null }));

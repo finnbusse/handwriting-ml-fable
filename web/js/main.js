@@ -48,48 +48,147 @@ function toast(text, ms = 3200) {
   toastTimer = setTimeout(() => { t.hidden = true; }, ms);
 }
 
-// ---------- indicator ----------
+// ---------- indicator and "is it safe?" ----------
 
 /** An upload problem that waiting alone will not fix soon (not offline, not a short rate limit). */
 const uploadProblem = (st) => !!(st.lastError && !['network', 'rate'].includes(st.lastError.kind));
+const zeilen = (n) => `${n} ${n === 1 ? 'Zeile' : 'Zeilen'}`;
+const LONG_WAIT_MS = 60 * 60 * 1000;   // lines waiting longer than this get a word on what to do
 
-async function updateWaiting() {
-  const n = await store.countQueued().catch(() => 0);
-  const el = $('waiting');
-  const st = outbox.status();
-  const problem = n > 0 && !st.running && uploadProblem(st) && !!hf.getAuth();
-  el.classList.toggle('empty', n === 0);
-  el.classList.toggle('problem', problem);
-  el.setAttribute('aria-hidden', n === 0 ? 'true' : 'false');
-  el.tabIndex = n === 0 ? -1 : 0;
-  $('waiting-icon').setAttribute('href', problem ? '#i-cloud-alert' : '#i-cloud');
-  $('waiting-text').textContent = st.running ? 'Lädt hoch …'
-    : problem ? 'Hochladen klappt gerade nicht'
-      : `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'} aufs Hochladen`;
-  $('waiting-short').textContent = st.running ? 'lädt …' : problem ? 'Problem' : `${n} ${n === 1 ? 'wartet' : 'warten'}`;
-  el.title = !hf.getAuth() ? 'Zum Hochladen anmelden'
-    : problem ? 'Hochladen klappt gerade nicht. Mehr in den Einstellungen.' : 'Wird automatisch hochgeladen';
-  if (app.route === 'einstellungen') renderUploadStatus(n);
+/** "heute, 14:32 Uhr" / "gestern, 09:05 Uhr" / "3.11.2026, 14:32 Uhr" */
+function when(at) {
+  const d = new Date(at);
+  const time = d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  if (d.toDateString() === new Date().toDateString()) return `heute, ${time} Uhr`;
+  if (d.toDateString() === y.toDateString()) return `gestern, ${time} Uhr`;
+  return `${d.toLocaleDateString('de-DE')}, ${time} Uhr`;
 }
 
-async function renderUploadStatus(n) {
+function since(ms) {
+  const h = Math.floor(ms / 3600000);
+  if (h < 2) return 'über einer Stunde';
+  if (h < 48) return `über ${h} Stunden`;
+  return `über ${Math.floor(h / 24)} Tagen`;
+}
+
+/** Everything the status texts are made from. */
+async function safety() {
+  const c = await store.counts().catch(() => ({ total: 0, queued: 0, sent: 0, verified: 0, rejected: 0 }));
   const st = outbox.status();
-  const rejected = await store.countState('rejected').catch(() => 0);
+  const user = hf.userName();
+  const oldest = c.queued ? await store.oldestQueuedAt().catch(() => null) : null;
+  return {
+    c, st, auth: !!hf.getAuth(), offline: navigator.onLine === false,
+    // Signed out, the last check of whoever was signed in is still worth showing.
+    lastCheck: st.lastCheck && (!user || st.lastCheck.user === user) ? st.lastCheck : null,
+    waitedMs: oldest ? Date.now() - Date.parse(oldest) : 0,
+  };
+}
+
+/** The status texts in plain German, from the counts and the outbox state (pure). */
+function safetyTexts({ c, st, auth, offline, lastCheck, waitedMs }) {
+  const n = c.queued;
+  const t = {};
+  // headline: only lines seen in the dataset count as safe
+  if (c.total === 0) t.main = 'Noch keine Zeilen auf diesem Gerät.';
+  else if (c.verified === c.total) t.main = c.total === 1 ? '1 Zeile ist sicher gespeichert.' : `Alle ${c.total} Zeilen sind sicher gespeichert.`;
+  else if (c.verified === 0) t.main = c.total === 1 ? '1 Zeile ist auf diesem Gerät gespeichert.' : `${c.total} Zeilen sind auf diesem Gerät gespeichert.`;
+  else t.main = `${c.verified} von ${c.total} Zeilen sind sicher gespeichert.`;
+  t.level = c.total === 0 ? 'none' : c.verified === c.total ? 'ok' : 'wait';
+  t.local = c.verified > 0 && c.verified < c.total ? 'Alle anderen sind auf diesem Gerät gespeichert.' : '';
+  // waiting lines, with the reason when there is one
+  const w = `${zeilen(n)} ${n === 1 ? 'wartet' : 'warten'} auf das Hochladen.`;
+  const kind = st.lastError && st.lastError.kind;
+  if (n === 0) t.queued = '';
+  else if (!auth) t.queued = `${w} Melde dich an, dann werden sie hochgeladen.`;
+  else if (st.running) t.queued = `${w} Lädt hoch …`;
+  else if (kind === 'network') t.queued = `${w} Keine Verbindung, es wird später noch einmal versucht.`;
+  else if (kind === 'rate') t.queued = `${w} Hugging Face bittet um eine kurze Pause, es geht gleich weiter.`;
+  else if (kind === 'notfound') t.queued = `${w} In deinem Konto fehlt noch der Ort für deine Zeilen. „Jetzt hochladen“ legt ihn an.`;
+  else if (kind === 'forbidden') t.queued = `${w} Dein Zugang darf nicht hochladen. Melde dich mit Schreibrecht an.`;
+  else if (kind) t.queued = `${w} Das letzte Hochladen hat nicht geklappt. Es wird später noch einmal versucht.`;
+  else t.queued = w;
+  // sent, not seen yet
+  t.pending = c.sent ? `${zeilen(c.sent)} ${c.sent === 1 ? 'wird' : 'werden'} noch geprüft.` : '';
+  // the check itself
+  const last = lastCheck ? ` Zuletzt geprüft: ${when(lastCheck.at)}.` : '';
+  const prob = st.checkProblem && st.checkProblem.kind;
+  if (st.checking) t.check = 'Wird gerade geprüft …';
+  else if (!auth) t.check = lastCheck ? `Zuletzt geprüft: ${when(lastCheck.at)}. Zum Prüfen bitte anmelden.` : 'Noch nicht geprüft. Zum Prüfen bitte anmelden.';
+  else if (offline || prob === 'offline') t.check = `Noch nicht geprüft (offline).${last}`;
+  else if (prob === 'notfound' && !lastCheck) t.check = kind === 'notfound' ? 'Noch nicht geprüft.' : 'Noch nicht geprüft: In deinem Konto gibt es den Ort für deine Zeilen noch nicht.';
+  else if (prob) t.check = `Die Prüfung hat gerade nicht geklappt, es wird später noch einmal versucht.${last}`;
+  else t.check = lastCheck ? `Zuletzt geprüft: ${when(lastCheck.at)}.` : 'Noch nicht geprüft.';
+  // lines that could not go up for a longer time: calm, with what to do
+  t.help = '';
+  if (n > 0 && !st.running && waitedMs >= LONG_WAIT_MS) {
+    const head = `Seit ${since(waitedMs)} ${n === 1 ? 'konnte 1 Zeile' : `konnten ${n} Zeilen`} nicht hochgeladen werden.`
+      + ` ${n === 1 ? 'Sie ist' : 'Sie sind'} auf diesem Gerät gespeichert und ${n === 1 ? 'geht' : 'gehen'} nicht verloren.`;
+    let todo;
+    if (!auth) todo = 'Melde dich oben unter „Konto“ an, dann werden sie hochgeladen.';
+    else if (kind === 'notfound') todo = 'In deinem Konto fehlt der Ort für deine Zeilen: Tippe auf „Jetzt hochladen“, dann wird er angelegt.';
+    else if (kind === 'forbidden' || kind === 'auth') todo = 'Dein Zugang darf nicht hochladen: Melde dich mit einem Schlüssel an, der Schreibrecht hat.';
+    else if (offline || kind === 'network') todo = 'Es fehlt die Verbindung. Sobald das Gerät online ist, geht es von selbst weiter.';
+    else todo = 'Es wird immer wieder von selbst versucht.';
+    t.help = `${head} ${todo} Wenn du magst, lade zusätzlich die Sicherung herunter.`;
+    t.level = 'help';
+    t.queued = w;   // the reason is in the help text; say it once
+  }
+  // the small indicator in the top bar
+  const problem = n > 0 && !st.running && uploadProblem(st) && auth;
+  t.barEmpty = c.total === 0;
+  t.barProblem = problem;
+  t.barSafe = !problem && n === 0 && c.sent === 0 && c.total > 0 && c.verified === c.total;
+  t.barIcon = problem ? '#i-cloud-alert' : t.barSafe ? '#i-cloud-check' : '#i-cloud';
+  if (st.running && n > 0) { t.barLong = 'Lädt hoch …'; t.barShort = 'lädt …'; }
+  else if (problem) { t.barLong = 'Hochladen klappt gerade nicht'; t.barShort = 'Problem'; }
+  else if (n > 0) { t.barLong = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'} aufs Hochladen`; t.barShort = `${n} ${n === 1 ? 'wartet' : 'warten'}`; }
+  else if (c.sent > 0) { t.barLong = `${zeilen(c.sent)} ${c.sent === 1 ? 'wird' : 'werden'} geprüft`; t.barShort = 'wird geprüft'; }
+  else if (t.barSafe) { t.barLong = c.total === 1 ? '1 Zeile sicher gespeichert' : `Alle ${c.total} Zeilen sicher gespeichert`; t.barShort = 'alles sicher'; }
+  else { t.barLong = `${c.verified} von ${c.total} Zeilen sicher`; t.barShort = `${c.verified} sicher`; }
+  t.barTitle = !auth ? 'Zum Hochladen anmelden'
+    : problem ? 'Hochladen klappt gerade nicht. Mehr in den Einstellungen.'
+      : t.barSafe ? 'Alle Zeilen wurden bei Hugging Face wiedergefunden.' : 'Wird automatisch hochgeladen und geprüft';
+  return t;
+}
+
+let statusSeq = 0;
+async function updateWaiting() {
+  const seq = ++statusSeq;
+  const s = await safety();
+  if (seq !== statusSeq) return;            // a newer update is on its way
+  const t = safetyTexts(s);
+  const el = $('waiting');
+  el.classList.toggle('empty', t.barEmpty);
+  el.classList.toggle('problem', t.barProblem);
+  el.classList.toggle('safe', t.barSafe);
+  el.setAttribute('aria-hidden', t.barEmpty ? 'true' : 'false');
+  el.tabIndex = t.barEmpty ? -1 : 0;
+  $('waiting-icon').setAttribute('href', t.barIcon);
+  $('waiting-text').textContent = t.barLong;
+  $('waiting-short').textContent = t.barShort;
+  el.title = t.barTitle;
+  if (app.route === 'einstellungen') renderUploadStatus(s, t);
+}
+
+function renderUploadStatus(s, t) {
+  const show = (id, text) => { const e = $(id); e.textContent = text; e.hidden = !text; };
+  $('safe').dataset.level = t.level;
+  $('safe-icon').setAttribute('href', t.level === 'ok' ? '#i-cloud-check' : t.level === 'help' ? '#i-info' : '#i-cloud');
+  $('safe-main').textContent = t.main;
+  show('safe-local', t.local);
+  show('up-status', t.queued);
+  show('safe-pending', t.pending);
+  $('safe-check-text').textContent = t.check;
+  show('safe-help', t.help);
+  const rejected = s.c.rejected;
   const rj = $('up-rejected');
   rj.hidden = rejected === 0;
   rj.textContent = `${rejected} ${rejected === 1 ? 'Zeile wurde' : 'Zeilen wurden'} von Hugging Face abgelehnt. Sie bleiben auf dem Gerät und in der Sicherung.`;
-  let text;
-  if (n === 0) text = 'Alles hochgeladen.';
-  else if (!hf.getAuth()) text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Melde dich an, dann werden sie hochgeladen.`;
-  else if (st.running) text = 'Lädt hoch …';
-  else if (st.lastError && st.lastError.kind === 'network') text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Keine Verbindung, es wird später noch einmal versucht.`;
-  else if (st.lastError && st.lastError.kind === 'rate') text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Hugging Face bittet um eine kurze Pause, es geht gleich weiter.`;
-  else if (st.lastError && st.lastError.kind === 'notfound') text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. In deinem Konto fehlt noch der Ort für deine Zeilen. „Jetzt hochladen“ legt ihn an.`;
-  else if (st.lastError && st.lastError.kind === 'forbidden') text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Dein Zugang darf nicht hochladen. Melde dich mit Schreibrecht an.`;
-  else if (st.lastError) text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Das letzte Hochladen hat nicht geklappt. Es wird später noch einmal versucht.`;
-  else text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'} aufs Hochladen.`;
-  $('up-status').textContent = text;
-  $('up-now').disabled = n === 0 || !hf.getAuth() || st.running;
+  $('up-now').hidden = s.c.queued === 0;
+  $('up-now').disabled = !s.auth || s.st.running;
+  $('safe-check').disabled = !s.auth || s.st.checking || s.st.running;
 }
 
 // ---------- progress ----------
@@ -118,28 +217,29 @@ function saveRemoteDone() {
   return store.kvSet('remoteDone', { user: app.remoteUser, by }).catch(() => {});
 }
 
-async function refreshRemoteDone() {
-  const repo = hf.datasetRepoId();
-  if (!repo || !navigator.onLine || !app.writer) return;
+/** Progress from a listing of raw/v1 (the one the check made): every writer's folder. */
+function applyListing({ paths, user }) {
+  if (user !== hf.userName()) return;
   syncRemoteUser();
-  const w = app.writer;
-  try {
-    // One listing of raw/v1; only the files below this writer's folder count.
-    const paths = await hf.listFiles(repo, 'raw/v1');
-    const ids = new Set();
-    for (const p of paths || []) { const id = store.promptIdFromPath(p, w.id); if (id) ids.add(id); }
-    app.remoteAll[w.id] = ids;
-    await saveRemoteDone();
-    if (app.writer && app.writer.id === w.id) {      // not if somebody else started writing meanwhile
-      app.remoteDone = ids;
-      if (app.capture) app.capture.refresh();
-    }
-  } catch (e) {
-    // A 401 here often only means the dataset does not exist (yet) for this account.
-    if (e.kind === 'auth' && (await hf.classify401(e)) === 'auth') {
-      hf.signOut(); toast('Bitte melde dich neu an. Deine Zeilen bleiben gespeichert.');
-    }
+  const by = {};
+  for (const w of app.writers) by[w.id] = new Set();
+  for (const p of paths) {
+    const m = store.parsePath(p);
+    if (m) (by[m.writer] = by[m.writer] || new Set()).add(m.promptId);
   }
+  app.remoteAll = by;
+  saveRemoteDone();
+  if (app.writer) {
+    app.remoteDone = new Set(by[app.writer.id] || []);
+    if (app.capture) app.capture.refresh();
+  }
+}
+
+/** One listing serves both the progress and the check (outbox.verify). */
+let listedOnce = false;
+function refreshRemoteDone({ force = true } = {}) {
+  if (!force && listedOnce) return Promise.resolve();
+  return outbox.verify('progress');
 }
 
 // ---------- Stift & Papier ----------
@@ -188,7 +288,7 @@ async function useWriter(text) {
   app.skipped = new Set(app.skippedAll[w.id] || []);
   await loadLocalDone();
   if (app.capture) { app.capture.setDisplay(displayOf(w)); app.capture.newSession(); }
-  refreshRemoteDone();
+  refreshRemoteDone({ force: false });     // the last listing already holds every writer
   return w;
 }
 
@@ -258,6 +358,16 @@ async function renderDiagnostics() {
     ['Letzter Upload-Fehler', (() => {
       const e = outbox.status().lastError;
       return e ? `${e.kind}${e.status ? ` (HTTP ${e.status})` : ''}, ${new Date(e.at).toLocaleTimeString('de-DE')}` : 'keiner';
+    })()],
+    ['Zeilen nach Zustand', (() => {
+      const c = { queued: 0, sent: 0, verified: 0, rejected: 0 };
+      for (const e of all) if (e.state in c) c[e.state]++;
+      return `${c.verified} geprüft, ${c.sent} gesendet, ${c.queued} wartend, ${c.rejected} abgelehnt`;
+    })()],
+    ['Vorschau-Bilder', (() => {
+      const up = all.filter((e) => e.state === 'sent' || e.state === 'verified');
+      const open = up.filter((e) => !e.preview_at).length;
+      return open ? `${open} von ${up.length} noch offen` : 'vollständig';
     })()],
     ['Sicherer Kontext', yes(caps.secureContext)],
     ['pointerrawupdate', yes(caps.pointerrawupdate)],
@@ -470,6 +580,7 @@ async function boot() {
       }
       saveRemoteDone();
     }
+    if (type === 'listed') { listedOnce = true; applyListing(d); }
     if (type === 'all-uploaded') toast('Alles hochgeladen.');
     if (type === 'auth-required') toast('Bitte melde dich neu an. Deine Zeilen bleiben gespeichert.', 5000);
     if (type === 'forbidden') toast('Dein Zugang darf nicht hochladen. Melde dich mit Schreibrecht an.', 5000);
@@ -500,6 +611,9 @@ async function boot() {
     await store.kvSet('settings', app.settings);
   });
   $('up-now').addEventListener('click', () => outbox.flush('manual'));
+  $('safe-check').addEventListener('click', () => { outbox.checkNow(); updateWaiting(); });
+  window.addEventListener('online', updateWaiting);
+  window.addEventListener('offline', updateWaiting);
   $('backup').addEventListener('click', async () => {
     const text = await store.backupJsonl();
     const n = text ? text.split('\n').filter(Boolean).length : 0;
@@ -531,10 +645,8 @@ async function boot() {
     }).catch(() => { app.swState = 'nicht verfügbar'; });
   }
 
-  outbox.flush('start');
-  refreshRemoteDone();
-  window.addEventListener('online', refreshRemoteDone);
+  outbox.startup();      // upload what waits, missing previews, and one listing: check + progress
 }
 
-window.__hw = { app, store, hf, outbox, saveDisplay, get capture() { return app.capture; }, get generate() { return app.generate; } };
+window.__hw = { app, store, hf, outbox, saveDisplay, safetyTexts, updateStatus: updateWaiting, get capture() { return app.capture; }, get generate() { return app.generate; } };
 window.__hwReady = boot().then(() => true, (e) => { console.error(e); return false; });

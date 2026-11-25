@@ -1,22 +1,43 @@
 // IndexedDB: recorded lines (outbox + local archive) and small key/value state.
-// Lines are never deleted by the app: after a successful upload they are only
-// marked 'uploaded', so "Sicherung herunterladen" always has everything.
+// Lines are never deleted by the app (nothing here calls delete): after an upload they
+// only change state, so "Sicherung herunterladen" always has everything.
+//
+// Line states (entry.state):
+//   queued   -> stored on the device, waiting for (another) upload
+//   sent     -> the commit request answered 2xx; not yet seen in a listing
+//   verified -> the file was SEEN in a listing of the dataset: only now is the line "safe"
+//   rejected -> the server refused the content; kept on the device and in the backup
+// sent/verified go back to queued when a complete listing does not have the file.
+// Independent of that, entry.preview_at marks the Dataset Viewer preview as written
+// (null = still to do); the preview never changes the state above.
 
 const DB_NAME = 'handschrift';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
+export const UPLOADED = ['sent', 'verified'];
 let dbPromise = null;
 
 function open() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (ev) => {
       const db = req.result;
       if (!db.objectStoreNames.contains('lines')) {
         const s = db.createObjectStore('lines', { keyPath: 'id' });
         s.createIndex('state', 'state');
       }
       if (!db.objectStoreNames.contains('kv')) db.createObjectStore('kv');
+      // v1 -> v2: 'uploaded' meant "the commit returned 2xx", which is 'sent' now.
+      if (ev.oldVersion >= 1 && ev.oldVersion < 2) {
+        const cur = req.transaction.objectStore('lines').openCursor();
+        cur.onsuccess = () => {
+          const c = cur.result;
+          if (!c) return;
+          const e = c.value;
+          if (e.state === 'uploaded') { e.state = 'sent'; c.update(e); }
+          c.continue();
+        };
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -59,13 +80,20 @@ export function promptIdFromPath(path, writerId = null) {
   return m[2];
 }
 
+/** Parts of a raw path: {writer, session, promptId, id}, or null. */
+export function parsePath(path) {
+  const m = /^raw\/v1\/([^/]+)\/([^/]+)\/(.+)__([0-9a-fA-F-]{36})\.json$/.exec(path);
+  return m ? { writer: m[1], session: m[2], promptId: m[3], id: m[4] } : null;
+}
+
 /** Store an accepted line. Resolves only once the transaction is durable. */
 export function putLine(record) {
   // Every line belongs to a writer; without one nothing is stored.
   if (!record.writer_id) return Promise.reject(new Error('no writer'));
   const entry = {
     id: record.id, path: linePath(record), prompt_id: record.prompt.id, writer_id: record.writer_id,
-    state: 'queued', created_at: record.created_at, uploaded_at: null, record,
+    state: 'queued', created_at: record.created_at, uploaded_at: null, verified_at: null,
+    preview_at: null, requeues: 0, record,
   };
   return open().then((db) => new Promise((resolve, reject) => {
     // 'strict' durability where supported: the line must survive a crash right after.
@@ -79,27 +107,98 @@ export function putLine(record) {
   }));
 }
 
+const byCreated = (a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0);
+
 export function allLines() {
   return tx('lines', 'readonly', (s) => req2p(s.getAll()));
 }
 
 export async function queuedLines() {
   const all = await tx('lines', 'readonly', (s) => req2p(s.index('state').getAll('queued')));
-  return all.sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : 0));
+  return all.sort(byCreated);
 }
 
 export function countQueued() {
   return tx('lines', 'readonly', (s) => req2p(s.index('state').count('queued')));
 }
 
-export function markUploaded(ids) {
+/** Lines whose commit answered 2xx or that were seen in a listing (states sent + verified). */
+export async function uploadedLines() {
+  const all = await allLines();
+  return all.filter((e) => UPLOADED.includes(e.state)).sort(byCreated);
+}
+
+/** The commit for these lines answered 2xx: 'sent' (not yet 'verified'). user: the
+ *  account the lines went to (only that account's listing can verify them). */
+export function markSent(ids, user = null) {
   const now = new Date().toISOString();
   return tx('lines', 'readwrite', async (s) => {
     for (const id of ids) {
       const e = await req2p(s.get(id));
-      if (e) { e.state = 'uploaded'; e.uploaded_at = now; s.put(e); }
+      if (e && e.state === 'queued') { e.state = 'sent'; e.uploaded_at = now; e.uploaded_to = user; s.put(e); }
     }
   });
+}
+export const markUploaded = markSent;
+
+/** These lines were seen in a listing of the dataset. */
+export function markVerified(ids) {
+  const now = new Date().toISOString();
+  return tx('lines', 'readwrite', async (s) => {
+    for (const id of ids) {
+      const e = await req2p(s.get(id));
+      if (e && UPLOADED.includes(e.state)) {
+        if (e.state !== 'verified') { e.state = 'verified'; e.verified_at = now; }
+        s.put(e);
+      }
+    }
+  });
+}
+
+/** A complete listing does not have these files: back into the queue (the preview too). */
+export function requeue(ids) {
+  return tx('lines', 'readwrite', async (s) => {
+    for (const id of ids) {
+      const e = await req2p(s.get(id));
+      if (e && UPLOADED.includes(e.state)) {
+        e.state = 'queued'; e.verified_at = null; e.preview_at = null;
+        e.requeues = (e.requeues || 0) + 1;
+        s.put(e);
+      }
+    }
+  });
+}
+
+/** Uploaded lines that have no Dataset Viewer preview yet, oldest first. */
+export async function previewPending() {
+  return (await uploadedLines()).filter((e) => !e.preview_at);
+}
+
+/** The preview of these lines was committed (or, skip=true, cannot be made: no ink). */
+export function markPreviewed(ids, { skip = false } = {}) {
+  const now = new Date().toISOString();
+  return tx('lines', 'readwrite', async (s) => {
+    for (const id of ids) {
+      const e = await req2p(s.get(id));
+      if (e) { e.preview_at = now; e.preview_skipped = skip; s.put(e); }
+    }
+  });
+}
+
+/** Number of lines per state: {queued, sent, verified, rejected, total}. */
+export function counts() {
+  return tx('lines', 'readonly', async (s) => {
+    const idx = s.index('state');
+    const out = { total: await req2p(s.count()) };
+    for (const st of ['queued', 'sent', 'verified', 'rejected']) out[st] = await req2p(idx.count(st));
+    return out;
+  });
+}
+
+/** created_at of the oldest queued line, or null. */
+export async function oldestQueuedAt() {
+  const q = await queuedLines();
+  return q.length ? q[0].created_at : null;
 }
 
 /** A line the server refused for its content: kept on the device (and in the backup), not retried. */

@@ -47,7 +47,7 @@ web/
 
 | Thing | Repo | Visibility |
 |---|---|---|
-| new recordings | dataset `<user>/handwriting-fable` | private |
+| new recordings | dataset `<user>/handwriting-fable` | public (the writer's choice; the app also works with a private one) |
 | trained model  | model `<user>/handwriting-fable-model` | private |
 | app            | static Space (app shell only: no data, no weights) | public |
 
@@ -82,8 +82,20 @@ progress is told apart per writer. Several people may record on one device: a wr
 name once, `writer_id` is its slug (lowercase, ä/ö/ü/ß as ae/oe/ue/ss, other characters reduced to
 `a-z 0-9 -`, at most 24 characters) and `writer_name` the name as typed; both are set on every record and a stored
 line keeps its writer. No writer is built into the app. At most 25 lines per commit. Lines are
-written to IndexedDB *before* any upload attempt and leave the outbox only
-after a 2xx answer. The outbox is flushed after every accepted line (debounced:
+written to IndexedDB *before* any upload attempt and are never deleted from
+the device. A line is `queued` until its commit answers 2xx (`sent`), and
+counts as safe (`verified`) only once it shows up in a complete listing of
+`raw/v1`; a line that a complete listing does not contain goes back to
+`queued` and is uploaded again (same path, so nothing is duplicated). A
+listing that fails or is cut off changes nothing. The settings screen says
+how many lines are safe ("Alle 47 Zeilen sind sicher gespeichert.") and has
+"Jetzt prüfen".
+
+After the raw lines, in a separate best-effort commit, the app writes what
+the Dataset Viewer shows: `preview/<writer>/<session>/<prompt>__<id>.png`
+and that session's `metadata.jsonl` (columns as in
+`scripts/rebuild_preview.py`, which can rebuild all of it at any time). A
+failed preview never affects the raw lines. The outbox is flushed after every accepted line (debounced:
 when 5 lines are waiting, when the session ends, when the app starts, when the
 browser comes back online). If the dataset repo does not exist the app offers
 to create it (`POST /api/repos/create`, `{"type":"dataset","name":"handwriting-fable","private":true}`).

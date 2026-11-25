@@ -77,7 +77,9 @@ async function request(path, { method = 'GET', headers = {}, body, token, absolu
   const code = res.headers.get('x-error-code') || '';
   // The Hub answers 401 for missing or invisible repos too (huggingface_hub treats a 401
   // as RepositoryNotFound unless the message says the credentials are invalid).
-  if (code === 'RepoNotFound' || code === 'RevisionNotFound' || code === 'EntryNotFound') throw new HfError('notfound', res.status, msg);
+  if (code === 'RepoNotFound' || code === 'RevisionNotFound' || code === 'EntryNotFound') {
+    const e = new HfError('notfound', res.status, msg); e.code = code; throw e;
+  }
   if (code === 'GatedRepo') throw new HfError('forbidden', res.status, msg);
   if (res.status === 401) throw new HfError('auth', 401, msg);
   if (res.status === 403) throw new HfError('forbidden', 403, msg);
@@ -175,13 +177,16 @@ export async function oauthHandleRedirect() {
 
 // ---------- repos and files ----------
 
-/** One NDJSON commit. files: [{path, text}]. */
-export async function commit(repoId, summary, files, { repoType = 'dataset', revision = 'main' } = {}) {
+/** One NDJSON commit. files: [{path, text}] or [{path, base64}] (binary, e.g. a PNG: the
+ *  plain commit endpoint takes it as an ordinary file entry, no LFS step needed). */
+export async function commit(repoId, summary, files, { repoType = 'dataset', revision = 'main', signal } = {}) {
   const lines = [{ key: 'header', value: { summary } }]
-    .concat(files.map((f) => ({ key: 'file', value: { path: f.path, content: f.text, encoding: 'utf-8' } })));
+    .concat(files.map((f) => ({ key: 'file', value: f.base64 !== undefined
+      ? { path: f.path, content: f.base64, encoding: 'base64' }
+      : { path: f.path, content: f.text, encoding: 'utf-8' } })));
   const body = lines.map((l) => JSON.stringify(l)).join('\n');
   const res = await request(`/api/${repoType}s/${repoId}/commit/${revision}`, {
-    method: 'POST', body, headers: { 'Content-Type': 'application/x-ndjson' },
+    method: 'POST', body, headers: { 'Content-Type': 'application/x-ndjson' }, signal,
   });
   return res.json().catch(() => ({}));
 }
@@ -202,22 +207,42 @@ export async function createDatasetRepo(name = CFG.datasetRepo) {
   }
 }
 
-/** List all file paths below `path` (recursive). Follows Link: rel="next".
- *  Returns null when the repo (or the folder) does not exist. */
-export async function listFiles(repoId, path, { repoType = 'dataset', revision = 'main' } = {}) {
+const MAX_PAGES = 1000;
+
+/**
+ * The complete recursive listing of `path`, or an exception. Follows Link: rel="next".
+ * Returns [] only when the server says that this folder does not exist in an existing
+ * repo (EntryNotFound). Everything else that is not a complete, well-formed listing
+ * throws (a missing repo: kind 'notfound'; a cut-off or malformed listing: 'other'), so
+ * a caller can never mistake a failed or partial listing for evidence.
+ */
+export async function listTree(repoId, path, { repoType = 'dataset', revision = 'main' } = {}) {
   let url = `${CFG.hfBase}/api/${repoType}s/${repoId}/tree/${revision}/${path}?recursive=true&expand=false`;
   const out = [];
-  for (let page = 0; url && page < 200; page++) {
+  for (let page = 0; url; page++) {
+    if (page >= MAX_PAGES) throw new HfError('other', 0, 'listing cut off');
     let res;
     try { res = await request(url, { absolute: true }); }
-    catch (e) { if (e.kind === 'notfound') return null; throw e; }
-    const items = await res.json();
-    for (const it of items) if (it.type === 'file') out.push(it.path);
+    catch (e) {
+      if (page === 0 && e.kind === 'notfound' && e.code === 'EntryNotFound') return [];
+      throw e;
+    }
+    let items;
+    try { items = await res.json(); } catch (_) { throw new HfError('other', res.status, 'listing not readable'); }
+    if (!Array.isArray(items)) throw new HfError('other', res.status, 'listing not a list');
+    for (const it of items) if (it && it.type === 'file' && typeof it.path === 'string') out.push(it.path);
     const link = res.headers.get('link') || '';
     const m = /<([^>]+)>;\s*rel="next"/.exec(link);
     url = m ? m[1] : null;
   }
   return out;
+}
+
+/** List all file paths below `path` (recursive). Returns null when the repo (or the
+ *  folder) does not exist. */
+export async function listFiles(repoId, path, opts = {}) {
+  try { return await listTree(repoId, path, opts); }
+  catch (e) { if (e.kind === 'notfound') return null; throw e; }
 }
 
 /** Download a (private) file as a Response. */
