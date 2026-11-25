@@ -196,14 +196,19 @@ LOADERS = {
 
 
 CAPTURE_SOURCES = ("handwriting-fable",)
+LINE_SOURCES = ("handwriting-gpt6.1sol",) + CAPTURE_SOURCES   # whole lines (October 2025 and the capture app)
 
 
 def load_all(cache_dir: str, token: str | None = None, extra: dict | None = None,
-             fetch: bool = True, writer: str | None = None, legacy: bool = True) -> list[Ink]:
+             fetch: bool = True, writer: str | None = None, legacy: bool = True,
+             lines_only: bool = False) -> list[Ink]:
     """Load every known recording.  `extra` maps source name -> (repo, format).
     `writer` selects one writer of the capture app's recordings; the older
-    datasets carry no writer and are included unless `legacy` is False."""
-    sources = {k: v for k, v in LEGACY_SOURCES.items() if legacy or k in CAPTURE_SOURCES}
+    datasets carry no writer and are included unless `legacy` is False.
+    `lines_only` keeps the sources that hold whole written lines and leaves out
+    the early sets of single words and digit strings."""
+    sources = {k: v for k, v in LEGACY_SOURCES.items()
+               if (legacy or k in CAPTURE_SOURCES) and (not lines_only or k in LINE_SOURCES)}
     sources.update(extra or {})
     inks: list[Ink] = []
     for name, (repo, fmt) in sources.items():

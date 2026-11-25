@@ -56,6 +56,11 @@ class Corpus:
         vw = [i for i in val if i.kind == "word"]
         tl = [i for i in train if i.kind == "line"]
         vl = [i for i in val if i.kind == "line"]
+        # Without recordings of single words, the words for composing new lines
+        # are cut out of the real lines (never mixing training and held-out lines).
+        if len(tw) < 50:
+            tw = tw + [w for l in tl for w in (dataset.split_words(l) or [])]
+            vw = vw + [w for l in vl for w in (dataset.split_words(l) or [])]
         gap_mean, gap_sd = dataset.measure_gaps(tl + vl)
         self.gap = (gap_mean, gap_sd)
         new_chars = charset.chars[len(BASE_CHARSET):]
@@ -160,8 +165,10 @@ def build_model(base_dir: str, charset: Charset):
 
 
 def load_corpus_inks(cache: str, base_stats: dict, token: str | None, fetch: bool,
-                     extra_sources: dict | None = None, writer: str | None = None, legacy: bool = True):
-    raw = sources.load_all(cache, token=token, fetch=fetch, extra=extra_sources, writer=writer, legacy=legacy)
+                     extra_sources: dict | None = None, writer: str | None = None, legacy: bool = True,
+                     lines_only: bool = False):
+    raw = sources.load_all(cache, token=token, fetch=fetch, extra=extra_sources, writer=writer, legacy=legacy,
+                           lines_only=lines_only)
     raw, excluded = dataset.apply_exclusions(raw, dataset.load_exclusions())
     inks, report = dataset.calibrate_cached(raw, base_stats, cache)
     report["excluded"] = excluded
@@ -178,6 +185,9 @@ def main(argv=None):
     ap.add_argument("--writer", default=MAIN_WRITER, help="whose recordings of the capture app to train on")
     ap.add_argument("--no-legacy", action="store_true",
                     help="leave out the older datasets (they all belong to the main writer)")
+    ap.add_argument("--lines-only", action="store_true",
+                    help="train on whole written lines only (October 2025 and the capture app), "
+                         "without the early single-word and digit recordings")
     ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--epoch-items", type=int, default=960, help="training lines per epoch")
     ap.add_argument("--real-share", type=float, default=0.7,
@@ -213,7 +223,7 @@ def main(argv=None):
 
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_ACCESS_TOKEN")
     inks, report = load_corpus_inks(args.cache, base_stats, token, fetch=not args.no_fetch,
-                                    writer=args.writer, legacy=not args.no_legacy)
+                                    writer=args.writer, legacy=not args.no_legacy, lines_only=args.lines_only)
     corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share)
     val_real, val_comp = corpus.validation()
     print("data:", json.dumps({**corpus.counts, "gap_xh": [round(g, 2) for g in corpus.gap],
@@ -223,7 +233,7 @@ def main(argv=None):
     meta = {"charset": charset.chars, "mu": mu, "std": std, "xh_model": report["xh_model"],
             "step_xh": report["step_xh"], "gap_xh": list(corpus.gap), "tall_ratio": report["tall_ratio"],
             "base": os.path.basename(os.path.normpath(args.base)), "data": report["counts"],
-            "writer": args.writer}
+            "writer": args.writer, "lines_only": bool(args.lines_only)}
 
     def save(name: str, extra: dict):
         Synthesizer(model, charset, mu, std, dict(meta)).save(os.path.join(args.out, name), extra)

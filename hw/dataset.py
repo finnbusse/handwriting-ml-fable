@@ -39,7 +39,7 @@ DIGIT_RATIO = 0.8        # digits are about as tall as capitals: 0.8 x the ascen
 SESSION_XH_TOLERANCE = 0.15   # a line's x-height may differ this much from its session's median
 MAX_HEIGHT_WORD = 9.0         # x-heights; taller recordings are measured wrongly or scribbles
 MAX_HEIGHT_LINE = 12.0        # a line adds baseline drift and tall brackets
-PREP_VERSION = 6         # bump when the preparation changes (invalidates the cache)
+PREP_VERSION = 7         # bump when the preparation changes (invalidates the cache)
 
 
 def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
@@ -204,7 +204,10 @@ def calibrate(raw: list[Ink], base_stats: dict, verbose: bool = True) -> tuple[l
     step, hint = base_stats["step_median_xh"], None
     for _ in range(5):
         inks, hint = resample_all(norm, step, hint)
-        ppc = points_per_char([i for i in inks if i.kind == "word" and not i.text.isdigit()])
+        ref = [i for i in inks if i.kind == "word" and not i.text.isdigit()]
+        if len(ref) < 50:                # a corpus of whole lines only
+            ref = [i for i in inks if i.kind == "line"]
+        ppc = points_per_char(ref)
         if abs(ppc / target_ppc - 1.0) < 0.02:
             break
         step *= ppc / target_ppc
