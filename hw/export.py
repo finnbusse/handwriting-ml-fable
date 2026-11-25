@@ -82,6 +82,27 @@ def export(model_dir: str, out_dir: str, dtype: str = "float16") -> dict:
     return {"bytes": len(blob), "max_abs_error": worst, "tensors": len(tensors)}
 
 
+def load_exported(out_dir: str):
+    """Read model.json + model.bin back into a state dict (float32 tensors).
+    Used to compute reference results with exactly the weights the browser sees."""
+    import torch
+
+    with open(os.path.join(out_dir, "model.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+    with open(os.path.join(out_dir, "model.bin"), "rb") as f:
+        blob = f.read()
+    if hashlib.sha256(blob).hexdigest() != manifest["sha256"]:
+        raise ValueError("model.bin does not match model.json")
+    np_dtype = {"float16": "<f2", "float32": "<f4"}[manifest["dtype"]]
+    item = np.dtype(np_dtype).itemsize
+    state = {}
+    for t in manifest["tensors"]:
+        a = np.frombuffer(blob, dtype=np_dtype, count=t["length"], offset=t["offset"])
+        assert t["offset"] % item == 0
+        state[t["name"]] = torch.from_numpy(a.astype(np.float32).reshape(t["shape"]).copy())
+    return state, manifest
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("model_dir")

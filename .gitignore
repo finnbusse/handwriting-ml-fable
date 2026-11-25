@@ -8,3 +8,7 @@ runs/
 .ipynb_checkpoints/
 node_modules/
 .DS_Store
+
+# generated test fixtures and exported models
+tests/web/fixtures/
+web/model/

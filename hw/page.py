@@ -72,11 +72,13 @@ def piece_words(piece: Ink) -> list[Ink]:
 
 def layout(pieces_by_paragraph: list[list[Ink]], width: float = 84.0, line_height: float = 6.5,
            gap: tuple[float, float] = (2.9, 0.8), margin: float = 3.0, top: float = 5.0,
-           seed: int | None = 0) -> Page:
+           seed: int | None = 0, gap_draws=None) -> Page:
     """Set straightened pieces (xh units) on a page `width` x-heights wide.
     Words of one piece keep the spacing the network gave them; between pieces
-    the writer's typical word gap is used."""
+    the writer's typical word gap is used.  `gap_draws` (an iterable of standard
+    normal numbers, one per piece) makes the result reproducible elsewhere."""
     rng = np.random.default_rng(seed)
+    draws = iter(gap_draws) if gap_draws is not None else None
     y, lines = top, 1
     right = None                                  # right edge of the last word on this line
     out, placed = [], []
@@ -88,7 +90,8 @@ def layout(pieces_by_paragraph: list[list[Ink]], width: float = 84.0, line_heigh
             for w in piece_words(piece):
                 x0, x1 = float(w.points[:, 0].min()), float(w.points[:, 0].max())
                 if prev_end is None:
-                    g = float(np.clip(rng.normal(gap[0], gap[1]), 0.6 * gap[0], 1.6 * gap[0]))
+                    z = float(next(draws)) if draws is not None else float(rng.standard_normal())
+                    g = float(np.clip(gap[0] + gap[1] * z, 0.6 * gap[0], 1.6 * gap[0]))
                 else:
                     g = float(np.clip(x0 - prev_end, 0.5 * gap[0], 1.8 * gap[0]))
                 prev_end = x1
