@@ -62,23 +62,67 @@ class Synthesizer:
         return tokens, lens
 
     # -------------------------------------------------------------- sampling
-    def write(self, texts: list[str], bias: float = 1.0, seed: int | None = None,
-              max_steps: int | None = None, eos_mode: str = "sample",
-              return_attention: bool = False):
-        tokens, lens = self.encode(texts)
-        gen = None
-        if seed is not None:
-            gen = torch.Generator().manual_seed(seed)
-        if max_steps is None:
-            max_steps = int(60 * int(lens.max()) + 100)
-        res = self.model.sample(tokens, lens, bias=bias, max_steps=max_steps, eos_mode=eos_mode,
-                                generator=gen, return_attention=return_attention)
-        seqs, atts = res if return_attention else (res, None)
-        inks = []
-        for text, seq in zip(texts, seqs):
-            pts = from_offsets(self.denormalize(seq.numpy()))
-            inks.append(Ink(pts, text=text, kind="line", source="generated",
-                            meta={"finished": bool(len(seq) < max_steps)}))
-        if return_attention:
-            return inks, atts
-        return inks
+    def write(self, texts: list[str], bias: float = 0.8, seed: int | None = None,
+              max_steps: int | None = None, eos_mode: str = "sample", tries: int = 3,
+              return_attention: bool = False) -> list[Ink]:
+        """Write each text once.  Samples that went wrong (did not finish,
+        skipped characters, absurd length) are written again, up to `tries`
+        times; the result records in `meta` how it went.
+
+        Inks come back in model units with the pen start at (0, 0)."""
+        gen = torch.Generator().manual_seed(seed) if seed is not None else None
+        result: list[Ink | None] = [None] * len(texts)
+        todo = list(range(len(texts)))
+        for attempt in range(1, tries + 1):
+            if not todo:
+                break
+            batch = [texts[i] for i in todo]
+            tokens, lens = self.encode(batch)
+            steps = max_steps or int(60 * int(lens.max()) + 100)
+            seqs, infos = self.model.sample(tokens, lens, bias=bias, max_steps=steps, eos_mode=eos_mode,
+                                            n_tail=len(SENTINEL), generator=gen,
+                                            return_attention=return_attention)
+            again = []
+            for i, text, seq, info in zip(todo, batch, seqs, infos):
+                ink = self._finish(text, seq.numpy(), info)
+                ink.meta["attempt"] = attempt
+                if return_attention:
+                    ink.meta["attention"] = info["attention"]
+                if result[i] is None or ink.meta["ok"]:
+                    result[i] = ink
+                if not ink.meta["ok"]:
+                    again.append(i)
+            todo = again
+        return result
+
+    def _finish(self, text: str, seq: np.ndarray, info: dict) -> Ink:
+        pts = from_offsets(self.denormalize(seq))
+        n_real = len(self.charset.normalize(text))
+        peak = info["char_peak"].numpy()[:n_real]
+        # 1. cut what was written after the text was done: once the window sits on
+        #    the sentinel, the network jumps on as if another word followed
+        tail, cut = info["tail_step"], len(pts)
+        if tail > 0:
+            body_right = float(pts[:tail, 0].max())
+            margin = 0.6 * float(self.meta.get("xh_model", 100.0))
+            ends = np.flatnonzero(pts[:, 2] > 0.5)
+            starts = np.concatenate([[0], ends[:-1] + 1])
+            for s, e in zip(starts[::-1], ends[::-1]):
+                if s >= tail and float(pts[s:e + 1, 0].min()) > body_right + margin:
+                    cut = s
+                else:
+                    break
+        pts = pts[:max(cut, 1)]
+        # 2. judge the sample
+        letters = max(len(text.replace(" ", "")), 1)
+        ppc = len(pts) / letters
+        skipped = int((peak < 0.15 * float(peak.max())).sum()) if len(peak) else 0
+        problems = []
+        if not info["finished"]:
+            problems.append("unfinished")
+        if skipped:
+            problems.append(f"skipped {skipped}")
+        if not 8 <= ppc <= 70:
+            problems.append(f"points/char {ppc:.0f}")
+        return Ink(pts, text=text, kind="line", source="generated",
+                   meta={"finished": info["finished"], "ok": not problems, "problems": problems})

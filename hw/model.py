@@ -186,15 +186,15 @@ class SynthesisNetwork(nn.Module):
     # --------------------------------------------------------------- sampling
     @torch.no_grad()
     def sample(self, tokens: Tensor, text_len: Tensor, *, bias: float = 0.0,
-               max_steps: int = 1500, eos_mode: str = "sample",
+               max_steps: int = 1500, eos_mode: str = "sample", n_tail: int = 0,
                prime: Tensor | None = None, prime_len: Tensor | None = None,
                generator: torch.Generator | None = None, return_attention: bool = False):
         """Batched ancestral sampling.
 
-        tokens (B,U) must already include the sentinel characters appended by
-        hw.sampling.prepare_text; text_len counts them.  If `prime` (B,P,3) is
-        given, those points are fed first (teacher forced) and the text must be
-        the priming text followed by the text to write.
+        tokens (B,U) must already include the `n_tail` sentinel characters that
+        hw.sampling appends to every text; text_len counts them.  If `prime`
+        (B,P,3) is given, those points are fed first (teacher forced) and the
+        text must be the priming text followed by the text to write.
 
         Pen lifts are drawn from the predicted probability (`eos_mode="sample"`,
         as in Graves' paper).  Thresholding at 0.5 instead looks tidier in
@@ -202,8 +202,13 @@ class SynthesisNetwork(nn.Module):
         of the exact step at which a stroke ends, so the pen would stay down
         and the writing would run off into waves.
 
-        Returns list of (T_i,3) tensors (normalized units) and, optionally, the
-        attention maps (T_i,U_i).
+        Returns (seqs, infos): seqs[i] is a (T_i,3) tensor in normalized units;
+        infos[i] has
+          finished    the stop rule fired before max_steps
+          tail_step   first step at which the attention reached the sentinel
+                      (-1 if it never did); points from there on are suspect
+          char_peak   (U_i,) strongest attention each character received
+          attention   (T_i,U_i), only with return_attention
         """
         device = tokens.device
         B, U = tokens.shape
@@ -217,17 +222,18 @@ class SynthesisNetwork(nn.Module):
             for t in range(P):
                 active = (t < prime_len).float().unsqueeze(1)
                 _, _, new_state = self.step(x, onehot, u, state)
-                state = [a * n + (1 - a) * s for a, n, s in
-                         zip([active] * len(state), new_state, state)]
+                state = [active * n + (1 - active) * s for n, s in zip(new_state, state)]
                 x = active * prime[:, t] + (1 - active) * x
 
         out = torch.zeros(B, max_steps, 3, device=device)
         att = torch.zeros(B, max_steps, U, device=device) if return_attention else None
         done = torch.zeros(B, dtype=torch.bool, device=device)
         n_pts = torch.zeros(B, dtype=torch.long, device=device)
+        tail_step = torch.full((B,), -1, dtype=torch.long, device=device)
+        peak = torch.zeros(B, U, device=device)
         last_idx = (text_len - 1).clamp_min(0)
+        tail_start = (text_len - n_tail).clamp_min(0)
         ar = torch.arange(B, device=device)
-        M = self.mixtures
 
         for t in range(max_steps):
             h, phi, state = self.step(x, onehot, u, state)
@@ -248,9 +254,9 @@ class SynthesisNetwork(nn.Module):
             else:
                 eos = (torch.rand(B, device=device, generator=generator) < p_eos).float()
 
-            # stop once the window has moved onto the sentinel after the text
-            phi_last = phi[ar, last_idx]
-            finished = (phi_last > 0.8) | ((phi.argmax(dim=1) == last_idx) & (eos > 0.5))
+            # stop once the window has moved onto the last sentinel and the pen lifts
+            where = phi.argmax(dim=1)
+            finished = (phi[ar, last_idx] > 0.8) | ((where == last_idx) & (eos > 0.5))
             eos = torch.where(finished, torch.ones_like(eos), eos)
 
             x = torch.stack([dx, dy, eos], dim=1)
@@ -258,15 +264,23 @@ class SynthesisNetwork(nn.Module):
             out[keep, t] = x[keep]
             if att is not None:
                 att[keep, t] = phi[keep]
+            peak[keep] = torch.maximum(peak[keep], phi[keep])
+            in_tail = keep & (n_tail > 0) & (where >= tail_start) & (tail_step < 0)
+            tail_step[in_tail] = t
             n_pts[keep] += 1
             done = done | finished
             if bool(done.all()):
                 break
 
-        seqs = [out[i, : int(n_pts[i])].clone() for i in range(B)]
-        if return_attention:
-            return seqs, [att[i, : int(n_pts[i]), : int(text_len[i])].clone() for i in range(B)]
-        return seqs
+        seqs, infos = [], []
+        for i in range(B):
+            n, ul = int(n_pts[i]), int(text_len[i])
+            seqs.append(out[i, :n].clone())
+            info = {"finished": bool(done[i]), "tail_step": int(tail_step[i]), "char_peak": peak[i, :ul].clone()}
+            if att is not None:
+                info["attention"] = att[i, :n, :ul].clone()
+            infos.append(info)
+        return seqs, infos
 
 
 # ---------------------------------------------------------------- weights I/O
