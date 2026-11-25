@@ -29,6 +29,7 @@
     <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></symbol>
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.2"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></symbol>
   </defs>
 </svg>
 
@@ -159,14 +160,84 @@
     </div>
   </section>
 
-  <!-- Generate (phase 2) -->
-  <section class="view view-generate" id="v-schreiben" hidden>
-    <div class="placeholder">
-      <svg class="ic big" aria-hidden="true"><use href="#i-pen"/></svg>
-      <h1>Das Modell lernt gerade deine Schrift</h1>
-      <p>Sobald es fertig ist, tippst du hier einen Text und bekommst ihn in deiner Handschrift zurück.</p>
-      <p class="muted">Bis dahin hilft jede Zeile, die du erfasst.</p>
-      <a class="btn primary" href="#/erfassen"><svg class="ic"><use href="#i-pen"/></svg><span>Zeilen schreiben</span></a>
+  <!-- Generate: text in, handwriting out -->
+  <section class="view view-write" id="v-schreiben" hidden>
+    <div class="gen" id="gen">
+
+      <!-- No model to write with yet: why, and what to do -->
+      <div class="placeholder gen-model" id="gen-model" role="status">
+        <svg class="ic big" aria-hidden="true"><use href="#i-pen"/></svg>
+        <p id="gm-text"></p>
+        <div class="pbar wide" id="gm-bar" hidden><span id="gm-fill"></span></div>
+        <div class="actions" id="gm-actions">
+          <button class="btn primary" id="gm-signin" type="button" hidden>Anmelden</button>
+          <a class="btn primary" id="gm-capture" href="#/erfassen" hidden><svg class="ic"><use href="#i-pen"/></svg><span>Zeilen schreiben</span></a>
+          <button class="btn" id="gm-retry" type="button" hidden><svg class="ic"><use href="#i-again"/></svg><span>Nochmal versuchen</span></button>
+        </div>
+      </div>
+
+      <div class="gen-work" id="gen-work" hidden>
+        <div class="gen-left">
+          <div class="gen-in">
+            <label class="sr-only" for="gen-text">Text</label>
+            <textarea id="gen-text" rows="4" maxlength="4000" placeholder="Was soll ich schreiben?" autocomplete="off" spellcheck="true"></textarea>
+            <div class="gen-go">
+              <button class="btn primary" id="gen-write" type="button" title="Strg + Eingabe"><svg class="ic"><use href="#i-pen"/></svg><span>Schreiben</span></button>
+              <button class="btn" id="gen-again" type="button" disabled><svg class="ic"><use href="#i-again"/></svg><span>Nochmal schreiben</span></button>
+            </div>
+            <div class="gen-busy" id="gen-busy" hidden>
+              <span class="pen-dot" aria-hidden="true"></span><span id="gen-busy-text" role="status">schreibt …</span>
+              <button class="btn tool" id="gen-cancel" type="button">Abbrechen</button>
+            </div>
+            <p class="gen-note" id="gen-note" role="status" hidden></p>
+            <p class="gen-note" id="gen-chars" hidden></p>
+            <p class="gen-note" id="gen-bad" hidden></p>
+          </div>
+
+          <div class="gen-ctl" role="group" aria-label="Einstellungen">
+            <div class="ctl">
+              <label class="ctl-name" for="gen-bias">Lesbarkeit</label>
+              <input type="range" id="gen-bias" min="0" max="1.2" step="0.05" value="0.4">
+              <div class="ctl-ends" aria-hidden="true"><span>natürlicher</span><span>ordentlicher</span></div>
+            </div>
+            <div class="ctl">
+              <label class="ctl-name" for="gen-size">Schriftgröße</label>
+              <input type="range" id="gen-size" min="9" max="30" step="1" value="16">
+              <div class="ctl-ends" aria-hidden="true"><span>kleiner</span><span>größer</span></div>
+            </div>
+            <div class="ctl">
+              <label class="ctl-name" for="gen-spacing">Zeilenabstand</label>
+              <input type="range" id="gen-spacing" min="5" max="9" step="0.25" value="6.5">
+              <div class="ctl-ends" aria-hidden="true"><span>enger</span><span>weiter</span></div>
+            </div>
+            <div class="ctl" role="radiogroup" aria-labelledby="gen-ink-l">
+              <span class="ctl-name" id="gen-ink-l">Tinte</span>
+              <div class="inks" id="gen-inks">
+                <button class="ink" type="button" role="radio" aria-checked="true" data-ink="blueblack"><i style="background:#1b2a49"></i><span>Blauschwarz</span></button>
+                <button class="ink" type="button" role="radio" aria-checked="false" data-ink="black"><i style="background:#15171a"></i><span>Schwarz</span></button>
+                <button class="ink" type="button" role="radio" aria-checked="false" data-ink="blue"><i style="background:#2141b8"></i><span>Blau</span></button>
+              </div>
+            </div>
+            <p class="ctl-fine">Lesbarkeit gilt beim nächsten Schreiben. Größe, Abstand und Tinte ändern das Blatt sofort.</p>
+            <div class="gen-info" id="gen-info">
+              <p id="gi-text" role="status"></p>
+              <div class="pbar" id="gi-bar" hidden><span id="gi-fill"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="gen-right">
+          <div class="paper" id="gen-paper">
+            <canvas id="gen-canvas" aria-label="Geschriebener Text"></canvas>
+            <p class="paper-empty" id="gen-empty">Hier erscheint deine Schrift.</p>
+          </div>
+          <div class="gen-export">
+            <button class="btn" id="gen-png" type="button" disabled><svg class="ic"><use href="#i-down"/></svg><span>Als Bild speichern</span></button>
+            <button class="btn" id="gen-svg" type="button" disabled><svg class="ic"><use href="#i-down"/></svg><span>Als SVG speichern</span></button>
+            <button class="btn" id="gen-copy" type="button" disabled hidden><svg class="ic"><use href="#i-copy"/></svg><span>Kopieren</span></button>
+          </div>
+        </div>
+      </div>
     </div>
   </section>
 

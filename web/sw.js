@@ -9,6 +9,9 @@ const SHELL = [
   './', 'index.html', 'styles.css', 'config.js', 'manifest.webmanifest',
   'js/main.js', 'js/writer.js', 'js/hf.js', 'js/store.js', 'js/outbox.js', 'js/prompts.js',
   'js/capture/recorder.js', 'js/capture/hwline.js', 'js/capture/qa.js', 'js/capture/view.js',
+  'js/engine/engine.js', 'js/engine/worker.js',
+  'js/generate/layout.js', 'js/generate/page-writer.js', 'js/generate/render.js',
+  'js/generate/model-store.js', 'js/generate/engine-client.js', 'js/generate/view.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
 ];
 const OPTIONAL = ['prompts/de-core.json'];   // may not exist yet
@@ -42,7 +45,7 @@ self.addEventListener('fetch', (event) => {
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;           // Hugging Face etc.: straight to the network
-  if (url.pathname.includes('/model/')) return;               // model files: phase 2, own storage
+  if (url.pathname.includes('/model/')) return;               // model files: never through the service worker (the model lives in IndexedDB)
 
   // Navigations (including "/" and "/index.html?code=..." after sign-in): the cached shell.
   if (req.mode === 'navigate') {

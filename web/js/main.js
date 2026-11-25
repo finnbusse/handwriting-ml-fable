@@ -7,6 +7,7 @@ import { loadPrompts } from './prompts.js';
 import { makeWriter } from './writer.js';
 import { capabilities } from './capture/recorder.js';
 import { createCaptureView } from './capture/view.js';
+import { createGenerateView } from './generate/view.js';
 
 const CFG = self.HW_CONFIG;
 const $ = (id) => document.getElementById(id);
@@ -28,6 +29,7 @@ const app = {
   persisted: null,
   swState: 'nicht aktiv',
   capture: null,
+  generate: null,
   route: null,
 };
 const doneIds = () => new Set([...app.localDone, ...app.remoteDone]);
@@ -223,9 +225,11 @@ async function renderDiagnostics() {
   const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate().catch(() => null) : null;
   const yes = (v) => (v ? 'ja' : 'nein');
   const all = await store.allLines().catch(() => []);
+  const model = await app.generate.info().catch(() => null);
   const rows = [
     ['Zeilen-Ablage', hf.datasetRepoId() ? `${hf.datasetRepoId()} (privat)` : 'nach der Anmeldung'],
     ['Modell', hf.modelRepoId() ? `${hf.modelRepoId()} (privat)` : 'nach der Anmeldung'],
+    ['Modell auf dem Gerät', model ? `${(model.bytes / 1e6).toFixed(1).replace('.', ',')} MB, ${model.sha256.slice(0, 8)}` : 'keins'],
     ['Letzter Upload-Fehler', (() => {
       const e = outbox.status().lastError;
       return e ? `${e.kind}${e.status ? ` (HTTP ${e.status})` : ''}, ${new Date(e.at).toLocaleTimeString('de-DE')}` : 'keiner';
@@ -300,6 +304,7 @@ function wireSignIn() {
     ? 'Der Browser erlaubt hier keinen Speicher. Bitte öffne die App in einem normalen Fenster.'
     : 'Die Anmeldung hat nicht geklappt. Bitte noch einmal.', 5000));
   const signin = () => (hf.oauthAvailable() && !app.framed ? oauth() : openTokenDialog());
+  app.signIn = signin;
   $('acc-oauth').addEventListener('click', oauth);
   $('acc-token').addEventListener('click', openTokenDialog);
   $('start-signin').addEventListener('click', signin);
@@ -344,6 +349,7 @@ async function route() {
   if (r === 'erfassen' && !app.writer) r = 'start';       // no recording without a writer
   if (r !== (location.hash.match(/^#\/([a-z]+)/) || [])[1]) { history.replaceState(null, '', `#/${r}`); }
   if (app.route === 'erfassen' && r !== 'erfassen') app.capture.hide();
+  if (app.route === 'schreiben' && r !== 'schreiben') app.generate.hide();
   app.route = r;
   document.body.dataset.route = r;
   for (const id of ROUTES) $(`v-${id}`).hidden = id !== r;
@@ -351,6 +357,7 @@ async function route() {
     if (a.dataset.route === r) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   }
   if (r === 'erfassen') app.capture.show();
+  if (r === 'schreiben') app.generate.show();
   if (r === 'einstellungen') renderSettings();
   if (r === 'start') { renderAccount(); $('start-writer').value = app.writer ? app.writer.name : ''; $('start-err').hidden = true; }
 }
@@ -420,6 +427,9 @@ async function boot() {
       if (app.persisted !== true) app.persisted = await store.requestPersist();
     },
   });
+
+  app.generate = createGenerateView({ store, hf, toast, signIn: () => app.signIn() });
+  await app.generate.init();
 
   outbox.install();
   outbox.onChange((type, d) => {
@@ -497,5 +507,5 @@ async function boot() {
   window.addEventListener('online', refreshRemoteDone);
 }
 
-window.__hw = { app, store, hf, outbox, get capture() { return app.capture; } };
+window.__hw = { app, store, hf, outbox, get capture() { return app.capture; }, get generate() { return app.generate; } };
 window.__hwReady = boot().then(() => true, (e) => { console.error(e); return false; });
