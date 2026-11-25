@@ -36,7 +36,10 @@ def apply_exclusions(inks: list[Ink], excl: dict) -> tuple[list[Ink], dict]:
 
 
 DIGIT_RATIO = 0.8        # digits are about as tall as capitals: 0.8 x the ascender height
-PREP_VERSION = 3         # bump when the preparation changes (invalidates the cache)
+SESSION_XH_TOLERANCE = 0.25   # a line's x-height may differ this much from its session's median
+MAX_HEIGHT_WORD = 9.0         # x-heights; taller recordings are measured wrongly or scribbles
+MAX_HEIGHT_LINE = 12.0        # a line adds baseline drift and tall brackets
+PREP_VERSION = 5         # bump when the preparation changes (invalidates the cache)
 
 
 def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
@@ -64,20 +67,66 @@ def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
             ratios.append(float(np.median(hi)) / xh)
     tall_ratio = float(np.median(ratios)) if ratios else 2.4
 
-    # 3. per-ink x-height -> xh units
-    out, dropped = [], collections.Counter()
+    # 3. per-ink x-height -> xh units.  Lines of one capture session are written
+    #    on the same sheet in one go, so their x-heights agree closely; an estimate
+    #    far from the session's median (a line with hardly any small letters) is
+    #    replaced by that median.
+    sizes = {}
     for ink in inks:
         a, b, h = geo[ink.id]
         ratio = tall_ratio * (DIGIT_RATIO if ink.text.replace(" ", "").isdigit() else 1.0)
-        xh = prep.fit_xheight(h, ink.text, ratio)
+        sizes[ink.id] = prep.fit_xheight(h, ink.text, ratio)
+    sessions = collections.defaultdict(list)
+    for ink in inks:
+        if ink.kind == "line" and ink.meta.get("session") and np.isfinite(sizes[ink.id]) and sizes[ink.id] > 0:
+            sessions[(ink.source, ink.meta["session"])].append(sizes[ink.id])
+    resized = 0
+    for ink in inks:
+        group = sessions.get((ink.source, ink.meta.get("session"))) if ink.kind == "line" else None
+        if group and len(group) >= 4:
+            med = float(np.median(group))
+            if not np.isfinite(sizes[ink.id]) or abs(sizes[ink.id] / med - 1.0) > SESSION_XH_TOLERANCE:
+                sizes[ink.id] = med
+                resized += 1
+
+    out, dropped = [], collections.Counter()
+    for ink in inks:
+        a, b, h = geo[ink.id]
+        xh = sizes[ink.id]
         if not np.isfinite(xh) or xh <= 0:
             dropped["no-size"] += 1
             continue
         n = prep.to_xh_units(ink, a, b, xh)
         n.meta["xh_px"] = xh
         n.meta["slope"] = a
+        if n.kind == "line" and not has_final_period(n):
+            n = n.copy(text=n.text.rstrip()[:-1].rstrip(), meta=dict(n.meta, period_dropped=True))
         out.append(n)
-    return out, {"tall_ratio": tall_ratio, "dropped": dict(dropped)}
+    report = {"tall_ratio": tall_ratio, "dropped": {k: v for k, v in dropped.items() if v},
+              "final_period_removed": sum(1 for i in out if i.meta.get("period_dropped")),
+              "xheight_from_session": resized}
+    return out, report
+
+
+def has_final_period(ink: Ink) -> bool:
+    """False when the text ends with a full stop that was never written.
+
+    Writers copying a sentence often leave the last dot out.  Trained on as it
+    is, such a line teaches the network that a final "." may produce no ink.
+    Expects xh units: a dot is a tiny stroke near the baseline at the right end.
+    """
+    text = ink.text.rstrip()
+    if not text.endswith(".") or text.endswith(".."):
+        return True
+    dots, rest_right = [], -np.inf
+    for s in prep.stroke_slices(ink.points):
+        seg = ink.points[s, :2]
+        (x0, y0), (x1, y1) = seg.min(axis=0), seg.max(axis=0)
+        if x1 - x0 < 0.45 and y1 - y0 < 0.45 and -0.6 < (y0 + y1) / 2 < 0.5:
+            dots.append((x0 + x1) / 2)
+        else:
+            rest_right = max(rest_right, x1)
+    return any(x > rest_right - 0.4 for x in dots)
 
 
 def resample_all(norm: list[Ink], step_xh: float, hint: dict | None = None) -> tuple[list[Ink], dict]:
@@ -119,7 +168,8 @@ def sanity_filter(inks: list[Ink]) -> tuple[list[Ink], dict]:
         x0, y0, x1, y1 = ink.bbox()
         if ppc < 4 or ppc > 120:
             dropped["points-per-char"] += 1
-        elif (y1 - y0) > 9 or (x1 - x0) / n_chars > 6 or (x1 - x0) / n_chars < 0.12:
+        elif (y1 - y0) > (MAX_HEIGHT_LINE if ink.kind == "line" else MAX_HEIGHT_WORD) \
+                or (x1 - x0) / n_chars > 6 or (x1 - x0) / n_chars < 0.12:
             dropped["size"] += 1
         else:
             kept.append(ink)
