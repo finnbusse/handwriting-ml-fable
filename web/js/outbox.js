@@ -22,6 +22,36 @@ function scheduleRetry(seconds) {
   retryTimer = setTimeout(() => flush('retry'), seconds * 1000);
 }
 
+/** 4xx answers that say "this content is refused" rather than "try again later". */
+const deterministic = (e) => e.kind === 'other' && e.status >= 400 && e.status < 500
+  && ![408, 409, 412, 425].includes(e.status);
+
+/**
+ * Commit one batch. A batch the server refuses as such (400/413/422 ...) is split
+ * in halves down to single lines, so one bad line cannot block the others; that
+ * line is marked 'rejected' (it stays on the device and in the backup).
+ * Returns null on success, or the error that stopped the upload.
+ */
+async function upload(repo, batch) {
+  const n = batch.length;
+  const files = batch.map((e) => ({ path: e.path, text: JSON.stringify(e.record) }));
+  try {
+    await hf.commit(repo, `Erfassung: ${n} ${n === 1 ? 'Zeile' : 'Zeilen'}`, files);
+  } catch (e) {
+    if (!deterministic(e)) return e;
+    if (n === 1) {
+      await store.markRejected(batch[0].id, { status: e.status, message: String(e.message || '').slice(0, 300) });
+      emit('rejected', { ids: [batch[0].id] });
+      return null;
+    }
+    const half = Math.ceil(n / 2);
+    return (await upload(repo, batch.slice(0, half))) || (await upload(repo, batch.slice(half)));
+  }
+  await store.markUploaded(batch.map((e) => e.id));
+  emit('uploaded', { ids: batch.map((e) => e.id), promptIds: batch.map((e) => e.prompt_id) });
+  return null;
+}
+
 /**
  * reason: 'start' | 'line' | 'session-end' | 'online' | 'manual' | 'retry' | 'auth' | 'repo-created'
  * 'line' uploads only when flushAt lines are waiting. A pending back-off is
@@ -34,35 +64,33 @@ export async function flush(reason = 'manual') {
   if (!hf.getAuth()) { emit('state'); return; }
   if (reason === 'line' && (await store.countQueued()) < CFG.flushAt) { emit('state'); return; }
   running = true; again = false; emit('state');
+  let uploadedAny = false;
   try {
     for (;;) {
       const queued = await store.queuedLines();
       if (!queued.length) break;
       const repo = hf.datasetRepoId();
       if (!repo) break;
-      const batch = queued.slice(0, CFG.maxPerCommit);
-      const n = batch.length;
-      const files = batch.map((e) => ({ path: e.path, text: JSON.stringify(e.record) }));
-      try {
-        await hf.commit(repo, `Erfassung: ${n} ${n === 1 ? 'Zeile' : 'Zeilen'}`, files);
-      } catch (e) {
-        lastError = { kind: e.kind || 'other', status: e.status || 0, at: Date.now() };
-        if (e.kind === 'auth') { hf.signOut(); emit('auth-required'); }
-        else if (e.kind === 'notfound') emit('repo-missing');
-        else if (e.kind === 'forbidden') emit('forbidden');
-        else {
-          backoffS = e.kind === 'rate' ? Math.max(e.retryAfterS || 60, 1)
-            : Math.min(600, Math.max(30, backoffS * 2));
-          scheduleRetry(backoffS);
-        }
-        break;
+      const e = await upload(repo, queued.slice(0, CFG.maxPerCommit));
+      if (!e) { uploadedAny = true; lastError = null; backoffS = 0; notBefore = 0; clearTimeout(retryTimer); continue; }
+      let kind = e.kind || 'other';
+      // A 401 can mean "no such repo for you"; only a failing whoami means the sign-in is bad.
+      if (kind === 'auth') kind = await hf.classify401(e);
+      lastError = { kind, status: e.status || 0, at: Date.now() };
+      if (kind === 'auth') { hf.signOut(); emit('auth-required'); }
+      else if (kind === 'notfound') emit('repo-missing', { reason });
+      else if (kind === 'forbidden') emit('forbidden');
+      else {
+        backoffS = Math.min(600, Math.max(30, backoffS * 2));
+        if (kind === 'rate') backoffS = Math.max(e.retryAfterS || 60, 1);
+        else if (e.retryAfterS) backoffS = Math.max(backoffS, e.retryAfterS);   // 5xx with Retry-After
+        scheduleRetry(backoffS);
       }
-      await store.markUploaded(batch.map((e) => e.id));
-      lastError = null; backoffS = 0; notBefore = 0; clearTimeout(retryTimer);
-      emit('uploaded', { ids: batch.map((e) => e.id), promptIds: batch.map((e) => e.prompt_id) });
+      break;
     }
   } finally {
     running = false;
+    if (uploadedAny && !lastError && (await store.countQueued().catch(() => 1)) === 0) emit('all-uploaded');
     emit('state');
     if (again) { again = false; setTimeout(() => flush('session-end'), 0); }
   }

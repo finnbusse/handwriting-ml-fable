@@ -4,7 +4,9 @@
 export const LIMITS = {
   strokesPerCharMin: 0.4,
   strokesPerCharMax: 2.0,
-  minRateHz: 100,
+  // Frame-rate pointermove (60-120 Hz) was the defect of the old recordings; a
+  // tablet pen through pointerrawupdate delivers well above 200 Hz.
+  minRateHz: 200,
   strayFarMinPx: 60,      // a stray stroke is at least this far from all other ink ...
   strayFarXh: 2.5,        // ... and at least this many typical stroke heights
   strayTinyXh: 0.35,      // tiny = bbox smaller than this many typical stroke heights ...
@@ -17,7 +19,7 @@ export const HINTS = {
   stroke_count_high: 'Viel mehr Striche als erwartet. Ist etwas doppelt oder durchgestrichen?',
   stray_stroke: 'Ein kleiner Strich liegt weit weg vom Text. Vielleicht hat der Stift aus Versehen aufgetippt.',
   out_of_bounds: 'Ein Teil der Schrift ging über den Rand des Blatts.',
-  pointercancel: 'Ein Strich wurde vom Gerät abgebrochen.',
+  pointercancel: 'Ein Strich wurde unterbrochen.',
   button_pressed: 'Die Taste am Stift war gedrückt.',
   low_rate: 'Der Stift hat nur wenige Punkte geliefert. Die Zeile ist vielleicht ungenau.',
   layout_changed: 'Die Ansicht hat sich beim Schreiben verändert.',

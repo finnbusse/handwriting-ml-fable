@@ -7,7 +7,7 @@ const AUTH_KEY = 'hw.auth';
 const OAUTH_KEY = 'hw.oauth';
 
 export class HfError extends Error {
-  /** kind: 'auth' | 'forbidden' | 'notfound' | 'rate' | 'network' | 'server' | 'other' */
+  /** kind: 'auth' | 'forbidden' | 'notfound' | 'conflict' | 'rate' | 'network' | 'server' | 'storage' | 'cancelled' | 'other' */
   constructor(kind, status, message, retryAfterS = null) {
     super(message || kind);
     this.kind = kind; this.status = status; this.retryAfterS = retryAfterS;
@@ -20,18 +20,24 @@ export function getAuth() {
   try {
     const a = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
     if (!a || !a.token) return null;
-    if (a.expiresAt && Date.now() > a.expiresAt) return null;
+    if (a.expiresAt && Date.now() > a.expiresAt) {
+      // Expired sign-in: drop it once and tell the app, so uploads do not just stop silently.
+      localStorage.removeItem(AUTH_KEY);
+      setTimeout(() => window.dispatchEvent(new CustomEvent('hw-auth-expired')), 0);
+      return null;
+    }
     return a;
   } catch (_) { return null; }
 }
 
 function setAuth(a) {
-  localStorage.setItem(AUTH_KEY, JSON.stringify(a));
+  try { localStorage.setItem(AUTH_KEY, JSON.stringify(a)); }
+  catch (e) { throw new HfError('storage', 0, 'localStorage not usable'); }
   window.dispatchEvent(new CustomEvent('hw-auth'));
 }
 
 export function signOut() {
-  localStorage.removeItem(AUTH_KEY);
+  try { localStorage.removeItem(AUTH_KEY); } catch (_) {}
   window.dispatchEvent(new CustomEvent('hw-auth'));
 }
 
@@ -49,11 +55,16 @@ function retryAfter(res) {
   return m ? Number(m[1]) : null;
 }
 
-async function request(path, { method = 'GET', headers = {}, body, token, absolute = false } = {}) {
+const HF_ORIGIN = new URL(CFG.hfBase).origin;
+
+async function request(path, { method = 'GET', headers = {}, body, token, absolute = false, auth = true } = {}) {
   const url = absolute ? path : CFG.hfBase + path;
   const h = Object.assign({}, headers);
   const tk = token || (getAuth() || {}).token;
-  if (tk) h.Authorization = `Bearer ${tk}`;
+  // The token only ever goes to huggingface.co itself (not to a Link: next target elsewhere).
+  let sameOrigin = false;
+  try { sameOrigin = new URL(url).origin === HF_ORIGIN; } catch (_) {}
+  if (tk && auth && sameOrigin) h.Authorization = `Bearer ${tk}`;
   let res;
   try {
     res = await fetch(url, { method, headers: h, body, cache: 'no-store', credentials: 'omit' });
@@ -62,6 +73,11 @@ async function request(path, { method = 'GET', headers = {}, body, token, absolu
   }
   if (res.ok) return res;
   const msg = res.headers.get('x-error-message') || `HTTP ${res.status}`;
+  const code = res.headers.get('x-error-code') || '';
+  // The Hub answers 401 for missing or invisible repos too (huggingface_hub treats a 401
+  // as RepositoryNotFound unless the message says the credentials are invalid).
+  if (code === 'RepoNotFound' || code === 'RevisionNotFound' || code === 'EntryNotFound') throw new HfError('notfound', res.status, msg);
+  if (code === 'GatedRepo') throw new HfError('forbidden', res.status, msg);
   if (res.status === 401) throw new HfError('auth', 401, msg);
   if (res.status === 403) throw new HfError('forbidden', 403, msg);
   if (res.status === 404) throw new HfError('notfound', 404, msg);
@@ -76,6 +92,16 @@ async function request(path, { method = 'GET', headers = {}, body, token, absolu
 export async function whoami(token) {
   const res = await request('/api/whoami-v2', { token });
   return res.json();
+}
+
+/**
+ * A repo request answered 401. Returns 'auth' only when the token itself is bad
+ * (whoami fails with 401 too), 'notfound' when the token works
+ * but cannot see the repo, 'network' when that cannot be told right now.
+ */
+export async function classify401() {
+  // The message cannot be trusted for this: a missing repo also says "Invalid username or password".
+  try { await whoami(); return 'notfound'; } catch (e) { return e.kind === 'auth' ? 'auth' : 'network'; }
 }
 
 /** Validate a pasted token and store it. Throws HfError on failure. */
@@ -104,7 +130,8 @@ export async function oauthStart() {
   const verifier = randomString(48);
   const state = randomString(16);
   const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
-  localStorage.setItem(OAUTH_KEY, JSON.stringify({ verifier, state, hash: location.hash, t: Date.now() }));
+  try { localStorage.setItem(OAUTH_KEY, JSON.stringify({ verifier, state, hash: location.hash, t: Date.now() })); }
+  catch (_) { throw new HfError('storage', 0, 'localStorage not usable'); }
   const p = new URLSearchParams({
     client_id: v.OAUTH_CLIENT_ID, redirect_uri: redirectUri(),
     scope: 'openid profile write-repos', response_type: 'code', state,
@@ -117,12 +144,14 @@ export async function oauthStart() {
 /** Call once at boot. Returns the user name if a redirect was completed, else null. */
 export async function oauthHandleRedirect() {
   const q = new URLSearchParams(location.search);
-  if (!q.has('code') || !q.has('state')) return null;
+  const denied = q.has('error');
+  if (!denied && (!q.has('code') || !q.has('state'))) return null;
   let saved = null;
   try { saved = JSON.parse(localStorage.getItem(OAUTH_KEY) || 'null'); } catch (_) {}
-  localStorage.removeItem(OAUTH_KEY);
+  try { localStorage.removeItem(OAUTH_KEY); } catch (_) {}
   const cleanUrl = location.pathname + ((saved && saved.hash) || location.hash || '');
   history.replaceState(null, '', cleanUrl);
+  if (denied) throw new HfError('cancelled', 0, q.get('error') || 'oauth error');
   if (!saved || saved.state !== q.get('state') || !oauthAvailable()) throw new HfError('auth', 0, 'oauth state mismatch');
   const v = window.huggingface.variables;
   const base = (v.OPENID_PROVIDER_URL || CFG.hfBase).replace(/\/$/, '');
@@ -131,7 +160,7 @@ export async function oauthHandleRedirect() {
     redirect_uri: redirectUri(), code_verifier: saved.verifier,
   });
   const res = await request(`${base}/oauth/token`, {
-    method: 'POST', absolute: true, body,
+    method: 'POST', absolute: true, body, auth: false,
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
   const tok = await res.json();
@@ -156,7 +185,9 @@ export async function commit(repoId, summary, files, { repoType = 'dataset', rev
   return res.json().catch(() => ({}));
 }
 
-/** Create the private dataset repo. An existing repo (409) counts as success. */
+/** Create the private dataset repo. A 409 means it exists already; since the app only
+ *  offers this after a commit found no repo, that means this sign-in cannot see it
+ *  (kind 'conflict'), so it is reported, not treated as success. */
 export async function createDatasetRepo(name = CFG.datasetRepo) {
   try {
     await request('/api/repos/create', {
@@ -165,7 +196,7 @@ export async function createDatasetRepo(name = CFG.datasetRepo) {
     });
     return true;
   } catch (e) {
-    if (e.status === 409) return true;
+    if (e.status === 409) throw new HfError('conflict', 409, e.message);
     throw e;
   }
 }

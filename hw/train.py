@@ -166,11 +166,11 @@ def main(argv=None):
     ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--composed", type=int, default=480, help="composed lines per epoch")
     ap.add_argument("--real-repeat", type=int, default=4, help="passes over the real lines per epoch")
-    ap.add_argument("--batch", type=int, default=32)
+    ap.add_argument("--batch", type=int, default=12)
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--lr-final", type=float, default=2e-5)
     ap.add_argument("--clip", type=float, default=5.0)
-    ap.add_argument("--new-char-boost", type=float, default=20.0,
+    ap.add_argument("--new-char-boost", type=float, default=5.0,
                     help="learning-rate multiplier for the weights that read the newly added characters")
     ap.add_argument("--special-share", type=float, default=0.3,
                     help="share of composed words drawn from words with newly added characters")
@@ -227,10 +227,12 @@ def main(argv=None):
 
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     # The appended characters (umlauts, sharp s ...) start as copies of similar
-    # base letters.  Fine-tuning takes only a few hundred small steps -- enough
-    # to bend a hand, far too little to pull "ä" away from "a".  The rows of
-    # weights that read those characters therefore move `new_char_boost` times
-    # as far per step as everything else.
+    # base letters.  Fine-tuning takes comparatively few, small steps -- enough
+    # to bend a hand, too little to pull "ä" away from "a".  Two things help:
+    # small batches (many steps per epoch for the same compute) and letting the
+    # rows of weights that read those characters move `new_char_boost` times as
+    # far per step.  Much larger boosts (20) were tried and damaged the letter
+    # shapes; 5 is a compromise.
     n_base, H = len(BASE_CHARSET) + 1, model.hidden_size
     new_idx = torch.arange(n_base, charset.size, device=device)
     boosted = [(model.lstm1.W_xh, 3 + new_idx), (model.lstm2.W_xh, 3 + H + new_idx),

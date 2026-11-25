@@ -23,6 +23,7 @@
     <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
     <symbol id="i-again" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19 4v4h-4"/></symbol>
     <symbol id="i-gear" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+    <symbol id="i-cloud-alert" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 10.5 3.75 3.75 0 0 0 7 18z"/><path d="M12 9.5v3.5"/><path d="M12 15.4v.2"/></symbol>
     <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 10.5 3.75 3.75 0 0 0 7 18z"/><path d="M12 15v-5M9.8 12.2 12 10l2.2 2.2"/></symbol>
     <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1.2-4.4L15.8 5a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.4 18.8 4 20z"/><path d="M14 6.8l3.2 3.2"/></symbol>
     <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></symbol>
@@ -37,8 +38,8 @@
     <a href="#/schreiben" data-route="schreiben">Schreiben</a>
   </nav>
   <div class="bar-right">
-    <a class="waiting" id="waiting" href="#/einstellungen" hidden>
-      <svg class="ic"><use href="#i-cloud"/></svg><span id="waiting-text" class="w-long"></span><span id="waiting-short" class="w-short"></span>
+    <a class="waiting empty" id="waiting" href="#/einstellungen" aria-hidden="true" tabindex="-1">
+      <svg class="ic"><use id="waiting-icon" href="#i-cloud"/></svg><span id="waiting-text" class="w-long"></span><span id="waiting-short" class="w-short"></span>
     </a>
     <a class="iconbtn" href="#/einstellungen" data-route="einstellungen" aria-label="Einstellungen" title="Einstellungen">
       <svg class="ic"><use href="#i-gear"/></svg>
@@ -47,6 +48,17 @@
 </header>
 
 <main id="main">
+
+  <p class="framed-note" id="framed-note" hidden>Anmelden und Installieren klappt nur, wenn die App in einem eigenen Tab läuft. <a id="framed-link" href="./index.html" target="_blank" rel="noopener">App im eigenen Tab öffnen</a></p>
+
+  <!-- No storage (IndexedDB blocked) -->
+  <section class="view view-generate" id="v-nostore" hidden>
+    <div class="placeholder">
+      <h1>Hier kann nichts gespeichert werden</h1>
+      <p>Dieser Browser erlaubt der App keinen Speicher, vielleicht ist es ein privates Fenster. Ohne Speicher gehen geschriebene Zeilen verloren.</p>
+      <p class="muted">Bitte öffne die App in einem normalen Fenster.</p>
+    </div>
+  </section>
 
   <!-- First run -->
   <section class="view view-start" id="v-start" hidden>
@@ -73,12 +85,14 @@
       <div class="cap-write">
         <div class="cap-head">
           <p class="progress"><span id="cap-progress">&nbsp;</span><span class="total" id="cap-total"></span></p>
+          <div class="pbar" aria-hidden="true"><span id="cap-bar"></span></div>
           <p class="prompt" id="cap-prompt" aria-live="polite">&nbsp;</p>
         </div>
         <div class="cap-tools" role="toolbar" aria-label="Zeile">
           <button class="btn tool" id="cap-undo" type="button" aria-label="Rückgängig"><svg class="ic"><use href="#i-undo"/></svg><span>Rückgängig</span></button>
-          <button class="btn tool" id="cap-clear" type="button" aria-label="Löschen"><svg class="ic"><use href="#i-clear"/></svg><span>Löschen</span></button>
+          <span class="sep" aria-hidden="true"></span>
           <button class="btn tool" id="cap-skip" type="button" aria-label="Überspringen"><svg class="ic"><use href="#i-skip"/></svg><span>Überspringen</span></button>
+          <button class="btn tool" id="cap-clear" type="button" aria-label="Löschen"><svg class="ic"><use href="#i-clear"/></svg><span>Löschen</span></button>
           <span class="spacer"></span>
           <button class="btn primary" id="cap-done" type="button"><svg class="ic"><use href="#i-check"/></svg><span>Fertig</span></button>
         </div>
@@ -97,7 +111,7 @@
           <p class="compare-label">Deine Zeile</p>
           <div class="compare-ink"><canvas id="confirm-canvas"></canvas></div>
         </div>
-        <ul class="qa" id="confirm-qa"></ul>
+        <ul class="qa" id="confirm-qa" hidden></ul>
         <div class="actions">
           <button class="btn" id="confirm-redo" type="button"><svg class="ic"><use href="#i-again"/></svg><span>Nochmal</span></button>
           <button class="btn primary" id="confirm-ok" type="button"><svg class="ic"><use href="#i-check"/></svg><span id="confirm-ok-label">Ja, weiter</span></button>
@@ -105,13 +119,14 @@
       </div>
 
       <div class="cap-panel cap-pause" role="alertdialog" aria-labelledby="pause-title">
-        <h2 id="pause-title">Die Ansicht hat sich verändert</h2>
-        <p>Damit die Zeile sauber bleibt, schreib sie bitte noch einmal.</p>
+        <h2 id="pause-title">Der Bildschirm hat sich bewegt</h2>
+        <p>Bitte schreib die Zeile noch einmal.</p>
         <div class="actions"><button class="btn primary" id="pause-ok" type="button"><svg class="ic"><use href="#i-pen"/></svg><span>Zeile neu schreiben</span></button></div>
       </div>
 
       <div class="cap-panel cap-block">
         <h2 id="block-title">Block geschafft</h2>
+        <div class="dots" id="block-dots" aria-hidden="true"></div>
         <p id="block-text"></p>
         <div class="actions">
           <button class="btn" id="block-pause" type="button">Pause machen</button>
@@ -128,6 +143,11 @@
       <div class="cap-panel cap-all">
         <h2>Alle Zeilen geschrieben</h2>
         <p id="all-text">Danke! Mehr gibt es im Moment nicht zu schreiben.</p>
+      </div>
+
+      <div class="cap-panel cap-nocaps" role="alert">
+        <h2>So kann die App nicht aufzeichnen</h2>
+        <p id="nocaps-text"></p>
       </div>
 
       <div class="cap-panel cap-loading"><p class="muted">Einen Moment …</p></div>
@@ -156,7 +176,7 @@
           <p>Nicht angemeldet. Deine Zeilen bleiben auf diesem Gerät, bis du dich anmeldest.</p>
           <div class="row-actions">
             <button class="btn primary" id="acc-oauth" type="button" hidden>Mit Hugging Face anmelden</button>
-            <button class="btn" id="acc-token" type="button">Token einfügen</button>
+            <button class="btn" id="acc-token" type="button">Mit Schlüssel anmelden</button>
           </div>
         </div>
         <div class="row" id="acc-in" hidden>
@@ -171,10 +191,8 @@
           <p id="up-status">Alles hochgeladen.</p>
           <div class="row-actions"><button class="btn" id="up-now" type="button"><svg class="ic"><use href="#i-cloud"/></svg><span>Jetzt hochladen</span></button></div>
         </div>
-        <dl class="kv">
-          <dt>Zeilen landen in</dt><dd id="repo-dataset"></dd>
-          <dt>Modell kommt aus</dt><dd id="repo-model"></dd>
-        </dl>
+        <p class="muted up-where">Gespeichert in deinem Hugging-Face-Konto (privat).</p>
+        <p class="muted" id="up-rejected" hidden></p>
       </section>
 
       <section class="group" aria-labelledby="g-safety">
@@ -188,7 +206,7 @@
       <section class="group" aria-labelledby="g-test">
         <h2 id="g-test">Zum Testen</h2>
         <label class="switch-row">
-          <span><strong>Finger/Maus erlauben (nur zum Testen)</strong><span class="muted">Solche Zeilen werden markiert und nicht fürs Lernen verwendet.</span></span>
+          <span><strong>Auch mit Finger oder Maus schreiben</strong><span class="muted">Solche Zeilen werden markiert und nicht fürs Lernen verwendet.</span></span>
           <input type="checkbox" role="switch" id="allow-finger">
         </label>
       </section>
@@ -204,9 +222,9 @@
 
 <dialog class="dlg" id="dlg-token" aria-labelledby="tok-title">
   <form method="dialog" id="tok-form">
-    <h2 id="tok-title">Token einfügen</h2>
-    <p>Ein Token ist ein Zugangsschlüssel, den du auf huggingface.co unter Settings → Access Tokens erstellst; er erlaubt dieser App, deine Zeilen in dein Konto hochzuladen.</p>
-    <label class="field"><span>Token</span>
+    <h2 id="tok-title">Mit Schlüssel anmelden</h2>
+    <p>Lege auf huggingface.co einen Zugangsschlüssel an (Profilbild → Settings → Access Tokens → Neu, Typ „Write“) und füge ihn hier ein.</p>
+    <label class="field"><span>Zugangsschlüssel</span>
       <input id="tok-input" name="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="hf_…"></label>
     <p class="err" id="tok-err" role="alert" hidden></p>
     <div class="actions">

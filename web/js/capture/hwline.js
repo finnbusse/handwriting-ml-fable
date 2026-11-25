@@ -53,6 +53,7 @@ export function buildRecord(ctx) {
   const vv = window.visualViewport;
   const so = screen.orientation || {};
   const a = rec.anomalies;
+  const rate = rateHz(strokes);
   const api = rec.rawSamples > 0 ? 'pointerrawupdate'
     : (rec.caps.getCoalescedEvents ? 'pointermove+coalesced' : 'pointermove');
   return {
@@ -84,11 +85,16 @@ export function buildRecord(ctx) {
               fullscreen: !!document.fullscreenElement, display_mode: displayMode() },
     device: { ua: navigator.userAgent, ua_data: ctx.uaData || null,
               max_touch_points: navigator.maxTouchPoints || 0, language: navigator.language },
-    pointer: { type: ptype, api, pen_only: rec.penOnly, rate_hz: rateHz(strokes),
-               pressure_levels_seen: pressures.size },
+    // rate_hz is left out when it cannot be measured (only taps): the schema has no null for it.
+    pointer: Object.assign({ type: ptype, api, pen_only: rec.penOnly }, rate === null ? {} : { rate_hz: rate },
+                           { pressure_levels_seen: pressures.size }),
     strokes,
-    anomalies: { cancelled: a.cancelled, touch_ignored: a.touch_ignored, non_monotonic: a.non_monotonic,
-                 dt_gt_10ms: countDtOver(strokes, 10), button_strokes: a.button_strokes },
+    // cancelled / button_strokes come from the strokes actually stored (undo removes their share).
+    anomalies: { cancelled: rec.strokes.filter((s) => s.end === 'cancel').length,
+                 touch_ignored: a.touch_ignored, non_monotonic: a.non_monotonic,
+                 same_t_dropped: a.same_t_dropped || 0,
+                 dt_gt_10ms: countDtOver(strokes, 10),
+                 button_strokes: rec.strokes.filter((s) => s.button).length },
   };
 }
 

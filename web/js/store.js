@@ -22,6 +22,7 @@ function open() {
     req.onerror = () => reject(req.error);
     req.onblocked = () => reject(new Error('IndexedDB blocked'));
   });
+  dbPromise.catch(() => { dbPromise = null; });   // a later call may try again
   return dbPromise;
 }
 
@@ -93,6 +94,24 @@ export function markUploaded(ids) {
       if (e) { e.state = 'uploaded'; e.uploaded_at = now; s.put(e); }
     }
   });
+}
+
+/** A line the server refused for its content: kept on the device (and in the backup), not retried. */
+export function markRejected(id, why) {
+  return tx('lines', 'readwrite', async (s) => {
+    const e = await req2p(s.get(id));
+    if (e) { e.state = 'rejected'; e.rejected = Object.assign({ at: new Date().toISOString() }, why); s.put(e); }
+  });
+}
+
+export function countState(state) {
+  return tx('lines', 'readonly', (s) => req2p(s.index('state').count(state)));
+}
+
+/** Throws when IndexedDB cannot be used here (private window, blocked storage). */
+export async function check() {
+  await open();
+  await kvGet('firstRunDone', false);
 }
 
 export function kvGet(key, fallback = null) {

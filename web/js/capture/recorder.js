@@ -33,7 +33,10 @@ export function createRecorder(canvas, opts = {}) {
   let rawSamples = 0;      // samples that arrived first through pointerrawupdate
   let types = {};
   let anomalies;
-  const freshAnomalies = () => ({ cancelled: 0, touch_ignored: 0, non_monotonic: 0, button_strokes: 0, multi_pointer: 0, empty_strokes: 0 });
+  // cancelled and button_strokes are derived from the stored strokes in hwline.js,
+  // so undo cannot leave them out of step; these are the counters only the recorder sees.
+  const freshAnomalies = () => ({ cancelled: 0, touch_ignored: 0, non_monotonic: 0, same_t_dropped: 0,
+    button_strokes: 0, multi_pointer: 0, empty_strokes: 0 });
   anomalies = freshAnomalies();
   let paused = false;
 
@@ -44,6 +47,7 @@ export function createRecorder(canvas, opts = {}) {
     const t = r2(e.timeStamp - timeBase);
     if (!(t > lastT)) {               // de-dup rawupdate vs pointermove; drop stale samples
       if (t < lastT) anomalies.non_monotonic++;
+      else if (sameTimeDifferent(e)) anomalies.same_t_dropped++;   // a distinct sample at an equal t
       return false;
     }
     lastT = t;
@@ -58,6 +62,14 @@ export function createRecorder(canvas, opts = {}) {
     return true;
   }
 
+  /** True when e differs from the last stored sample (so dropping it loses data). */
+  function sameTimeDifferent(e) {
+    const n = cur.x.length;
+    if (!n) return true;
+    return cur.x[n - 1] !== r4(e.clientX - rect.left) || cur.y[n - 1] !== r4(e.clientY - rect.top)
+      || cur.p[n - 1] !== r4(e.pressure);
+  }
+
   function accepts(e) {
     return e.pointerType === 'pen' || (!penOnly && (e.pointerType === 'touch' || e.pointerType === 'mouse'));
   }
@@ -67,7 +79,14 @@ export function createRecorder(canvas, opts = {}) {
     e.preventDefault();
     if (paused) return;
     if (!accepts(e)) { anomalies.touch_ignored++; onIgnored(e); return; }
-    if (cur) { anomalies.multi_pointer++; return; }
+    if (cur) {
+      anomalies.multi_pointer++;
+      // Finger mode: a resting palm must not take the stroke from the pen.
+      if (!(cur.pointerType !== 'pen' && e.pointerType === 'pen')) return;
+      try { canvas.releasePointerCapture(cur.pointerId); } catch (_) {}
+      cur = null;
+      if (!strokes.length) { timeBase = null; firstRect = null; lastT = -Infinity; rawSamples = 0; }
+    }
     rect = canvas.getBoundingClientRect();   // once per stroke; layout must not move during a line
     if (timeBase === null) {
       timeBase = e.timeStamp;
@@ -104,7 +123,11 @@ export function createRecorder(canvas, opts = {}) {
         if (cur.x.length > from) onSamples(cur, from);
       }
       cur.end = kind;
-      cur.up = { t: r2(e.timeStamp - timeBase), x: r4(e.clientX - rect.left), y: r4(e.clientY - rect.top) };
+      const n = cur.x.length;
+      if (kind === 'up') cur.up = { t: r2(e.timeStamp - timeBase), x: r4(e.clientX - rect.left), y: r4(e.clientY - rect.top) };
+      // A cancel event's coordinates are not trustworthy (synthetic ones carry 0,0):
+      // keep the last real position with the cancel time.
+      else cur.up = n ? { t: Math.max(r2(e.timeStamp - timeBase), cur.t[n - 1]), x: cur.x[n - 1], y: cur.y[n - 1] } : null;
       if (kind === 'cancel') anomalies.cancelled++;
       if (cur._btn) anomalies.button_strokes++;
       const s = cur; cur = null;
@@ -139,6 +162,17 @@ export function createRecorder(canvas, opts = {}) {
     set penOnly(v) { penOnly = !!v; },
     get penOnly() { return penOnly; },
     set paused(v) { paused = !!v; if (paused) cur = null; },
+    /** Take every stroke out (for "Löschen") and return them so restore() can bring them back. */
+    stash() {
+      const s = { strokes, timeBase, firstRect, lastT, rawSamples, types, anomalies };
+      strokes = []; cur = null; timeBase = null; firstRect = null; lastT = -Infinity;
+      rawSamples = 0; types = {}; anomalies = freshAnomalies();
+      return s;
+    },
+    restore(s) {
+      ({ strokes, timeBase, firstRect, lastT, rawSamples, types, anomalies } = s);
+      cur = null;
+    },
     undo() {
       const s = strokes.pop();
       // With no stroke left the line starts over, so t = 0 is again the first pen-down.
