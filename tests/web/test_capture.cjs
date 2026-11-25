@@ -96,6 +96,12 @@ const L = require('./lib.cjs');
     await L.settle(page);
     await page.click('#cap-clear');
     L.check('clear removes everything', (await page.evaluate(() => window.__hw.capture.recorder.strokes.length)) === 0);
+    L.check('after clear, Rückgängig stays enabled', !(await page.isDisabled('#cap-undo')));
+    await L.settle(page);
+    await page.click('#cap-undo');
+    L.check('Rückgängig after Löschen brings the cleared line back', (await page.evaluate(() => window.__hw.capture.recorder.strokes.length)) === 1);
+    await L.settle(page);
+    await page.click('#cap-clear');
 
     // A stroke whose samples all carry stale timestamps must not leave an empty stroke behind.
     await p.stroke(L.glyph(rect.left + 100, base, 6));
@@ -117,6 +123,13 @@ const L = require('./lib.cjs');
     await p.stroke(L.glyph(rect.left + 100, base, 6));
     await page.click('#cap-done', { delay: 0 });
     L.check('tap within 300 ms after a stroke is ignored', (await page.getAttribute('#cap', 'data-state')) === 'write');
+    const promptBeforeSkip = await page.textContent('#cap-prompt');
+    await L.settle(page);
+    await page.click('#cap-skip');
+    await page.waitForTimeout(100);
+    L.check('Überspringen with ink on the sheet does not throw the line away',
+      (await page.textContent('#cap-prompt')) === promptBeforeSkip && (await page.evaluate(() => window.__hw.capture.recorder.strokes.length)) === 1
+      && (await page.textContent('#cap-hint')).includes('erst die Zeile löschen'));
 
     // Leaving fullscreen during a line -> pause and write again.
     L.check('"Los geht\'s" entered fullscreen', await page.evaluate(() => !!document.fullscreenElement));
@@ -144,6 +157,53 @@ const L = require('./lib.cjs');
     const text = require('fs').readFileSync(await dl.path(), 'utf8');
     const rows = text.trim().split('\n').map((l) => JSON.parse(l));
     L.check('backup .jsonl holds every local line', rows.length === 1 && rows[0].id === r.id && /\.jsonl$/.test(dl.suggestedFilename()));
+
+    // Regression: resize / fullscreen exit / return-to-visible while the confirm screen is
+    // open must not change the stored geometry (it once became 1x1).
+    await page.click('a[data-route="erfassen"]');
+    await page.waitForSelector('#cap[data-state="write"]');
+    await cdp.send('Runtime.evaluate', { expression: 'document.documentElement.requestFullscreen()', userGesture: true, awaitPromise: true });
+    await page.waitForTimeout(400);
+    const fsOn = await page.evaluate(() => !!document.fullscreenElement);
+    const rect2 = await L.canvasRect(page);
+    const base2 = rect2.top + rect2.height * 0.64;
+    // A stroke with the pen button held, then undone: it must not count in the record.
+    await p.stroke(L.glyph(rect2.left + 300, base2, 6), { buttons: 2, button: 'right' });
+    await L.settle(page);
+    await page.click('#cap-undo');
+    for (let i = 0; i < 3; i++) await p.stroke(L.glyph(rect2.left + 140 + i * 40, base2, 8));
+    // Equal timestamps with different positions are counted, not silently lost
+    // (last stroke, with timestamps after everything the pen helper sent).
+    const t0 = Date.now() / 1000 + 600;
+    const ev = (type, x, t) => cdp.send('Input.dispatchMouseEvent', { type, x, y: base2, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1, pointerType: 'pen', force: 0.5, timestamp: t });
+    await ev('mousePressed', rect2.left + 300, t0);
+    await ev('mouseMoved', rect2.left + 302, t0 + 0.002);
+    await ev('mouseMoved', rect2.left + 304, t0 + 0.002);
+    await ev('mouseMoved', rect2.left + 306, t0 + 0.004);
+    await ev('mouseReleased', rect2.left + 307, t0 + 0.006);
+    await L.settle(page);
+    await page.click('#cap-done');
+    await page.waitForSelector('#cap[data-state="confirm"]');
+    await page.evaluate(() => document.fullscreenElement && document.exitFullscreen());
+    await page.waitForTimeout(250);
+    await page.setViewportSize({ width: 1280, height: 780 });
+    await page.waitForTimeout(250);
+    await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+    await page.waitForTimeout(250);
+    L.check('confirm screen survives fullscreen exit + resize + visibilitychange', fsOn && (await page.getAttribute('#cap', 'data-state')) === 'confirm', `fullscreen before: ${fsOn}`);
+    await L.settle(page);
+    await page.click('#confirm-ok');
+    await L.until(async () => (await L.lines(page)).length === 2);
+    const r2 = (await L.lines(page)).map((e) => e.record).find((x) => x.id !== r.id);
+    const w2 = Math.floor(rect2.width), h2 = Math.floor(rect2.height);
+    L.check('record keeps the canvas size of the writing time', r2.coord.canvas_css[0] === w2 && r2.coord.canvas_css[1] === h2
+      && r2.coord.canvas_px[0] === w2 * 2 && r2.coord.canvas_px[1] === h2 * 2 && r2.coord.dpr === 2, JSON.stringify([r2.coord, w2, h2]));
+    L.check('record keeps the guides of the writing time', Math.abs(r2.guides.baseline_y - (Math.round(h2 * 0.64) + 0.5)) < 1e-6 && r2.guides.x_end > w2 - 40,
+      JSON.stringify(r2.guides));
+    L.check('record still satisfies the schema', L.schemaErrors(r2).length === 0, L.schemaErrors(r2).join('; '));
+    L.check('an undone button stroke is not counted', r2.anomalies.button_strokes === 0 && !r2.flags.includes('button_pressed'), JSON.stringify(r2.anomalies));
+    L.check('a distinct sample at an equal timestamp is counted', r2.strokes.length === 4 && r2.anomalies.same_t_dropped === 1 && r2.strokes[3].x.join() === '300,302,306', JSON.stringify([r2.anomalies, r2.strokes.map((s) => s.x.length), r2.strokes[3] && r2.strokes[3].x]));
+    L.check('next line lays out the sheet again at the new size', Math.abs((await L.canvasRect(page)).height - rect2.height) > 1 || (await page.evaluate(() => document.getElementById('cap-canvas').width)) > 2);
 
     L.check('no request to Hugging Face while signed out', hfLog.length === 0, hfLog.map((h) => h.url).join(', '));
     L.check('no page errors', errors.length === 0, errors.join(' | '));

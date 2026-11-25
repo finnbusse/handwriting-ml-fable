@@ -14,6 +14,9 @@ const app = {
   prompts: { set: '', prompts: [], fallback: true },
   localDone: new Set(),
   remoteDone: new Set(),
+  remoteUser: null,       // the account app.remoteDone belongs to
+  repoDialogDismissed: false,
+  framed: false,          // running inside the huggingface.co/spaces iframe
   skipped: new Set(),
   settings: { allowFinger: false },
   uaData: null,
@@ -36,20 +39,34 @@ function toast(text, ms = 3200) {
 
 // ---------- indicator ----------
 
+/** An upload problem that waiting alone will not fix soon (not offline, not a short rate limit). */
+const uploadProblem = (st) => !!(st.lastError && !['network', 'rate'].includes(st.lastError.kind));
+
 async function updateWaiting() {
   const n = await store.countQueued().catch(() => 0);
   const el = $('waiting');
-  el.hidden = n === 0;
   const st = outbox.status();
+  const problem = n > 0 && !st.running && uploadProblem(st) && !!hf.getAuth();
+  el.classList.toggle('empty', n === 0);
+  el.classList.toggle('problem', problem);
+  el.setAttribute('aria-hidden', n === 0 ? 'true' : 'false');
+  el.tabIndex = n === 0 ? -1 : 0;
+  $('waiting-icon').setAttribute('href', problem ? '#i-cloud-alert' : '#i-cloud');
   $('waiting-text').textContent = st.running ? 'Lädt hoch …'
-    : `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'} aufs Hochladen`;
-  $('waiting-short').textContent = st.running ? '…' : `${n} ${n === 1 ? 'wartet' : 'warten'}`;
-  el.title = hf.getAuth() ? 'Wird automatisch hochgeladen' : 'Zum Hochladen anmelden';
+    : problem ? 'Hochladen klappt gerade nicht'
+      : `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'} aufs Hochladen`;
+  $('waiting-short').textContent = st.running ? 'lädt …' : problem ? 'Problem' : `${n} ${n === 1 ? 'wartet' : 'warten'}`;
+  el.title = !hf.getAuth() ? 'Zum Hochladen anmelden'
+    : problem ? 'Hochladen klappt gerade nicht. Mehr in den Einstellungen.' : 'Wird automatisch hochgeladen';
   if (app.route === 'einstellungen') renderUploadStatus(n);
 }
 
-function renderUploadStatus(n) {
+async function renderUploadStatus(n) {
   const st = outbox.status();
+  const rejected = await store.countState('rejected').catch(() => 0);
+  const rj = $('up-rejected');
+  rj.hidden = rejected === 0;
+  rj.textContent = `${rejected} ${rejected === 1 ? 'Zeile wurde' : 'Zeilen wurden'} von Hugging Face abgelehnt. Sie bleiben auf dem Gerät und in der Sicherung.`;
   let text;
   if (n === 0) text = 'Alles hochgeladen.';
   else if (!hf.getAuth()) text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Melde dich an, dann werden sie hochgeladen.`;
@@ -58,10 +75,10 @@ function renderUploadStatus(n) {
   else if (st.lastError && st.lastError.kind === 'rate') text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Hugging Face bittet um eine kurze Pause, es geht gleich weiter.`;
   else if (st.lastError && st.lastError.kind === 'notfound') text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. In deinem Konto fehlt noch der Ort für deine Zeilen. „Jetzt hochladen“ legt ihn an.`;
   else if (st.lastError && st.lastError.kind === 'forbidden') text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Dein Zugang darf nicht hochladen. Melde dich mit Schreibrecht an.`;
-  else if (st.lastError) text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Das letzte Hochladen hat nicht geklappt (${st.lastError.status || 'keine Antwort'}).`;
+  else if (st.lastError) text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'}. Das letzte Hochladen hat nicht geklappt. Es wird später noch einmal versucht.`;
   else text = `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'} aufs Hochladen.`;
   $('up-status').textContent = text;
-  $('up-now').disabled = n === 0 || !hf.getAuth();
+  $('up-now').disabled = n === 0 || !hf.getAuth() || st.running;
 }
 
 // ---------- progress ----------
@@ -71,18 +88,36 @@ async function loadLocalDone() {
   app.localDone = new Set(all.map((e) => e.prompt_id));
 }
 
+/** Remote progress belongs to one account: a sign-out or a different account starts it empty. */
+function syncRemoteUser() {
+  const user = hf.userName();
+  if (user === app.remoteUser) return;
+  app.remoteUser = user;
+  app.remoteDone = new Set();
+  store.kvSet('remoteDone', { user, ids: [] }).catch(() => {});
+  if (app.capture) app.capture.refresh();
+}
+
+function saveRemoteDone() {
+  return store.kvSet('remoteDone', { user: app.remoteUser, ids: [...app.remoteDone] }).catch(() => {});
+}
+
 async function refreshRemoteDone() {
   const repo = hf.datasetRepoId();
   if (!repo || !navigator.onLine) return;
+  syncRemoteUser();
   try {
     const paths = await hf.listFiles(repo, 'raw/v1');
     const ids = new Set();
     for (const p of paths || []) { const id = store.promptIdFromPath(p); if (id) ids.add(id); }
     app.remoteDone = ids;
-    await store.kvSet('remoteDone', [...ids]);
+    await saveRemoteDone();
     if (app.capture) app.capture.refresh();
   } catch (e) {
-    if (e.kind === 'auth') { hf.signOut(); toast('Bitte melde dich neu an. Deine Zeilen bleiben gespeichert.'); }
+    // A 401 here often only means the dataset does not exist (yet) for this account.
+    if (e.kind === 'auth' && (await hf.classify401(e)) === 'auth') {
+      hf.signOut(); toast('Bitte melde dich neu an. Deine Zeilen bleiben gespeichert.');
+    }
   }
 }
 
@@ -91,11 +126,8 @@ async function refreshRemoteDone() {
 function renderAccount() {
   const a = hf.getAuth();
   $('acc-out').hidden = !!a; $('acc-in').hidden = !a;
-  $('acc-oauth').hidden = !hf.oauthAvailable();
   if (a) $('acc-name').textContent = a.name;
-  const user = a ? a.name : '<dein Konto>';
-  $('repo-dataset').textContent = `${user}/${CFG.datasetRepo} (privat)`;
-  $('repo-model').textContent = `${user}/${CFG.modelRepo} (privat)`;
+  $('acc-oauth').hidden = !hf.oauthAvailable() || app.framed;
   $('start-signin').textContent = a ? `Angemeldet als ${a.name}` : 'Anmelden';
   $('start-signin').disabled = !!a;
 }
@@ -107,6 +139,12 @@ async function renderDiagnostics() {
   const yes = (v) => (v ? 'ja' : 'nein');
   const all = await store.allLines().catch(() => []);
   const rows = [
+    ['Zeilen-Ablage', hf.datasetRepoId() ? `${hf.datasetRepoId()} (privat)` : 'nach der Anmeldung'],
+    ['Modell', hf.modelRepoId() ? `${hf.modelRepoId()} (privat)` : 'nach der Anmeldung'],
+    ['Letzter Upload-Fehler', (() => {
+      const e = outbox.status().lastError;
+      return e ? `${e.kind}${e.status ? ` (HTTP ${e.status})` : ''}, ${new Date(e.at).toLocaleTimeString('de-DE')}` : 'keiner';
+    })()],
     ['Sicherer Kontext', yes(caps.secureContext)],
     ['pointerrawupdate', yes(caps.pointerrawupdate)],
     ['Coalesced Events', yes(caps.getCoalescedEvents)],
@@ -167,21 +205,29 @@ function wireSignIn() {
       await afterSignIn(name);
     } catch (err) {
       const msg = err.kind === 'network' ? 'Keine Verbindung zu Hugging Face. Bitte später noch einmal.'
-        : 'Dieser Token funktioniert nicht. Bitte prüfe, ob er vollständig kopiert ist.';
+        : err.kind === 'storage' ? 'Der Browser erlaubt hier keinen Speicher. Bitte öffne die App in einem normalen Fenster.'
+          : 'Dieser Schlüssel funktioniert nicht. Bitte prüfe, ob er vollständig kopiert ist.';
       $('tok-err').textContent = msg; $('tok-err').hidden = false;
     } finally { ok.disabled = false; }
   });
-  const signin = () => (hf.oauthAvailable() ? hf.oauthStart() : openTokenDialog());
-  $('acc-oauth').addEventListener('click', () => hf.oauthStart());
+  const oauth = () => hf.oauthStart().catch((e) => toast(e.kind === 'storage'
+    ? 'Der Browser erlaubt hier keinen Speicher. Bitte öffne die App in einem normalen Fenster.'
+    : 'Die Anmeldung hat nicht geklappt. Bitte noch einmal.', 5000));
+  const signin = () => (hf.oauthAvailable() && !app.framed ? oauth() : openTokenDialog());
+  $('acc-oauth').addEventListener('click', oauth);
   $('acc-token').addEventListener('click', openTokenDialog);
   $('start-signin').addEventListener('click', signin);
   $('acc-signout').addEventListener('click', () => { hf.signOut(); renderSettings(); toast('Abgemeldet. Deine Zeilen bleiben auf diesem Gerät.'); });
-  window.addEventListener('hw-auth', () => { renderAccount(); updateWaiting(); });
+  window.addEventListener('hw-auth', () => { syncRemoteUser(); renderAccount(); updateWaiting(); });
+  window.addEventListener('hw-auth-expired', () => {
+    syncRemoteUser(); renderAccount(); updateWaiting();
+    toast('Die Anmeldung ist abgelaufen. Bitte melde dich neu an. Deine Zeilen bleiben gespeichert.', 6000);
+  });
 }
 
 function wireRepoDialog() {
   const d = $('dlg-repo');
-  $('repo-later').addEventListener('click', () => d.close());
+  $('repo-later').addEventListener('click', () => { app.repoDialogDismissed = true; d.close(); });
   $('repo-create').addEventListener('click', async () => {
     const b = $('repo-create');
     if (b.disabled) return;
@@ -192,9 +238,11 @@ function wireRepoDialog() {
       toast('Angelegt. Deine Zeilen werden jetzt hochgeladen.');
       outbox.flush('repo-created');
     } catch (e) {
-      $('repo-err').textContent = e.kind === 'forbidden' || e.kind === 'auth'
-        ? 'Dein Zugang darf nichts anlegen. Melde dich mit Schreibrecht an.'
-        : 'Das Anlegen hat nicht geklappt. Bitte später noch einmal.';
+      $('repo-err').textContent = e.kind === 'conflict'
+        ? 'Die Ablage gibt es schon, aber dein Zugang darf sie nicht sehen. Melde dich mit einem Schlüssel an, der Schreibrecht für dein Konto hat.'
+        : e.kind === 'forbidden' || e.kind === 'auth'
+          ? 'Dein Zugang darf nichts anlegen. Melde dich mit Schreibrecht an.'
+          : 'Das Anlegen hat nicht geklappt. Bitte später noch einmal.';
       $('repo-err').hidden = false;
     } finally { b.disabled = false; }
   });
@@ -206,7 +254,7 @@ const ROUTES = ['start', 'erfassen', 'schreiben', 'einstellungen'];
 
 async function route() {
   let r = (location.hash.match(/^#\/([a-z]+)/) || [])[1];
-  if (!ROUTES.includes(r)) r = (await store.kvGet('firstRunDone', false)) ? 'erfassen' : 'start';
+  if (!ROUTES.includes(r)) r = (await store.kvGet('firstRunDone', false).catch(() => true)) ? 'erfassen' : 'start';
   if (r !== (location.hash.match(/^#\/([a-z]+)/) || [])[1]) { history.replaceState(null, '', `#/${r}`); }
   if (app.route === 'erfassen' && r !== 'erfassen') app.capture.hide();
   app.route = r;
@@ -222,17 +270,38 @@ async function route() {
 
 // ---------- boot ----------
 
+function showNoStorage() {
+  for (const v of document.querySelectorAll('.view')) v.hidden = v.id !== 'v-nostore';
+  document.body.dataset.route = 'nostore';
+  $('bar').hidden = true;
+}
+
 async function boot() {
   document.addEventListener('contextmenu', (e) => { if (e.target.closest('#v-erfassen')) e.preventDefault(); });
+
+  // Inside the huggingface.co/spaces page the app runs in an iframe, maybe with its own
+  // storage: sign-in and install belong on the direct URL.
+  try { app.framed = window.top !== window.self; } catch (_) { app.framed = true; }
+  if (app.framed) {
+    $('framed-link').href = location.origin + location.pathname;
+    $('framed-note').hidden = false;
+  }
+
+  try { await store.check(); } catch (e) { console.error(e); showNoStorage(); return; }
 
   try {
     const name = await hf.oauthHandleRedirect();
     if (name) setTimeout(() => afterSignIn(name), 0);
-  } catch (e) { toast('Die Anmeldung hat nicht geklappt. Bitte noch einmal.'); }
+  } catch (e) {
+    toast(e.kind === 'cancelled' ? 'Anmeldung abgebrochen.' : 'Die Anmeldung hat nicht geklappt. Bitte noch einmal.');
+  }
 
   app.settings = Object.assign(app.settings, await store.kvGet('settings', {}));
   app.skipped = new Set(await store.kvGet('skipped', []));
-  app.remoteDone = new Set(await store.kvGet('remoteDone', []));
+  const rd = await store.kvGet('remoteDone', null);
+  app.remoteUser = hf.userName();
+  // Older builds stored a bare list without the account: it cannot be trusted, start empty.
+  app.remoteDone = new Set(rd && !Array.isArray(rd) && rd.user === app.remoteUser ? rd.ids : []);
   await loadLocalDone();
   app.prompts = await loadPrompts(CFG.promptsUrl);
 
@@ -259,10 +328,14 @@ async function boot() {
 
   outbox.install();
   outbox.onChange((type, d) => {
-    if (type === 'uploaded') { for (const id of d.promptIds) app.remoteDone.add(id); store.kvSet('remoteDone', [...app.remoteDone]); }
+    if (type === 'uploaded') { syncRemoteUser(); for (const id of d.promptIds) app.remoteDone.add(id); saveRemoteDone(); }
+    if (type === 'all-uploaded') toast('Alles hochgeladen.');
     if (type === 'auth-required') toast('Bitte melde dich neu an. Deine Zeilen bleiben gespeichert.', 5000);
     if (type === 'forbidden') toast('Dein Zugang darf nicht hochladen. Melde dich mit Schreibrecht an.', 5000);
-    if (type === 'repo-missing' && !$('dlg-repo').open) { $('repo-err').hidden = true; $('dlg-repo').showModal(); }
+    // After "Später" the dialog comes back only when the writer asks to upload.
+    if (type === 'repo-missing' && !$('dlg-repo').open && (!app.repoDialogDismissed || d.reason === 'manual')) {
+      $('repo-err').hidden = true; $('dlg-repo').showModal();
+    }
     updateWaiting();
   });
 
@@ -298,7 +371,12 @@ async function boot() {
 
   app.persisted = await store.requestPersist();
   if ('serviceWorker' in navigator && window.isSecureContext) {
-    navigator.serviceWorker.register('sw.js').then((reg) => {
+    // A new worker taking over means new code on disk; the running page is still the old one.
+    const hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (hadController) toast('Es gibt eine neue Version. Bitte die App einmal schließen und neu öffnen.', 8000);
+    });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
       app.swState = 'wird eingerichtet';
       const ready = () => { app.swState = 'bereit'; };
       if (reg.active) ready();

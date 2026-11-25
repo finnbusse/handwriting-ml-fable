@@ -30,6 +30,7 @@ export function createRecorder(canvas, opts = {}) {
   let cur = null;
   let rect = null;
   let lastT = -Infinity;   // last stored (rounded) t, over the whole line
+  let lastDropKey = '';    // last sample counted in same_t_dropped
   let rawSamples = 0;      // samples that arrived first through pointerrawupdate
   let types = {};
   let anomalies;
@@ -47,7 +48,11 @@ export function createRecorder(canvas, opts = {}) {
     const t = r2(e.timeStamp - timeBase);
     if (!(t > lastT)) {               // de-dup rawupdate vs pointermove; drop stale samples
       if (t < lastT) anomalies.non_monotonic++;
-      else if (sameTimeDifferent(e)) anomalies.same_t_dropped++;   // a distinct sample at an equal t
+      else if (sameTimeDifferent(e)) {           // a distinct sample at an equal t
+        // pointerrawupdate and pointermove deliver the same sample twice: count it once.
+        const key = `${t}|${e.clientX}|${e.clientY}|${e.pressure}`;
+        if (key !== lastDropKey) { anomalies.same_t_dropped++; lastDropKey = key; }
+      }
       return false;
     }
     lastT = t;
