@@ -90,9 +90,10 @@ def svg_path(ink: Ink, precision: int = 1) -> str:
 
 
 def draw(ax, ink: Ink, color="k", lw=1.2, title: str | None = None):
+    tiny = 0.02 * max(float(np.ptp(ink.points[:, 1])), 1e-9)   # a tap: full stop, i-dot
     for s in ink.strokes():
-        if len(s) == 1:
-            ax.plot(s[:, 0], -s[:, 1], ".", color=color, ms=lw * 1.5)
+        if len(s) == 1 or max(np.ptp(s[:, 0]), np.ptp(s[:, 1])) < tiny:
+            ax.plot([s[:, 0].mean()], [-s[:, 1].mean()], "o", color=color, ms=lw * 2, mew=0)
         else:
             ax.plot(s[:, 0], -s[:, 1], "-", color=color, lw=lw, solid_capstyle="round")
     ax.set_aspect("equal")

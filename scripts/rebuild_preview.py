@@ -28,6 +28,10 @@ COLUMNS = ["file_name", "text", "writer", "date", "prompt", "status", "notes", "
            "seconds", "pen_rate_hz", "pen", "paper"]
 
 
+DOT_PX = 1.5   # strokes smaller than this (canvas px) are drawn as dots
+DOT_PT = 2.4   # their diameter in points
+
+
 def render(strokes, height_px: int = 150) -> bytes:
     """One written line as a PNG (dark ink on white), cropped to the ink."""
     import matplotlib
@@ -43,8 +47,10 @@ def render(strokes, height_px: int = 150) -> bytes:
     ax = fig.add_axes([0, 0, 1, 1])
     for s in strokes:
         x, y = np.asarray(s["x"], dtype=float), -np.asarray(s["y"], dtype=float)
-        if len(x) == 1:
-            ax.plot(x, y, ".", color="#16233f", ms=2.5)
+        if len(x) == 1 or max(np.ptp(x), np.ptp(y)) < DOT_PX:
+            # a full stop or an i-dot is often a tap of a few milliseconds that hardly
+            # moves; drawn as a line it would be invisible
+            ax.plot([x.mean()], [y.mean()], "o", color="#16233f", ms=DOT_PT, mew=0)
         else:
             ax.plot(x, y, "-", color="#16233f", lw=1.3, solid_capstyle="round", solid_joinstyle="round")
     ax.set_xlim(xs.min() - pad, xs.max() + pad)
