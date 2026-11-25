@@ -27,8 +27,10 @@ async function unit() {
   L.check('unit: layout_changed', qa.check({ text: 'a', strokes: [st(10, 100)], canvas: [1000, 300], layoutChanged: true }).includes('layout_changed'));
   L.check('unit: every flag has a German hint', ['stroke_count_low', 'stroke_count_high', 'stray_stroke', 'out_of_bounds', 'pointercancel', 'button_pressed', 'low_rate', 'layout_changed'].every((f) => qa.HINTS[f]));
   const id = '3f0c9d1e-6c1b-4b0e-9a57-2d0a3c1f7e11';
-  L.check('unit: prompt id recovered from path', store.promptIdFromPath(`raw/v1/abc/de-core-0042__${id}.json`) === 'de-core-0042');
-  L.check('unit: foreign paths ignored', store.promptIdFromPath(`raw/v1/abc/${id}.json`) === null && store.promptIdFromPath('README.md') === null);
+  L.check('unit: prompt id recovered from path', store.promptIdFromPath(`raw/v1/finn/abc/de-core-0042__${id}.json`) === 'de-core-0042');
+  L.check('unit: foreign paths ignored', store.promptIdFromPath(`raw/v1/finn/abc/${id}.json`) === null && store.promptIdFromPath('README.md') === null && store.promptIdFromPath(`raw/v1/abc/de-core-0042__${id}.json`) === null);
+  L.check('unit: path only counts for its own writer', store.promptIdFromPath(`raw/v1/finn/abc/de-core-0042__${id}.json`, 'finn') === 'de-core-0042' && store.promptIdFromPath(`raw/v1/finn/abc/de-core-0042__${id}.json`, 'lena') === null && store.promptIdFromPath(`raw/v1/finn-x/abc/de-core-0042__${id}.json`, 'finn') === null);
+  L.check('unit: linePath has the writer folder', store.linePath({ writer_id: 'finn', session_id: 's1', id, prompt: { id: 'p1' } }) === `raw/v1/finn/s1/p1__${id}.json`);
   const P = [{ id: 'a', block: 1 }, { id: 'b', block: 1 }, { id: 'c', block: 2 }];
   L.check('unit: next prompt skips skipped ones', prompts.nextPrompt(P, new Set(), new Set(['a'])).id === 'b');
   L.check('unit: skipped prompt comes back when the block is otherwise done', prompts.nextPrompt(P, new Set(['b']), new Set(['a'])).id === 'a');
@@ -60,7 +62,7 @@ async function writeLine(page, cdp, nStrokes, stray) {
   const server = await L.start();
   const browser = await L.launch();
   try {
-    const { page, cdp, errors } = await L.newApp(browser, server, { hash: '#/erfassen' });
+    const { page, cdp, errors } = await L.newApp(browser, server, { hash: '#/erfassen', writer: 'Finn' });
     await page.waitForSelector('#cap[data-state="write"]');
     await page.waitForTimeout(150);
     const chars = (t) => [...t].filter((c) => !/\s/.test(c)).length;

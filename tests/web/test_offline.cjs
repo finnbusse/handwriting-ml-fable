@@ -25,19 +25,19 @@ function promptIds() {
       if (u.pathname === `/api/datasets/${L.FAKE_USER}/handwriting-fable/tree/main/raw/v1`) {
         treeCalls.push(req.url);
         if (u.searchParams.get('cursor') === 'p2') {
-          return { status: 200, body: [{ type: 'file', path: `raw/v1/s2/${ids[1]}__${uuid(2)}.json` }] };
+          return { status: 200, body: [{ type: 'file', path: `raw/v1/finn/s2/${ids[1]}__${uuid(2)}.json` }, { type: 'file', path: `raw/v1/lena/s3/${ids[2]}__${uuid(3)}.json` }] };
         }
         return { status: 200, headers: { link: `<https://huggingface.co${u.pathname}?recursive=true&expand=false&cursor=p2>; rel="next"` },
-                 body: [{ type: 'directory', path: 'raw/v1/s1' }, { type: 'file', path: `raw/v1/s1/${ids[0]}__${uuid(1)}.json` }, { type: 'file', path: 'raw/v1/s1/notes.txt' }] };
+                 body: [{ type: 'directory', path: 'raw/v1/finn' }, { type: 'file', path: `raw/v1/finn/s1/${ids[0]}__${uuid(1)}.json` }, { type: 'file', path: 'raw/v1/finn/s1/notes.txt' }, { type: 'file', path: `raw/v1/lena/s3/${ids[0]}__${uuid(4)}.json` }, { type: 'file', path: `raw/v1/${ids[1]}__${uuid(5)}.json` }] };
       }
       return null;
     };
     {
-      const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/erfassen', signedIn: true, hf });
+      const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/erfassen', signedIn: true, hf, writer: 'Finn' });
       await page.waitForSelector('#cap[data-state="write"]');
-      await L.until(async () => (await page.textContent('#cap-total')).startsWith('2 geschafft'));
+      await L.until(async () => (await page.textContent('#cap-total')).startsWith('2 Zeilen geschrieben'));
       L.check('tree listing followed both pages', treeCalls.length === 2 && treeCalls[0].includes('recursive=true'), treeCalls.join(' '));
-      L.check('progress restored from file names: 2 done', (await page.textContent('#cap-total')).startsWith('2 geschafft'), await page.textContent('#cap-total'));
+      L.check('progress restored from file names: 2 done (only this writer's folder)', (await page.textContent('#cap-total')).startsWith('2 Zeilen geschrieben'), await page.textContent('#cap-total'));
       const shown = await page.evaluate(() => window.__hw.app.prompts.prompts.find((p) => p.text === document.getElementById('cap-prompt').textContent).id);
       L.check('next prompt is the first one not in the dataset', shown === ids[2], shown);
       L.check('Zeile 3 of block 1', /Block 1 · Zeile 3 von/.test(await page.textContent('#cap-progress')));
@@ -46,7 +46,7 @@ function promptIds() {
     }
     {
       // A dataset that does not exist yet (404) is fine.
-      const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/erfassen', signedIn: true, hf: (r) => (new URL(r.url).pathname.includes('/tree/') ? { status: 404 } : null) });
+      const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/erfassen', signedIn: true, hf: (r) => (new URL(r.url).pathname.includes('/tree/') ? { status: 404 } : null), writer: 'Finn' });
       await page.waitForSelector('#cap[data-state="write"]');
       await page.waitForTimeout(300);
       L.check('404 on the listing: starts at line 1', /Zeile 1 von/.test(await page.textContent('#cap-progress')));
@@ -78,7 +78,7 @@ function promptIds() {
     {
       // A Link: rel="next" pointing elsewhere must not receive the token.
       const seen = [];
-      const { page, ctx } = await L.newApp(browser, server, { hash: '#/erfassen', signedIn: true, hf: (r) => {
+      const { page, ctx } = await L.newApp(browser, server, { hash: '#/erfassen', signedIn: true, writer: 'Finn', hf: (r) => {
         const u = new URL(r.url);
         if (u.pathname === '/api/whoami-v2') return { status: 200, body: { name: L.FAKE_USER } };
         if (u.pathname.includes('/tree/')) return { status: 200, headers: { link: '<https://evil.example/steal?x=1>; rel="next"' }, body: [] };
@@ -91,7 +91,7 @@ function promptIds() {
     }
 
     // ---- offline start ----
-    const { page, ctx } = await L.newApp(browser, server, { hash: '#/erfassen', serviceWorkers: 'allow' });
+    const { page, ctx } = await L.newApp(browser, server, { hash: '#/erfassen', serviceWorkers: 'allow', writer: 'Finn' });
     await page.evaluate(() => navigator.serviceWorker.ready);
     await L.until(() => page.evaluate(() => !!navigator.serviceWorker.controller), 10000);
     const cacheNames = await page.evaluate(() => caches.keys());

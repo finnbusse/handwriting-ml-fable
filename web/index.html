@@ -70,6 +70,11 @@
         <li><span class="step-n">2</span><div><strong>Die Zeile so schreiben wie immer</strong><span>Nicht schöner, nicht langsamer. Einfach auf die Linie.</span></div></li>
         <li><span class="step-n">3</span><div><strong>„Fertig“ tippen</strong><span>Du siehst die Zeile noch einmal und bestätigst sie.</span></div></li>
       </ol>
+      <div class="who">
+        <label class="field" for="start-writer"><span>Wer schreibt?</span>
+          <input id="start-writer" type="text" autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="40" placeholder="Name oder Kürzel"></label>
+        <p class="err" id="start-err" role="alert" hidden>Bitte gib einen Namen oder ein Kürzel ein.</p>
+      </div>
       <div class="start-actions">
         <button class="btn primary" id="start-go" type="button">Los geht’s</button>
         <button class="btn quiet" id="start-signin" type="button">Anmelden</button>
@@ -84,7 +89,7 @@
 
       <div class="cap-write">
         <div class="cap-head">
-          <p class="progress"><span id="cap-progress">&nbsp;</span><span class="total" id="cap-total"></span></p>
+          <p class="progress"><span class="who-now" id="cap-writer"></span><span id="cap-progress">&nbsp;</span><span class="total" id="cap-total"></span></p>
           <div class="pbar" aria-hidden="true"><span id="cap-bar"></span></div>
           <p class="prompt" id="cap-prompt" aria-live="polite">&nbsp;</p>
         </div>
@@ -169,6 +174,22 @@
   <section class="view view-settings" id="v-einstellungen" hidden>
     <div class="settings">
       <h1>Einstellungen</h1>
+
+      <section class="group" aria-labelledby="g-writer">
+        <h2 id="g-writer">Wer schreibt?</h2>
+        <p>Gerade schreibt <strong id="wr-current"></strong>.</p>
+        <div class="choices" id="wr-list" role="radiogroup" aria-label="Wer schreibt?"></div>
+        <div class="row-actions wr-actions"><button class="btn" id="wr-add" type="button">Andere Person hinzufügen</button></div>
+        <form class="wr-form" id="wr-add-form" hidden>
+          <label class="field" for="wr-input"><span>Name oder Kürzel</span>
+            <input id="wr-input" type="text" autocomplete="off" autocapitalize="words" spellcheck="false" maxlength="40" placeholder="Name oder Kürzel"></label>
+          <p class="err" id="wr-err" role="alert" hidden>Bitte gib einen Namen oder ein Kürzel ein.</p>
+          <div class="actions">
+            <button class="btn" id="wr-cancel" type="button">Abbrechen</button>
+            <button class="btn primary" id="wr-ok" type="submit">Hinzufügen</button>
+          </div>
+        </form>
+      </section>
 
       <section class="group" aria-labelledby="g-account">
         <h2 id="g-account">Konto</h2>

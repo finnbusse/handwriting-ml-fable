@@ -48,7 +48,8 @@ async function upload(repo, batch) {
     return (await upload(repo, batch.slice(0, half))) || (await upload(repo, batch.slice(half)));
   }
   await store.markUploaded(batch.map((e) => e.id));
-  emit('uploaded', { ids: batch.map((e) => e.id), promptIds: batch.map((e) => e.prompt_id) });
+  emit('uploaded', { ids: batch.map((e) => e.id), promptIds: batch.map((e) => e.prompt_id),
+    done: batch.map((e) => ({ writer: e.record.writer_id, promptId: e.prompt_id })) });
   return null;
 }
 

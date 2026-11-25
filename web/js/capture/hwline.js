@@ -33,7 +33,7 @@ export function displayMode() {
 
 /**
  * ctx: {
- *   cfg, sessionId, seq, prompt:{id,set,text,lang}, status, flags, attempt, edits,
+ *   cfg, writer:{id,name}, sessionId, seq, prompt:{id,set,text,lang}, status, flags, attempt, edits,
  *   rec (recorder), canvasCss:[w,h], canvasPx:[w,h], dpr, guides, uaData, layoutInfo
  * }
  */
@@ -61,7 +61,8 @@ export function buildRecord(ctx) {
     id: ctx.id || uuid(),
     session_id: ctx.sessionId,
     seq: ctx.seq,
-    writer_id: ctx.cfg.writerId,
+    writer_id: ctx.writer.id,
+    writer_name: ctx.writer.name,
     created_at: new Date().toISOString(),
     tz_offset_min: -new Date().getTimezoneOffset(),
     app: { name: ctx.cfg.appName, version: ctx.cfg.version },
@@ -107,7 +108,7 @@ export function validate(r) {
   need(isObj(r), 'record is not an object');
   if (!isObj(r)) return err;
   need(r.schema === 'hwline/v1', 'schema');
-  for (const k of ['id', 'session_id', 'created_at', 'text']) need(typeof r[k] === 'string' && r[k], k);
+  for (const k of ['id', 'session_id', 'writer_id', 'created_at', 'text']) need(typeof r[k] === 'string' && r[k], k);
   need(isObj(r.app) && typeof r.app.name === 'string' && typeof r.app.version === 'string', 'app');
   need(isObj(r.prompt) && typeof r.prompt.id === 'string' && typeof r.prompt.text === 'string', 'prompt');
   need(r.status === 'accepted' || r.status === 'flagged', 'status');

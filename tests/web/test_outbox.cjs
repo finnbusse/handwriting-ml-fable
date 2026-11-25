@@ -36,7 +36,7 @@ const L = require('./lib.cjs');
     return null;
   };
   try {
-    const { page, cdp, errors } = await L.newApp(browser, server, { hash: '#/erfassen', signedIn: true, hf });
+    const { page, cdp, errors } = await L.newApp(browser, server, { hash: '#/erfassen', signedIn: true, hf, writer: 'Finn' });
     await page.waitForSelector('#cap[data-state="write"]');
     await page.waitForTimeout(150);
     const queued = () => page.evaluate(() => window.__hw.store.countQueued());
@@ -98,7 +98,7 @@ const L = require('./lib.cjs');
     L.check('one NDJSON body: header + 5 files', nd.length === 6 && nd[0].key === 'header' && nd[0].value.summary === 'Erfassung: 5 Zeilen' && nd.slice(1).every((x) => x.key === 'file' && x.value.encoding === 'utf-8'), nd[0] && JSON.stringify(nd[0]));
     const entries = await L.lines(page);
     const byPath = new Map(entries.map((e) => [e.path, e]));
-    L.check('file paths are raw/v1/<session>/<prompt>__<id>.json of the stored lines', nd.slice(1).every((x) => byPath.has(x.value.path)));
+    L.check('file paths are raw/v1/<writer>/<session>/<prompt>__<id>.json of the stored lines', nd.slice(1).every((x) => byPath.has(x.value.path) && /^raw\/v1\/finn\/[^/]+\/[^/]+__[0-9a-f-]{36}\.json$/.test(x.value.path)));
     L.check('file content is the stored record', nd.slice(1).every((x) => JSON.parse(x.value.content).id === byPath.get(x.value.path).id));
     L.check('lines marked uploaded only after 2xx', entries.every((e) => e.state === 'uploaded' && e.uploaded_at), entries.map((e) => e.state).join());
     L.check('indicator hidden when nothing waits', await page.isHidden('#waiting'));

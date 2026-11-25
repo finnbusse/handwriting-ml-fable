@@ -7,7 +7,7 @@ const VERSION = self.HW_CONFIG.version;
 const CACHE = `hw-shell-${VERSION}`;
 const SHELL = [
   './', 'index.html', 'styles.css', 'config.js', 'manifest.webmanifest',
-  'js/main.js', 'js/hf.js', 'js/store.js', 'js/outbox.js', 'js/prompts.js',
+  'js/main.js', 'js/writer.js', 'js/hf.js', 'js/store.js', 'js/outbox.js', 'js/prompts.js',
   'js/capture/recorder.js', 'js/capture/hwline.js', 'js/capture/qa.js', 'js/capture/view.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
 ];

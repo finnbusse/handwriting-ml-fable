@@ -125,6 +125,9 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 }
 .start-actions { margin-top: 44px; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .start-actions .btn.primary { min-width: 200px; }
+.who { margin-top: 36px; max-width: 420px; }
+.who .field span { font-size: 19px; font-weight: 600; color: var(--ink); }
+.who .err { margin-top: 10px !important; }
 .fine { margin-top: 14px; font-size: 15px; color: var(--muted); max-width: 52ch; }
 
 /* ---------- capture ---------- */
@@ -142,8 +145,10 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 
 .cap-write { flex: 1; flex-direction: column; min-height: 0; }
 .cap-head { padding: 4px 0 0; }
-.progress { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.progress .total { opacity: .8; }
+.progress { display: flex; flex-wrap: wrap; gap: 4px 8px; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.progress .who-now { font-weight: 600; }
+.progress .who-now:not(:empty)::after { content: " ·"; font-weight: 400; }
+.progress .total { opacity: .8; margin-left: 10px; }
 .pbar { height: 3px; margin-top: 6px; border-radius: 2px; background: var(--line); overflow: hidden; max-width: 320px; }
 .pbar span { display: block; height: 100%; width: 0; background: var(--accent); border-radius: 2px; transition: width .3s; }
 .prompt {
@@ -240,6 +245,18 @@ input[role="switch"]::after {
 input[role="switch"]:checked { background: var(--accent); }
 input[role="switch"]:checked::after { transform: translateX(24px); }
 @media (max-width: 560px) { .kv { grid-template-columns: 1fr; gap: 0; } .kv dd { margin-bottom: 8px; } }
+
+.choices { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin-top: 14px; }
+.choice {
+  appearance: none; font: inherit; font-size: 20px; font-weight: 500; color: var(--ink); text-align: left;
+  min-height: 64px; padding: 0 20px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--sheet); border: 1.5px solid var(--line); border-radius: 16px; cursor: pointer; touch-action: manipulation;
+}
+.choice span { overflow-wrap: anywhere; }
+.choice[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.choice .ic { color: var(--accent); }
+.wr-actions { margin-top: 14px; }
+.wr-form { margin-top: 16px; max-width: 420px; }
 
 /* ---------- dialogs ---------- */
 .dlg {

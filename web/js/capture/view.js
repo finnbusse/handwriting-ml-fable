@@ -100,9 +100,11 @@ export function createCaptureView(deps) {
     const { prompts } = deps.prompts();
     const p = progressOf(prompts, deps.doneIds(), current);
     const extra = current && p.block > goalBlocks();
+    const w = deps.writer();
+    $('cap-writer').textContent = w ? w.name : '';
     $('cap-progress').textContent = current
       ? `${extra ? 'Extra-Block' : 'Block'} ${extra ? p.block - goalBlocks() : p.block} · Zeile ${Math.min(p.index, p.size)} von ${p.size}` : '';
-    $('cap-total').textContent = p.done ? `${p.done} geschafft` : '';
+    $('cap-total').textContent = p.done ? `${p.done} ${p.done === 1 ? 'Zeile' : 'Zeilen'} geschrieben` : '';
     $('cap-bar').style.width = current ? `${Math.round(((Math.min(p.index, p.size) - 1) / p.size) * 100)}%` : '0%';
     return p;
   }
@@ -439,8 +441,10 @@ export function createCaptureView(deps) {
     // Size, DPR and guides as they were when the line was written, never the live values:
     // the sheet may have been resized (or measured as 0x0) while this screen was open.
     const ls = lineLayout.size;
+    const writer = deps.writer();
+    if (!writer) { toast('Bitte wähle zuerst in den Einstellungen, wer schreibt.', 6000); return; }
     const record = buildRecord({
-      cfg, sessionId: session.id, seq: session.seq, prompt: current, flags,
+      cfg, writer, sessionId: session.id, seq: session.seq, prompt: current, flags,
       attempt: attempts[current.id] || 1, edits, rec,
       canvasCss: [ls.w, ls.h], canvasPx: ls.px.slice(), dpr: ls.dpr, guides: Object.assign({}, lineLayout.guides),
       uaData: deps.uaData(),
@@ -482,6 +486,14 @@ export function createCaptureView(deps) {
   // ---------- public ----------
 
   return {
+    /** A different person writes: new session, nothing of the old line or the old progress stays. */
+    newSession() {
+      session = { id: uuid(), seq: 0 };
+      attempts = {};
+      current = null;
+      if (state !== 'nocaps') { resetLine(); setState('loading'); }
+      if (visible) this.show();
+    },
     show() {
       visible = true;
       acquireWakeLock();

@@ -8,6 +8,17 @@ const L = require('./lib.cjs');
     const { page, cdp, errors, hfLog } = await L.newApp(browser, server);
 
     L.check('first run shows the start screen', await page.isVisible('#v-start'));
+    L.check('start screen asks "Wer schreibt?" with a text field and the placeholder', (await page.textContent('#v-start .who')).includes('Wer schreibt?') && (await page.getAttribute('#start-writer', 'placeholder')) === 'Name oder Kürzel');
+    await page.click('#start-go');
+    await page.waitForTimeout(150);
+    L.check('"Los geht\'s" without a name stays on the start screen with a hint', (await page.isVisible('#v-start')) && (await page.isVisible('#start-err')) && !page.url().endsWith('#/erfassen'));
+    await page.evaluate(() => { location.hash = '#/erfassen'; });
+    await page.waitForTimeout(200);
+    L.check('no recording without a writer: the capture route leads back to the start screen', (await page.isVisible('#v-start')) && (await page.isHidden('#v-erfassen')) && (await page.evaluate(() => window.__hw.app.writer)) === null);
+    L.check('no recording without a writer: storing a line without writer_id is refused', await page.evaluate(async () => {
+      try { await window.__hw.store.putLine({ id: 'x', session_id: 's', prompt: { id: 'p' }, created_at: '' }); return false; } catch (_) { return true; }
+    }));
+    await page.fill('#start-writer', '  Finn Müller ');
     await page.click('#start-go');
     await page.waitForSelector('#cap[data-state="write"]');
     L.check('"Los geht\'s" opens the capture screen', page.url().endsWith('#/erfassen'));
@@ -16,6 +27,9 @@ const L = require('./lib.cjs');
     const prompt = await page.textContent('#cap-prompt');
     const progress = await page.textContent('#cap-progress');
     L.check('progress reads "Block 1 · Zeile 1 von N"', /^Block 1 · Zeile 1 von \d+$/.test(progress), progress);
+    L.check('capture screen shows the writer next to the progress', (await page.textContent('#cap-writer')) === 'Finn Müller' && (await page.evaluate(() => getComputedStyle(document.querySelector('#cap-writer'), '::after').content)).includes('·'));
+    L.check('no text input on the capture screen', (await page.$$('#v-erfassen input, #v-erfassen textarea, #v-erfassen [contenteditable]')).length === 0);
+    L.check('nothing written yet: no "geschrieben" count', (await page.textContent('#cap-total')) === '');
     const rect = await L.canvasRect(page);
     const base = rect.top + rect.height * 0.64;
     const p = L.pen(cdp);
@@ -50,7 +64,9 @@ const L = require('./lib.cjs');
     L.check('app validator agrees', appErr.length === 0, appErr.join('; '));
     L.check('prompt and text match the shown prompt', r.prompt.text === prompt && r.text === prompt);
     L.check('stored as queued in the outbox', entry.state === 'queued');
-    L.check('path contains session, prompt id and line id', entry.path === `raw/v1/${r.session_id}/${r.prompt.id}__${r.id}.json`, entry.path);
+    L.check('record carries writer_id (slug) and writer_name (as typed)', r.writer_id === 'finn-mueller' && r.writer_name === 'Finn Müller', `${r.writer_id} / ${r.writer_name}`);
+    L.check('path contains writer, session, prompt id and line id', entry.path === `raw/v1/finn-mueller/${r.session_id}/${r.prompt.id}__${r.id}.json`, entry.path);
+    L.check('"1 Zeile geschrieben" after the first line', (await page.textContent('#cap-total')) === '1 Zeile geschrieben', await page.textContent('#cap-total'));
     L.check('exactly 3 strokes', r.strokes.length === 3, String(r.strokes.length));
 
     let samplesOk = true, detail = '';
@@ -156,7 +172,7 @@ const L = require('./lib.cjs');
     const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#backup')]);
     const text = require('fs').readFileSync(await dl.path(), 'utf8');
     const rows = text.trim().split('\n').map((l) => JSON.parse(l));
-    L.check('backup .jsonl holds every local line', rows.length === 1 && rows[0].id === r.id && /\.jsonl$/.test(dl.suggestedFilename()));
+    L.check('backup .jsonl holds every local line', rows.length === 1 && rows[0].id === r.id && rows[0].writer_id === 'finn-mueller' && rows[0].writer_name === 'Finn Müller' && /\.jsonl$/.test(dl.suggestedFilename()));
 
     // Regression: resize / fullscreen exit / return-to-visible while the confirm screen is
     // open must not change the stored geometry (it once became 1x1).

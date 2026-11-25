@@ -63,7 +63,28 @@ async function newApp(browser, server, opts = {}) {
   const cdp = await ctx.newCDPSession(page);
   await page.goto(opts.url || server.url + (opts.hash || ''));
   await page.waitForFunction(() => window.__hwReady).then(() => page.evaluate(() => window.__hwReady));
+  if (opts.writer) await setWriter(page, opts.writer);
   return { ctx, page, cdp, hfLog, errors };
+}
+
+/** First-run flow: type a name on the start screen and begin. Ends on the capture screen. */
+async function setWriter(page, name) {
+  await page.waitForSelector('#v-start:not([hidden])');
+  await page.fill('#start-writer', name);
+  await page.click('#start-go');
+  await page.waitForSelector('#cap[data-state="write"]');
+}
+
+/** Switch to another person through the settings (known or new), then back to the capture screen. */
+async function switchWriter(page, name) {
+  await page.click('a[data-route="einstellungen"]');
+  await page.waitForSelector('#v-einstellungen:not([hidden])');
+  const known = await page.$(`#wr-list .choice:has-text("${name}")`);
+  if (known) await known.click();
+  else { await page.click('#wr-add'); await page.fill('#wr-input', name); await page.click('#wr-ok'); }
+  await page.waitForTimeout(150);
+  await page.click('a[data-route="erfassen"]');
+  await page.waitForSelector('#cap[data-state="write"]');
 }
 
 /** Pen helper. Coordinates are viewport CSS px. Timestamps spaced like a 480 Hz pen. */
@@ -160,4 +181,4 @@ async function shot(page, name) {
   await page.screenshot({ path: path.join(SHOTS, `${name}.png`) });
 }
 
-module.exports = { until, assert, launch, start, newApp, pen, glyph, canvasRect, settle, lines, schemaErrors, shot, check, summary, FAKE_TOKEN, FAKE_USER, SHOTS };
+module.exports = { setWriter, switchWriter, until, assert, launch, start, newApp, pen, glyph, canvasRect, settle, lines, schemaErrors, shot, check, summary, FAKE_TOKEN, FAKE_USER, SHOTS };

@@ -4,6 +4,7 @@ import * as store from './store.js';
 import * as hf from './hf.js';
 import * as outbox from './outbox.js';
 import { loadPrompts } from './prompts.js';
+import { makeWriter } from './writer.js';
 import { capabilities } from './capture/recorder.js';
 import { createCaptureView } from './capture/view.js';
 
@@ -12,9 +13,13 @@ const $ = (id) => document.getElementById(id);
 
 const app = {
   prompts: { set: '', prompts: [], fallback: true },
-  localDone: new Set(),
-  remoteDone: new Set(),
-  remoteUser: null,       // the account app.remoteDone belongs to
+  writers: [],            // known writers [{id, name}]
+  writer: null,           // the one who writes now {id, name}; recording needs one
+  localDone: new Set(),   // prompt ids of the current writer
+  remoteDone: new Set(),  // ... that exist in the dataset (current writer)
+  remoteAll: {},          // writer id -> prompt ids seen in the dataset
+  skippedAll: {},         // writer id -> prompt ids skipped
+  remoteUser: null,       // the account app.remoteAll belongs to
   repoDialogDismissed: false,
   framed: false,          // running inside the huggingface.co/spaces iframe
   skipped: new Set(),
@@ -83,9 +88,11 @@ async function renderUploadStatus(n) {
 
 // ---------- progress ----------
 
+/** Progress is per writer: only lines written by the current writer count. */
 async function loadLocalDone() {
   const all = await store.allLines();
-  app.localDone = new Set(all.map((e) => e.prompt_id));
+  const w = app.writer;
+  app.localDone = new Set(w ? all.filter((e) => e.record.writer_id === w.id).map((e) => e.prompt_id) : []);
 }
 
 /** Remote progress belongs to one account: a sign-out or a different account starts it empty. */
@@ -93,32 +100,110 @@ function syncRemoteUser() {
   const user = hf.userName();
   if (user === app.remoteUser) return;
   app.remoteUser = user;
+  app.remoteAll = {};
   app.remoteDone = new Set();
-  store.kvSet('remoteDone', { user, ids: [] }).catch(() => {});
+  store.kvSet('remoteDone', { user, by: {} }).catch(() => {});
   if (app.capture) app.capture.refresh();
 }
 
 function saveRemoteDone() {
-  return store.kvSet('remoteDone', { user: app.remoteUser, ids: [...app.remoteDone] }).catch(() => {});
+  const by = {};
+  for (const [id, set] of Object.entries(app.remoteAll)) by[id] = [...set];
+  return store.kvSet('remoteDone', { user: app.remoteUser, by }).catch(() => {});
 }
 
 async function refreshRemoteDone() {
   const repo = hf.datasetRepoId();
-  if (!repo || !navigator.onLine) return;
+  if (!repo || !navigator.onLine || !app.writer) return;
   syncRemoteUser();
+  const w = app.writer;
   try {
+    // One listing of raw/v1; only the files below this writer's folder count.
     const paths = await hf.listFiles(repo, 'raw/v1');
     const ids = new Set();
-    for (const p of paths || []) { const id = store.promptIdFromPath(p); if (id) ids.add(id); }
-    app.remoteDone = ids;
+    for (const p of paths || []) { const id = store.promptIdFromPath(p, w.id); if (id) ids.add(id); }
+    app.remoteAll[w.id] = ids;
     await saveRemoteDone();
-    if (app.capture) app.capture.refresh();
+    if (app.writer && app.writer.id === w.id) {      // not if somebody else started writing meanwhile
+      app.remoteDone = ids;
+      if (app.capture) app.capture.refresh();
+    }
   } catch (e) {
     // A 401 here often only means the dataset does not exist (yet) for this account.
     if (e.kind === 'auth' && (await hf.classify401(e)) === 'auth') {
       hf.signOut(); toast('Bitte melde dich neu an. Deine Zeilen bleiben gespeichert.');
     }
   }
+}
+
+// ---------- writers ----------
+
+const saveSkipped = () => {
+  if (app.writer) app.skippedAll[app.writer.id] = [...app.skipped];
+  return store.kvSet('skippedBy', app.skippedAll);
+};
+
+/** Make a typed name the current writer (adds it to the known writers when new).
+ *  Returns the writer, or null when no id can be made from the text. A switch starts
+ *  a new session and loads that writer's progress. */
+async function useWriter(text) {
+  const made = makeWriter(text);
+  if (!made) return null;
+  const w = app.writers.find((x) => x.id === made.id) || made;
+  if (!app.writers.some((x) => x.id === w.id)) {
+    app.writers.push(w);
+    await store.kvSet('writers', app.writers);
+  }
+  if (app.writer && app.writer.id === w.id) return w;
+  app.writer = w;
+  await store.kvSet('writer', w.id);
+  app.remoteDone = new Set(app.remoteAll[w.id] || []);
+  app.skipped = new Set(app.skippedAll[w.id] || []);
+  await loadLocalDone();
+  if (app.capture) app.capture.newSession();
+  refreshRemoteDone();
+  return w;
+}
+
+function renderWriters() {
+  const list = $('wr-list');
+  list.innerHTML = '';
+  for (const w of app.writers) {
+    const on = !!app.writer && app.writer.id === w.id;
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'choice'; b.dataset.writer = w.id;
+    b.setAttribute('role', 'radio'); b.setAttribute('aria-checked', on ? 'true' : 'false');
+    const name = document.createElement('span'); name.textContent = w.name;
+    b.append(name);
+    if (on) b.insertAdjacentHTML('beforeend', '<svg class="ic" aria-hidden="true"><use href="#i-check"/></svg>');
+    list.append(b);
+  }
+  $('wr-current').textContent = app.writer ? app.writer.name : 'niemand';
+}
+
+function wireWriters() {
+  $('wr-list').addEventListener('click', async (e) => {
+    const b = e.target.closest('button[data-writer]');
+    if (!b) return;
+    const w = app.writers.find((x) => x.id === b.dataset.writer);
+    if (!w || (app.writer && app.writer.id === w.id)) return;
+    await useWriter(w.name);
+    renderWriters();
+    toast(`Jetzt schreibt ${w.name}.`);
+  });
+  const open = (on) => {
+    $('wr-add-form').hidden = !on; $('wr-add').hidden = on; $('wr-err').hidden = true;
+    if (on) { $('wr-input').value = ''; $('wr-input').focus(); }
+  };
+  $('wr-add').addEventListener('click', () => open(true));
+  $('wr-cancel').addEventListener('click', () => open(false));
+  $('wr-add-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const w = await useWriter($('wr-input').value);
+    if (!w) { $('wr-err').hidden = false; return; }
+    open(false); renderWriters();
+    toast(`Jetzt schreibt ${w.name}.`);
+  });
 }
 
 // ---------- settings view ----------
@@ -170,6 +255,7 @@ async function renderDiagnostics() {
 }
 
 function renderSettings() {
+  renderWriters();
   renderAccount();
   $('allow-finger').checked = !!app.settings.allowFinger;
   updateWaiting();
@@ -255,6 +341,7 @@ const ROUTES = ['start', 'erfassen', 'schreiben', 'einstellungen'];
 async function route() {
   let r = (location.hash.match(/^#\/([a-z]+)/) || [])[1];
   if (!ROUTES.includes(r)) r = (await store.kvGet('firstRunDone', false).catch(() => true)) ? 'erfassen' : 'start';
+  if (r === 'erfassen' && !app.writer) r = 'start';       // no recording without a writer
   if (r !== (location.hash.match(/^#\/([a-z]+)/) || [])[1]) { history.replaceState(null, '', `#/${r}`); }
   if (app.route === 'erfassen' && r !== 'erfassen') app.capture.hide();
   app.route = r;
@@ -265,7 +352,7 @@ async function route() {
   }
   if (r === 'erfassen') app.capture.show();
   if (r === 'einstellungen') renderSettings();
-  if (r === 'start') renderAccount();
+  if (r === 'start') { renderAccount(); $('start-writer').value = app.writer ? app.writer.name : ''; $('start-err').hidden = true; }
 }
 
 // ---------- boot ----------
@@ -297,11 +384,18 @@ async function boot() {
   }
 
   app.settings = Object.assign(app.settings, await store.kvGet('settings', {}));
-  app.skipped = new Set(await store.kvGet('skipped', []));
+  app.writers = (await store.kvGet('writers', [])).filter((w) => w && w.id && w.name);
+  const wid = await store.kvGet('writer', null);
+  app.writer = app.writers.find((w) => w.id === wid) || null;
+  app.skippedAll = await store.kvGet('skippedBy', {});
+  app.skipped = new Set(app.writer ? app.skippedAll[app.writer.id] || [] : []);
   const rd = await store.kvGet('remoteDone', null);
   app.remoteUser = hf.userName();
-  // Older builds stored a bare list without the account: it cannot be trusted, start empty.
-  app.remoteDone = new Set(rd && !Array.isArray(rd) && rd.user === app.remoteUser ? rd.ids : []);
+  // Only a list kept for this very account can be trusted; anything else starts empty.
+  if (rd && rd.user === app.remoteUser && rd.by && typeof rd.by === 'object') {
+    for (const [id, ids] of Object.entries(rd.by)) app.remoteAll[id] = new Set(ids);
+  }
+  app.remoteDone = new Set(app.writer ? app.remoteAll[app.writer.id] || [] : []);
   await loadLocalDone();
   app.prompts = await loadPrompts(CFG.promptsUrl);
 
@@ -315,12 +409,13 @@ async function boot() {
     prompts: () => app.prompts,
     doneIds,
     skippedIds: () => app.skipped,
+    writer: () => app.writer,
     settings: () => app.settings,
     uaData: () => app.uaData,
-    skip: async (id) => { app.skipped.add(id); await store.kvSet('skipped', [...app.skipped]); },
+    skip: async (id) => { app.skipped.add(id); await saveSkipped(); },
     lineSaved: async (record) => {
-      app.localDone.add(record.prompt.id);
-      if (app.skipped.delete(record.prompt.id)) await store.kvSet('skipped', [...app.skipped]);
+      if (record.writer_id === (app.writer && app.writer.id)) app.localDone.add(record.prompt.id);
+      if (app.skipped.delete(record.prompt.id)) await saveSkipped();
       updateWaiting();
       if (app.persisted !== true) app.persisted = await store.requestPersist();
     },
@@ -328,7 +423,14 @@ async function boot() {
 
   outbox.install();
   outbox.onChange((type, d) => {
-    if (type === 'uploaded') { syncRemoteUser(); for (const id of d.promptIds) app.remoteDone.add(id); saveRemoteDone(); }
+    if (type === 'uploaded') {
+      syncRemoteUser();
+      for (const u of d.done) {
+        (app.remoteAll[u.writer] = app.remoteAll[u.writer] || new Set()).add(u.promptId);
+        if (app.writer && app.writer.id === u.writer) app.remoteDone.add(u.promptId);
+      }
+      saveRemoteDone();
+    }
     if (type === 'all-uploaded') toast('Alles hochgeladen.');
     if (type === 'auth-required') toast('Bitte melde dich neu an. Deine Zeilen bleiben gespeichert.', 5000);
     if (type === 'forbidden') toast('Dein Zugang darf nicht hochladen. Melde dich mit Schreibrecht an.', 5000);
@@ -342,11 +444,17 @@ async function boot() {
   wireSignIn();
   wireRepoDialog();
 
-  $('start-go').addEventListener('click', async () => {
+  wireWriters();
+  const startGo = async () => {
+    const w = await useWriter($('start-writer').value);
+    if (!w) { $('start-err').hidden = false; $('start-writer').focus(); return; }
     await store.kvSet('firstRunDone', true);
     app.capture.enterFullscreen();
     location.hash = '#/erfassen';
-  });
+  };
+  $('start-go').addEventListener('click', startGo);
+  $('start-writer').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); startGo(); } });
+  $('start-writer').addEventListener('input', () => { $('start-err').hidden = true; });
   $('allow-finger').addEventListener('change', async (e) => {
     app.settings.allowFinger = e.target.checked;
     app.capture.setPenOnly(!e.target.checked);

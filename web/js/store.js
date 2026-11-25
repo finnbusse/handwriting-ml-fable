@@ -43,22 +43,28 @@ const req2p = (req) => new Promise((resolve, reject) => {
   req.onerror = () => reject(req.error);
 });
 
-/** Path of a line inside the dataset. The prompt id is part of the file name
- *  so progress can be restored from a file listing alone (no downloads). */
+/** Path of a line inside the dataset: raw/v1/<writer_id>/<session_id>/<prompt_id>__<id>.json.
+ *  The prompt id is part of the file name so progress can be restored from a file
+ *  listing alone (no downloads), the writer id is the folder so it can be told per writer. */
 export function linePath(record) {
-  return `raw/v1/${record.session_id}/${record.prompt.id}__${record.id}.json`;
+  return `raw/v1/${record.writer_id}/${record.session_id}/${record.prompt.id}__${record.id}.json`;
 }
 
-/** Inverse of linePath: prompt id from a dataset path, or null. */
-export function promptIdFromPath(path) {
-  const m = /^raw\/v1\/[^/]+\/(.+)__[0-9a-fA-F-]{36}\.json$/.exec(path);
-  return m ? m[1] : null;
+/** Inverse of linePath: prompt id from a dataset path, or null. With writerId, only
+ *  paths below that writer's folder count. */
+export function promptIdFromPath(path, writerId = null) {
+  const m = /^raw\/v1\/([^/]+)\/[^/]+\/(.+)__[0-9a-fA-F-]{36}\.json$/.exec(path);
+  if (!m) return null;
+  if (writerId !== null && m[1] !== writerId) return null;
+  return m[2];
 }
 
 /** Store an accepted line. Resolves only once the transaction is durable. */
 export function putLine(record) {
+  // Every line belongs to a writer; without one nothing is stored.
+  if (!record.writer_id) return Promise.reject(new Error('no writer'));
   const entry = {
-    id: record.id, path: linePath(record), prompt_id: record.prompt.id,
+    id: record.id, path: linePath(record), prompt_id: record.prompt.id, writer_id: record.writer_id,
     state: 'queued', created_at: record.created_at, uploaded_at: null, record,
   };
   return open().then((db) => new Promise((resolve, reject) => {

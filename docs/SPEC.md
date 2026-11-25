@@ -71,13 +71,17 @@ Upload = one NDJSON POST per batch, plain `fetch`:
 POST https://huggingface.co/api/datasets/<user>/handwriting-fable/commit/main
 Authorization: Bearer <token>          Content-Type: application/x-ndjson
 {"key":"header","value":{"summary":"Erfassung: 12 Zeilen"}}
-{"key":"file","value":{"path":"raw/v1/<session_id>/<prompt_id>__<id>.json","content":"<json text>","encoding":"utf-8"}}
+{"key":"file","value":{"path":"raw/v1/<writer_id>/<session_id>/<prompt_id>__<id>.json","content":"<json text>","encoding":"utf-8"}}
 …
 ```
 
 One file per line; the path contains the line id, so a retried upload
-overwrites instead of duplicating, and the prompt id, so progress can be
-restored from a file listing alone. At most 25 lines per commit. Lines are
+overwrites instead of duplicating, the prompt id, so progress can be
+restored from a file listing alone, and the writer id (the folder), so that
+progress is told apart per writer. Several people may record on one device: a writer types a short
+name once, `writer_id` is its slug (lowercase, ä/ö/ü/ß as ae/oe/ue/ss, other characters reduced to
+`a-z 0-9 -`, at most 24 characters) and `writer_name` the name as typed; both are set on every record and a stored
+line keeps its writer. No writer is built into the app. At most 25 lines per commit. Lines are
 written to IndexedDB *before* any upload attempt and leave the outbox only
 after a 2xx answer. The outbox is flushed after every accepted line (debounced:
 when 5 lines are waiting, when the session ends, when the app starts, when the
@@ -123,7 +127,12 @@ Rules that come from measurements on this writer's earlier recordings:
   browser is not passing on the intermediate samples), layout change during the line.
 - Sessions of 20 lines with a progress display; the writer can stop at any
   time and continue later on any device (progress = which prompt ids already
-  exist in the dataset + the local outbox).
+  exist in the dataset under this writer's folder + this writer's lines in the
+  local outbox). Recording needs a current writer, asked for ("Wer schreibt?")
+  on the start screen and changeable in the settings, never on the capture
+  screen; switching starts a new session id. The capture screen shows the
+  writer's name next to the progress, and the number of lines written
+  instead of a total.
 - Fullscreen + landscape lock + screen wake lock where available; failures of
   these must never block recording.
 
