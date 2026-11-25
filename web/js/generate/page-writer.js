@@ -13,6 +13,7 @@ import { splitPieces, straighten, layoutPage, toXh, MAX_PIECE_CHARS } from './la
  */
 export function createPageWriter({ normalize, writePiece, xhModel, gapXh }) {
   let token = 0;
+  let lastLayout = null;   // re-lays out the pieces of the latest write()
 
   /** Returns the finished page, or null if a newer write() or cancel() superseded this one. */
   async function write(text, { bias = 0.8, width = 84, lineHeight = 6.5, margin = 3, top = 5, seed, onPiece, onProgress } = {}) {
@@ -25,14 +26,15 @@ export function createPageWriter({ normalize, writePiece, xhModel, gapXh }) {
     // when later pieces arrive.
     const gapDraws = [];
     const rows = paragraphs.map(() => []);
-    const relayout = () => {
+    const relayout = (over = {}) => {
       let cursor = 0;
       const normal = () => {
         while (gapDraws.length <= cursor) gapDraws.push(random.normal());
         return gapDraws[cursor++];
       };
-      return layoutPage(rows, { width, lineHeight, gap: gapXh, margin, top, normal });
+      return layoutPage(rows, { width: over.width ?? width, lineHeight: over.lineHeight ?? lineHeight, gap: gapXh, margin, top, normal });
     };
+    lastLayout = relayout;
     let page = relayout(), done = 0, drawn = 0;
     for (let k = 0; k < paragraphs.length; k++) {
       for (const pieceText of paragraphs[k]) {
@@ -50,5 +52,9 @@ export function createPageWriter({ normalize, writePiece, xhModel, gapXh }) {
     return page;
   }
 
-  return { write, cancel() { token++; } };
+  /** The pieces written so far by the latest write(), laid out again with another
+   *  width / line height (no new writing); null before the first write(). */
+  const relayout = (over) => (lastLayout ? lastLayout(over) : null);
+
+  return { write, relayout, cancel() { token++; } };
 }

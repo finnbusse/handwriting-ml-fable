@@ -57,7 +57,7 @@ function retryAfter(res) {
 
 const HF_ORIGIN = new URL(CFG.hfBase).origin;
 
-async function request(path, { method = 'GET', headers = {}, body, token, absolute = false, auth = true } = {}) {
+async function request(path, { method = 'GET', headers = {}, body, token, absolute = false, auth = true, signal } = {}) {
   const url = absolute ? path : CFG.hfBase + path;
   const h = Object.assign({}, headers);
   const tk = token || (getAuth() || {}).token;
@@ -67,8 +67,9 @@ async function request(path, { method = 'GET', headers = {}, body, token, absolu
   if (tk && auth && sameOrigin) h.Authorization = `Bearer ${tk}`;
   let res;
   try {
-    res = await fetch(url, { method, headers: h, body, cache: 'no-store', credentials: 'omit' });
+    res = await fetch(url, { method, headers: h, body, cache: 'no-store', credentials: 'omit', signal });
   } catch (e) {
+    if (signal && signal.aborted) throw new HfError('cancelled', 0, 'aborted');
     throw new HfError('network', 0, 'network error');
   }
   if (res.ok) return res;
@@ -220,7 +221,7 @@ export async function listFiles(repoId, path, { repoType = 'dataset', revision =
 }
 
 /** Download a (private) file as a Response. */
-export function downloadFile(repoId, path, { repoType = 'model', revision = 'main' } = {}) {
+export function downloadFile(repoId, path, { repoType = 'model', revision = 'main', signal } = {}) {
   const prefix = repoType === 'model' ? '' : `/${repoType}s`;
-  return request(`${prefix}/${repoId}/resolve/${revision}/${path}`);
+  return request(`${prefix}/${repoId}/resolve/${revision}/${path}`, { signal });
 }

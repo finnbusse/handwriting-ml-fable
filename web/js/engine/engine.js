@@ -125,6 +125,20 @@ export class HandwritingModel {
   }
 }
 
+/** The text normalizer without the weights: for code that only has the charset
+ *  (the page, while the network runs in a worker).  Same results as the methods
+ *  of HandwritingModel. */
+export function createNormalizer(charset) {
+  const index = new Map();
+  let i = 1;
+  for (const ch of charset) index.set(ch, i++);
+  const self = { index };
+  return {
+    normalize: (text) => HandwritingModel.prototype.normalize.call(self, text),
+    unsupported: (text) => HandwritingModel.prototype.unsupported.call(self, text),
+  };
+}
+
 export class Run {
   constructor(model, text, norm, tokens, nTail, bias) {
     const { H, K, V } = model;
