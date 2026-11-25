@@ -30,6 +30,37 @@ NEW_TEXTS = [
 ]
 
 
+def style_stats(inks):
+    """A few numbers that describe a hand: letter size relations, width, slant,
+    spacing, how often the pen lifts.  Inks in xh units."""
+    from hw import prep
+
+    xh, tall, width, slant, gaps, lifts = [], [], [], [], [], []
+    for ink in inks:
+        probe = ink.copy(kind="line")
+        a, b, _ = prep.baseline(probe)
+        h = prep.letter_heights(probe, a, b)
+        x = prep.fit_xheight(h, ink.text, 2.6)
+        if np.isfinite(x) and x > 0:
+            xh.append(x)
+            hi = h[h > 1.6 * x]
+            if len(hi):
+                tall.append(float(np.median(hi)) / x)
+        letters = max(len(ink.text.replace(" ", "")), 1)
+        width.append(float(np.ptp(ink.points[:, 0])) / max(len(ink.text), 1))
+        lifts.append(float(ink.points[:, 2].sum()) / letters)
+        d = np.diff(ink.points[:, :2], axis=0)[ink.points[:-1, 2] < 0.5]
+        steep = d[np.abs(d[:, 1]) > 2.0 * np.abs(d[:, 0])]
+        if len(steep) > 10:
+            slant.append(float(np.degrees(np.arctan(np.median(-steep[:, 0] / steep[:, 1])))))
+        g, _ = dataset.measure_gaps([probe])
+        if ink.text.count(" ") >= 2:
+            gaps.append(g)
+    med = lambda v: round(float(np.median(v)), 2) if v else None
+    return {"x_height": med(xh), "ascender_ratio": med(tall), "width_per_char": med(width),
+            "slant_deg": med(slant), "word_gap": med(gaps), "strokes_per_letter": med(lifts)}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("model_dir")
@@ -71,7 +102,11 @@ def main():
     done = [g.meta["finished"] for g in gen]
     ppc = [len(g) / max(len(g.text.replace(" ", "")), 1) for g in gen]
     print(json.dumps({"samples": len(gen), "finished": int(sum(done)),
+                      "ok_first_try": int(sum(g.meta.get("attempt", 1) == 1 and g.meta.get("ok", True) for g in gen)),
                       "points_per_char_median": round(float(np.median(ppc)), 1), "out": args.out}))
+    # the hand in numbers: the writer's real lines vs what the model wrote for the same texts
+    print("echt:  ", json.dumps(style_stats(real)))
+    print("modell:", json.dumps(style_stats(gen[: len(real)])))
 
 
 if __name__ == "__main__":
