@@ -62,6 +62,7 @@ class Corpus:
         self.composer = dataset.LineComposer(tw, gap_mean, gap_sd, max_points=max_points, seed=seed,
                                              special_chars=new_chars, special_share=special_share)
         self.train_real = self._real(tl)
+        self._queue: list[int] = []
         self.val_real = self._real(vl)
         self.val_lines = vl
         self.val_composed = dataset.LineComposer(vw, gap_mean, gap_sd, max_points=max_points).fixed(160)
@@ -86,10 +87,20 @@ class Corpus:
         toks = self.charset.encode(self.charset.normalize(ink.text))
         return seq, toks
 
-    def epoch(self, n_composed: int, real_repeat: int):
-        items = [self.encode(self.composer.sample(), True) for _ in range(n_composed)]
-        for _ in range(real_repeat):
-            items += [self.encode(i, True) for i in self.train_real]
+    def epoch(self, n_items: int, real_share: float, max_repeat: int = 6):
+        """One epoch's worth of training lines: real lines (cut into pieces) and
+        lines composed of single words.  Real lines are what the result should
+        look like, so they get `real_share` of the epoch -- but no piece more
+        than `max_repeat` times, so that a small set of lines is not learnt by
+        heart.  All pieces are used equally often over the epochs."""
+        n_real = min(round(n_items * real_share), max_repeat * len(self.train_real))
+        real = []
+        while len(real) < n_real:
+            if not self._queue:
+                self._queue = [int(k) for k in self.rng.permutation(len(self.train_real))]
+            real.append(self.train_real[self._queue.pop()])
+        items = [self.encode(i, True) for i in real]
+        items += [self.encode(self.composer.sample(), True) for _ in range(n_items - n_real)]
         return items
 
     def validation(self):
@@ -168,8 +179,9 @@ def main(argv=None):
     ap.add_argument("--no-legacy", action="store_true",
                     help="leave out the older datasets (they all belong to the main writer)")
     ap.add_argument("--epochs", type=int, default=40)
-    ap.add_argument("--composed", type=int, default=480, help="composed lines per epoch")
-    ap.add_argument("--real-repeat", type=int, default=4, help="passes over the real lines per epoch")
+    ap.add_argument("--epoch-items", type=int, default=960, help="training lines per epoch")
+    ap.add_argument("--real-share", type=float, default=0.7,
+                    help="share of an epoch taken from real written lines; the rest is composed of single words")
     ap.add_argument("--batch", type=int, default=12)
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--lr-final", type=float, default=2e-5)
@@ -243,7 +255,7 @@ def main(argv=None):
     new_idx = torch.arange(n_base, charset.size, device=device)
     boosted = [(model.lstm1.W_xh, 3 + new_idx), (model.lstm2.W_xh, 3 + H + new_idx),
                (model.lstm3.W_xh, 3 + H + new_idx)] if args.new_char_boost != 1.0 and len(new_idx) else []
-    steps_per_epoch = math.ceil((args.composed + args.real_repeat * len(corpus.train_real)) / args.batch)
+    steps_per_epoch = math.ceil(args.epoch_items / args.batch)
     total_steps = steps_per_epoch * args.epochs
     sched = torch.optim.lr_scheduler.LambdaLR(
         opt, lambda s: (args.lr_final + 0.5 * (args.lr - args.lr_final) *
@@ -257,7 +269,7 @@ def main(argv=None):
 
     for epoch in range(1, args.epochs + 1):
         model.train()
-        items = corpus.epoch(args.composed, args.real_repeat)
+        items = corpus.epoch(args.epoch_items, args.real_share)
         run, pts, t_ep = 0.0, 0, time.time()
         for b in batches(items, args.batch, rng):
             x, xl, tk, tl = to_dev(b)
@@ -276,7 +288,7 @@ def main(argv=None):
             pts += int(xl.sum())
         v_real, v_comp = evaluate_dev(val_real), evaluate_dev(val_comp)
         # real lines are what we want to imitate; composed lines keep the score stable
-        score = v_comp if math.isnan(v_real) else 0.5 * (v_real + v_comp)
+        score = v_comp if math.isnan(v_real) else 0.75 * v_real + 0.25 * v_comp
         flag = ""
         if score < best:
             best, best_epoch, flag = score, epoch, " *"

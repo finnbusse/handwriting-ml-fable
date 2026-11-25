@@ -85,17 +85,17 @@ def run(args):
     os.makedirs(work, exist_ok=True)
     cmd = [py, "-m", "hw.train", "--out", work, "--epochs", str(args.epochs),
            "--max-minutes", str(args.max_minutes), "--threads", str(os.cpu_count() or 2)]
-    # continue from the published checkpoint if there is one
-    try:
-        init = os.path.join(work, "init")
-        os.makedirs(init, exist_ok=True)
-        for name in ("model.pt", "meta.json"):
-            path = hf_hub_download(model, f"checkpoint/{name}", token=token)
-            with open(path, "rb") as src, open(os.path.join(init, name), "wb") as dst:
-                dst.write(src.read())
-        cmd += ["--init", init]
-    except Exception as e:
-        print(f"no published checkpoint ({type(e).__name__}); starting from the pretrained base")
+    if args.resume:      # continue from the published checkpoint instead of a full run
+        try:
+            init = os.path.join(work, "init")
+            os.makedirs(init, exist_ok=True)
+            for name in ("model.pt", "meta.json"):
+                path = hf_hub_download(model, f"checkpoint/{name}", token=token)
+                with open(path, "rb") as src, open(os.path.join(init, name), "wb") as dst:
+                    dst.write(src.read())
+            cmd += ["--init", init]
+        except Exception as e:
+            print(f"no published checkpoint ({type(e).__name__}); starting from the pretrained base")
     subprocess.run(cmd, check=True, env=env)
     best = os.path.join(work, "best")
     image = os.path.join(work, "vergleich.png")
@@ -122,7 +122,10 @@ def main():
     c.add_argument("--min-new", type=int, default=20, help="retrain only when at least this many new lines exist")
     r = sub.add_parser("run")
     r.add_argument("--out", default="runs/retrain")
-    r.add_argument("--epochs", type=int, default=24)
+    r.add_argument("--epochs", type=int, default=30)
+    r.add_argument("--resume", action="store_true",
+                   help="continue from the published checkpoint (default: a full run from the pretrained base, "
+                        "which gives the same result no matter what was trained before)")
     r.add_argument("--max-minutes", type=float, default=240)
     args = ap.parse_args()
     {"check": check, "run": run}[args.cmd](args)

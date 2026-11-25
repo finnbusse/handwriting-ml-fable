@@ -36,10 +36,10 @@ def apply_exclusions(inks: list[Ink], excl: dict) -> tuple[list[Ink], dict]:
 
 
 DIGIT_RATIO = 0.8        # digits are about as tall as capitals: 0.8 x the ascender height
-SESSION_XH_TOLERANCE = 0.25   # a line's x-height may differ this much from its session's median
+SESSION_XH_TOLERANCE = 0.15   # a line's x-height may differ this much from its session's median
 MAX_HEIGHT_WORD = 9.0         # x-heights; taller recordings are measured wrongly or scribbles
 MAX_HEIGHT_LINE = 12.0        # a line adds baseline drift and tall brackets
-PREP_VERSION = 5         # bump when the preparation changes (invalidates the cache)
+PREP_VERSION = 6         # bump when the preparation changes (invalidates the cache)
 
 
 def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
@@ -68,9 +68,9 @@ def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
     tall_ratio = float(np.median(ratios)) if ratios else 2.4
 
     # 3. per-ink x-height -> xh units.  Lines of one capture session are written
-    #    on the same sheet in one go, so their x-heights agree closely; an estimate
-    #    far from the session's median (a line with hardly any small letters) is
-    #    replaced by that median.
+    #    on the same sheet in one go, so their x-heights agree closely.  The
+    #    estimate of a single line depends on which letters it happens to hold,
+    #    so it is kept within a narrow band around the session's median.
     sizes = {}
     for ink in inks:
         a, b, h = geo[ink.id]
@@ -85,8 +85,12 @@ def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
         group = sessions.get((ink.source, ink.meta.get("session"))) if ink.kind == "line" else None
         if group and len(group) >= 4:
             med = float(np.median(group))
-            if not np.isfinite(sizes[ink.id]) or abs(sizes[ink.id] / med - 1.0) > SESSION_XH_TOLERANCE:
+            own = sizes[ink.id]
+            if not np.isfinite(own) or own <= 0:
                 sizes[ink.id] = med
+                resized += 1
+            elif abs(own / med - 1.0) > SESSION_XH_TOLERANCE:
+                sizes[ink.id] = float(np.clip(own, med * (1 - SESSION_XH_TOLERANCE), med * (1 + SESSION_XH_TOLERANCE)))
                 resized += 1
 
     out, dropped = [], collections.Counter()
@@ -126,7 +130,7 @@ def has_final_period(ink: Ink) -> bool:
             dots.append((x0 + x1) / 2)
         else:
             rest_right = max(rest_right, x1)
-    return any(x > rest_right - 0.4 for x in dots)
+    return any(x > rest_right - 1.5 for x in dots)     # a final letter's tail may reach past the dot
 
 
 def resample_all(norm: list[Ink], step_xh: float, hint: dict | None = None) -> tuple[list[Ink], dict]:
@@ -293,10 +297,12 @@ def stable_fraction(key: str) -> float:
     return (zlib.crc32(key.encode("utf-8")) % 10_000) / 10_000.0
 
 
-def split(inks: list[Ink], val_fraction: float = 0.08, val_lines: int = 4):
+def split(inks: list[Ink], val_fraction: float = 0.08, val_lines: int | None = None):
     """Hold out whole *texts* (so a word written several times never straddles
-    the split) and a few real lines for the side-by-side comparison."""
+    the split) and some real lines (8 %, at least 4) to measure against."""
     lines = sorted([i for i in inks if i.kind == "line"], key=lambda i: stable_fraction(i.text))
+    if val_lines is None:
+        val_lines = max(4, round(val_fraction * len(lines)))
     val_line_ids = {i.id for i in lines[:val_lines]} if len(lines) >= 3 * val_lines else set()
     train, val = [], []
     for ink in inks:
