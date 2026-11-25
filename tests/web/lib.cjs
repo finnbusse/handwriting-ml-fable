@@ -51,6 +51,7 @@ async function newApp(browser, server, opts = {}) {
     }
     return route.abort('connectionrefused');
   });
+  if (opts.routes) await opts.routes(ctx);      // more mocked hosts, set up before the page loads
   if (opts.init) await ctx.addInitScript(opts.init);
   if (opts.signedIn) {
     await ctx.addInitScript(([token, name]) => {

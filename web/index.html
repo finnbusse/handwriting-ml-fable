@@ -12,6 +12,7 @@
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="styles.css">
 <link rel="stylesheet" href="library.css">
+<link rel="stylesheet" href="training.css">
 <script src="config.js"></script>
 <script type="module" src="js/main.js"></script>
 </head>
@@ -42,6 +43,7 @@
   <nav class="tabs" aria-label="Bereiche">
     <a href="#/erfassen" data-route="erfassen">Erfassen</a>
     <a href="#/schreiben" data-route="schreiben">Schreiben</a>
+    <a href="#/training" data-route="training">Training</a>
   </nav>
   <div class="bar-right">
     <a class="waiting empty" id="waiting" href="#/einstellungen" aria-hidden="true" tabindex="-1">
@@ -285,6 +287,8 @@
 
   <!-- Meine Zeilen: filled by js/library.js -->
   <section class="view view-lines" id="v-zeilen" hidden></section>
+  <!-- Training: start a run and follow it (built by js/training/view.js) -->
+  <section class="view view-training" id="v-training" hidden></section>
 
   <!-- Settings -->
   <section class="view view-settings" id="v-einstellungen" hidden>

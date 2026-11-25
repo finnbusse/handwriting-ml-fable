@@ -5,6 +5,8 @@ name: Übersicht aktualisieren und neu trainieren
 # 2. trainiert das Modell neu, wenn mindestens 20 neue Zeilen dazugekommen sind
 #    (oder "force" angehakt ist), und legt es im Modell-Repo ab.
 # Braucht das Repository-Secret HF_TOKEN (Hugging-Face-Token mit Schreibrecht).
+# Der Fortschritt steht wie bei jedem Lauf unter training/ im Modell-Repo und ist im
+# Tab "Training" der App zu sehen; "Abbrechen" dort beendet auch diesen Lauf nach der Runde.
 
 on:
   workflow_dispatch:

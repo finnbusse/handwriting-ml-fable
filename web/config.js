@@ -7,6 +7,7 @@ self.HW_CONFIG = Object.freeze({
   datasetRepo: 'handwriting-fable',        // dataset <user>/handwriting-fable (private)
   modelRepo: 'handwriting-fable-model',    // model <user>/handwriting-fable-model (private)
   hfBase: 'https://huggingface.co',
+  trainerSpace: 'handschrift-training',   // Space <user>/handschrift-training that runs a training (trainer/)
   promptsUrl: 'prompts/de-core.json',
   blockSize: 20,          // lines per block / session
   goalBlocks: 5,          // 5 blocks of 20 = the ~100-line goal; later blocks count as extra

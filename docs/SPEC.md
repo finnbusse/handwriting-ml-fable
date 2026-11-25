@@ -30,7 +30,7 @@ also usable on phones and desktop. Installable PWA.
 web/
   index.html  styles.css  manifest.webmanifest  sw.js  icons/
   config.js                 repo names, app version
-  js/main.js                boot, view switching (hash routes: #/schreiben #/erfassen #/einstellungen)
+  js/main.js                boot, view switching (hash routes: #/schreiben #/erfassen #/training #/einstellungen)
   js/hf.js                  Hugging Face: sign-in, whoami, commit, private file download
   js/store.js               IndexedDB: outbox of recorded lines, settings, progress
   js/capture/recorder.js    raw pointer capture (no rendering, no policy)
@@ -38,6 +38,7 @@ web/
   js/capture/qa.js          automatic checks on a finished line
   js/capture/view.js        the Erfassen screen
   js/generate/…             the Schreiben screen
+  js/training/…             the Training screen (status from the model repo, runner = trainer/ Space; hw/progress.py has the format)
   js/engine/…               the network in JavaScript
   prompts/de-core.json      what the writer is asked to write
   model/                    model.json + model.bin (not in git; fetched from the model repo)

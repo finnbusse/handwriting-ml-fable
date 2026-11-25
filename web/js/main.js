@@ -8,6 +8,7 @@ import { makeWriter } from './writer.js';
 import { capabilities } from './capture/recorder.js';
 import { createCaptureView } from './capture/view.js';
 import { createGenerateView } from './generate/view.js';
+import { createTrainingView } from './training/view.js';
 import { normalize as normalizeDisplay } from './capture/ink.js';
 import { createLookControls } from './capture/look.js';
 import { createLibraryView } from './library.js';
@@ -479,7 +480,7 @@ function wireRepoDialog() {
 
 // ---------- routing ----------
 
-const ROUTES = ['start', 'erfassen', 'schreiben', 'einstellungen', 'zeilen'];
+const ROUTES = ['start', 'erfassen', 'schreiben', 'training', 'einstellungen', 'zeilen'];
 
 async function route() {
   let r = (location.hash.match(/^#\/([a-z]+)/) || [])[1];
@@ -490,6 +491,7 @@ async function route() {
   if (app.route === 'schreiben' && r !== 'schreiben') app.generate.hide();
   if (app.route === 'zeilen' && r !== 'zeilen') app.library.hide();
   const from = app.route;
+  if (app.route === 'training' && r !== 'training') app.training.hide();
   app.route = r;
   document.body.dataset.route = r;
   for (const id of ROUTES) $(`v-${id}`).hidden = id !== r;
@@ -498,6 +500,7 @@ async function route() {
   }
   if (r === 'erfassen') app.capture.show();
   if (r === 'schreiben') app.generate.show();
+  if (r === 'training') app.training.show();
   if (r === 'einstellungen') renderSettings();
   if (r === 'zeilen') app.library.show(from);
   if (r === 'start') { renderAccount(); $('start-writer').value = app.writer ? app.writer.name : ''; $('start-err').hidden = true; }
@@ -592,6 +595,9 @@ async function boot() {
 
   app.generate = createGenerateView({ store, hf, toast, signIn: () => app.signIn() });
   await app.generate.init();
+  // A finished training: Schreiben looks for the new model at once (its checksum decides whether to download).
+  app.training = createTrainingView({ hf, signIn: () => app.signIn(), writer: () => app.writer, modelChanged: () => app.generate.refresh() });
+  app.training.init();
 
   outbox.install();
   outbox.onChange((type, d) => {
@@ -671,5 +677,5 @@ async function boot() {
   outbox.startup();      // upload what waits, missing previews, and one listing: check + progress
 }
 
-window.__hw = { app, store, hf, outbox, get library() { return app.library; }, saveDisplay, safetyTexts, updateStatus: updateWaiting, get capture() { return app.capture; }, get generate() { return app.generate; } };
+window.__hw = { app, store, hf, outbox, get library() { return app.library; }, saveDisplay, safetyTexts, updateStatus: updateWaiting, get capture() { return app.capture; }, get generate() { return app.generate; }, get training() { return app.training; } };
 window.__hwReady = boot().then(() => true, (e) => { console.error(e); return false; });

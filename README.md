@@ -69,6 +69,19 @@ Es gibt keinen Zeitplan, der Lauf startet nur von Hand. Nötig ist das
 Repository-Secret `HF_TOKEN` (Hugging-Face-Token mit Schreibrecht). Als
 Ausweichweg gibt es `notebooks/nachtrainieren.ipynb` für Google Colab.
 
+## Training aus der App
+
+Im Tab *Training* startet ein Knopf das Training auf einem kleinen, kostenlosen
+Hugging-Face-Space (`<konto>/handschrift-training`, Code in `trainer/`). Er
+führt dasselbe `scripts/retrain.py run` aus wie der GitHub-Lauf. Jeder Lauf,
+egal wo, schreibt seinen Fortschritt nach `training/` im Modell-Repo
+(Stand, Probebild, Zwischenstand zum Fortsetzen); die App zeigt ihn an und
+kann ihn abbrechen. Den Space einmal anlegen bzw. aktualisieren:
+
+```bash
+python scripts/deploy_trainer.py
+```
+
 ## Herkunft und Lizenzen
 
 - Vortrainierte Gewichte: [pytorch-handwriting-synthesis-toolkit](https://github.com/X-rayLaser/pytorch-handwriting-synthesis-toolkit)

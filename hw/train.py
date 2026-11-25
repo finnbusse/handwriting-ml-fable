@@ -20,6 +20,7 @@ import json
 import math
 import os
 import pickle
+import shutil
 import time
 
 import numpy as np
@@ -175,11 +176,18 @@ def load_corpus_inks(cache: str, base_stats: dict, token: str | None, fetch: boo
     return inks, report
 
 
-def main(argv=None):
+def main(argv=None, hooks=None):
+    """Train.  `hooks` (optional, used by scripts/retrain.py to report progress):
+    hooks.started(info) once the data is ready, hooks.epoch(info) after every
+    epoch, hooks.finished(info) at the end with the best weights loaded.  When
+    started() or epoch() returns True, training ends there (after saving)."""
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--out", default="runs/v1")
     ap.add_argument("--base", default="artifacts/base", help="directory with model.pt, meta.json, stats.json")
     ap.add_argument("--init", default=None, help="continue from this checkpoint directory instead of the base")
+    ap.add_argument("--resume-from", default=None,
+                    help="continue an interrupted run: a directory with last/, best/, train_state.json, history.json "
+                         "as written into --out by an earlier run")
     ap.add_argument("--cache", default="data_cache")
     ap.add_argument("--no-fetch", action="store_true", help="use the local data cache only")
     ap.add_argument("--writer", default=MAIN_WRITER, help="whose recordings of the capture app to train on")
@@ -217,7 +225,17 @@ def main(argv=None):
         base_stats = json.load(f)
 
     charset = Charset(DEFAULT_CHARSET)
-    model, base_meta = build_model(args.init or args.base, charset)
+    resumed = None
+    if args.resume_from:
+        with open(os.path.join(args.resume_from, "train_state.json"), encoding="utf-8") as f:
+            resumed = json.load(f)
+        with open(os.path.join(args.resume_from, "history.json"), encoding="utf-8") as f:
+            resumed["history"] = json.load(f)
+        best_src = os.path.join(args.resume_from, "best")
+        if os.path.abspath(best_src) != os.path.abspath(os.path.join(args.out, "best")):
+            shutil.copytree(best_src, os.path.join(args.out, "best"), dirs_exist_ok=True)
+    model, base_meta = build_model(os.path.join(args.resume_from, "last") if resumed else (args.init or args.base),
+                                   charset)
     model.to(device)
     mu, std = base_meta["mu"], base_meta["std"]
 
@@ -267,17 +285,35 @@ def main(argv=None):
                (model.lstm3.W_xh, 3 + H + new_idx)] if args.new_char_boost != 1.0 and len(new_idx) else []
     steps_per_epoch = math.ceil(args.epoch_items / args.batch)
     total_steps = steps_per_epoch * args.epochs
+    start = resumed["epoch"] if resumed else 0
+    step0 = start * steps_per_epoch          # a resumed run continues the learning-rate curve where it was
     sched = torch.optim.lr_scheduler.LambdaLR(
         opt, lambda s: (args.lr_final + 0.5 * (args.lr - args.lr_final) *
-                        (1 + math.cos(math.pi * min(s, total_steps) / total_steps))) / args.lr)
+                        (1 + math.cos(math.pi * min(s + step0, total_steps) / total_steps))) / args.lr)
 
-    v_real, v_comp = evaluate_dev(val_real), evaluate_dev(val_comp)
-    print(f"epoch  0 | before training | val real {v_real:.4f} | val composed {v_comp:.4f}")
-    history = [dict(epoch=0, val_real=v_real, val_composed=v_comp)]
-    best, best_epoch, t0 = float("inf"), 0, time.time()
+    def score_of(v_real, v_comp):
+        # real lines are what we want to imitate; composed lines keep the score stable
+        return v_comp if math.isnan(v_real) else 0.75 * v_real + 0.25 * v_comp
+
+    def sampler(path):
+        progress_sheet(model, charset, mu, std, meta, corpus, path)
+
     rng = np.random.default_rng(args.seed + 1)
+    if resumed:
+        history, best, best_epoch = resumed["history"], resumed["best"], resumed["best_epoch"]
+        t0 = time.time() - 60 * resumed.get("minutes", 0)
+        print(f"resuming after epoch {start} (best epoch {best_epoch})")
+    else:
+        v_real, v_comp = evaluate_dev(val_real), evaluate_dev(val_comp)
+        print(f"epoch  0 | before training | val real {v_real:.4f} | val composed {v_comp:.4f}")
+        history = [dict(epoch=0, val_real=v_real, val_composed=v_comp, score=score_of(v_real, v_comp))]
+        best, best_epoch, t0 = float("inf"), 0, time.time()
+    info = dict(out=args.out, epochs=args.epochs, counts=corpus.counts, history=history, sample=sampler)
+    stopped = bool(hooks and hooks.started(dict(info, epoch=start, best_epoch=best_epoch)))
 
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(start + 1, args.epochs + 1):
+        if stopped:
+            break
         model.train()
         items = corpus.epoch(args.epoch_items, args.real_share)
         run, pts, t_ep = 0.0, 0, time.time()
@@ -297,21 +333,27 @@ def main(argv=None):
             run += float(nll.detach().sum())
             pts += int(xl.sum())
         v_real, v_comp = evaluate_dev(val_real), evaluate_dev(val_comp)
-        # real lines are what we want to imitate; composed lines keep the score stable
-        score = v_comp if math.isnan(v_real) else 0.75 * v_real + 0.25 * v_comp
+        score = score_of(v_real, v_comp)
         flag = ""
         if score < best:
             best, best_epoch, flag = score, epoch, " *"
             save("best", {"epoch": epoch, "val_real": v_real, "val_composed": v_comp})
-        history.append(dict(epoch=epoch, train=run / pts, val_real=v_real, val_composed=v_comp,
+        history.append(dict(epoch=epoch, train=run / pts, val_real=v_real, val_composed=v_comp, score=score,
                             seconds=time.time() - t_ep))
         print(f"epoch {epoch:2d} | train {run / pts:.4f} | val real {v_real:.4f} | val composed {v_comp:.4f}"
               f" | {time.time() - t_ep:.0f}s | lr {sched.get_last_lr()[0]:.1e}{flag}", flush=True)
         save("last", {"epoch": epoch})
         with open(os.path.join(args.out, "history.json"), "w") as f:
             json.dump(history, f, indent=1)
+        with open(os.path.join(args.out, "train_state.json"), "w") as f:
+            json.dump(dict(epoch=epoch, epochs=args.epochs, best=best, best_epoch=best_epoch,
+                           minutes=(time.time() - t0) / 60), f)
         if args.sample_every and epoch % args.sample_every == 0:
             sample_sheet(model, charset, mu, std, meta, corpus, os.path.join(args.out, f"samples_{epoch:03d}.png"))
+        if hooks and hooks.epoch(dict(info, epoch=epoch, best_epoch=best_epoch, minutes=(time.time() - t0) / 60)):
+            print("stop requested, stopping")
+            stopped = True
+            break
         if epoch - best_epoch >= args.patience:
             print(f"no improvement for {args.patience} epochs, stopping")
             break
@@ -319,6 +361,14 @@ def main(argv=None):
             print("time limit reached, stopping")
             break
     print(f"best epoch {best_epoch}, score {best:.4f}, total {(time.time() - t0) / 60:.1f} min")
+    result = dict(best_epoch=best_epoch, best=best, epoch=history[-1]["epoch"], stopped=stopped,
+                  minutes=(time.time() - t0) / 60)
+    if hooks:
+        best_pt = os.path.join(args.out, "best", "model.pt")
+        if os.path.exists(best_pt):
+            model.load_state_dict(load_state(best_pt))
+        hooks.finished(dict(info, **result))
+    return result
 
 
 @torch.no_grad()
@@ -341,6 +391,25 @@ def sample_sheet(model, charset, mu, std, meta, corpus: Corpus, path: str, seed:
         titles += ["ECHT: " + r.text, "generiert: " + r.text]
         colors += ["k", "tab:blue"]
     contact_sheet(inks, path, titles=titles, colors=colors, row_height=1.0)
+    model.to(dev)
+    model.train(was_training)
+
+
+@torch.no_grad()
+def progress_sheet(model, charset, mu, std, meta, corpus: Corpus, path: str, n: int = 3, seed: int = 0):
+    """A small picture of the progress: a few held-out lines of the writer
+    (black), each with the model's attempt at the same text below (blue)."""
+    was_training = model.training
+    dev = next(model.parameters()).device
+    real = corpus.val_real[:n] or corpus.train_real[:n]
+    gen = Synthesizer(model.cpu(), charset, mu, std, meta).write([r.text for r in real], bias=0.8, seed=seed)
+    inks, titles, colors = [], [], []
+    for r, g in zip(real, gen):
+        g.points[:, :2] /= meta["xh_model"]
+        inks += [r, g]
+        titles += ["Deine Schrift: " + r.text, "Modell: " + r.text]
+        colors += ["k", "#2141B8"]
+    contact_sheet(inks, path, titles=titles, colors=colors, row_height=0.85, width=10.0, dpi=100)
     model.to(dev)
     model.train(was_training)
 

@@ -14,6 +14,7 @@ const SHELL = [
   'js/generate/model-store.js', 'js/generate/engine-client.js', 'js/generate/view.js',
   'js/capture/ink.js', 'js/capture/look.js',
   'js/library.js', 'library.css',
+  'training.css', 'js/training/view.js', 'js/training/state.js', 'js/training/runner.js', 'js/training/curve.js',
   'fonts/instrument-sans-latin-wght.woff2',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png',
 ];

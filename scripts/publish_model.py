@@ -47,6 +47,37 @@ den privaten Gebrauch gedacht.
 """
 
 
+def prepare(model_dir: str, tmp: str, image: str | None = None, marker: str | None = None) -> tuple[dict, dict]:
+    """Write everything that gets uploaded into the folder `tmp`; returns (model.json, export info)."""
+    info = export(model_dir, tmp, "float16")
+    with open(os.path.join(tmp, "model.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+    with open(os.path.join(tmp, "README.md"), "w", encoding="utf-8") as f:
+        f.write(CARD)
+    os.makedirs(os.path.join(tmp, "checkpoint"))
+    for name in ("model.pt", "meta.json"):
+        shutil.copyfile(os.path.join(model_dir, name), os.path.join(tmp, "checkpoint", name))
+    history = os.path.join(os.path.dirname(os.path.normpath(model_dir)), "history.json")
+    if os.path.exists(history):
+        shutil.copyfile(history, os.path.join(tmp, "checkpoint", "history.json"))
+    if marker:
+        shutil.copyfile(marker, os.path.join(tmp, "trained_on.json"))
+    if image:
+        with open(image, "rb") as src, open(os.path.join(tmp, "vergleich.png"), "wb") as dst:
+            dst.write(src.read())
+    return manifest, info
+
+
+def folder_files(tmp: str) -> dict:
+    """repo path -> local path for every file below `tmp`."""
+    out = {}
+    for d, _, names in os.walk(tmp):
+        for n in names:
+            full = os.path.join(d, n)
+            out[os.path.relpath(full, tmp).replace(os.sep, "/")] = full
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("model_dir")
@@ -62,22 +93,7 @@ def main():
     api.create_repo(repo, repo_type="model", private=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as tmp:
-        info = export(args.model_dir, tmp, "float16")
-        with open(os.path.join(tmp, "model.json"), encoding="utf-8") as f:
-            manifest = json.load(f)
-        with open(os.path.join(tmp, "README.md"), "w", encoding="utf-8") as f:
-            f.write(CARD)
-        os.makedirs(os.path.join(tmp, "checkpoint"))
-        for name in ("model.pt", "meta.json"):
-            shutil.copyfile(os.path.join(args.model_dir, name), os.path.join(tmp, "checkpoint", name))
-        history = os.path.join(os.path.dirname(os.path.normpath(args.model_dir)), "history.json")
-        if os.path.exists(history):
-            shutil.copyfile(history, os.path.join(tmp, "checkpoint", "history.json"))
-        if args.marker:
-            shutil.copyfile(args.marker, os.path.join(tmp, "trained_on.json"))
-        if args.image:
-            with open(args.image, "rb") as src, open(os.path.join(tmp, "vergleich.png"), "wb") as dst:
-                dst.write(src.read())
+        manifest, info = prepare(args.model_dir, tmp, args.image, args.marker)
         trained = manifest.get("trained", {})
         message = args.message or f"Modell aktualisiert (Runde {trained.get('epoch', '?')})"
         api.upload_folder(folder_path=tmp, repo_id=repo, repo_type="model", commit_message=message)

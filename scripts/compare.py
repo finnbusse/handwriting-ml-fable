@@ -8,11 +8,13 @@ Also prints how many samples finished cleanly.
 """
 import argparse
 import json
+import os
 
 import numpy as np
 import torch
 
 from hw import dataset, sources
+from hw.config import MAIN_WRITER
 from hw.ink import contact_sheet
 from hw.sampling import Synthesizer
 
@@ -74,13 +76,16 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--cache", default="data_cache")
     ap.add_argument("--threads", type=int, default=1)
+    ap.add_argument("--base", default="artifacts/base", help="directory with the base model's stats.json")
+    ap.add_argument("--lines-only", action="store_true", help="the held-out lines of a --lines-only training")
+    ap.add_argument("--writer", default=MAIN_WRITER, help="whose capture-app lines (as in hw.train)")
     args = ap.parse_args()
     torch.set_num_threads(args.threads)
 
     syn = Synthesizer.load(args.model_dir)
-    with open("artifacts/base/stats.json") as f:
+    with open(os.path.join(args.base, "stats.json")) as f:
         base_stats = json.load(f)
-    raw = sources.load_all(args.cache, fetch=False)
+    raw = sources.load_all(args.cache, fetch=False, lines_only=args.lines_only, writer=args.writer)
     raw, _ = dataset.apply_exclusions(raw, dataset.load_exclusions())
     inks, report = dataset.calibrate_cached(raw, base_stats, args.cache)
     _, val = dataset.split(inks)

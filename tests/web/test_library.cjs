@@ -175,7 +175,8 @@ const items = (page) => page.evaluate(() => window.__hw.library.items.map((x) =>
 async function openRow(page, id) {
   await page.evaluate(() => { document.getElementById('toast').hidden = true; });   // so the next toast is a new one
   for (let i = 0; i < 40 && !(await page.$(`li[data-id="${id}"]`)); i++) {
-    await page.click('#lib-more');
+    // Not page.click: scrolling the button into view loads more rows by itself and may hide the button meanwhile.
+    await page.evaluate(() => { const b = document.getElementById('lib-more'); if (b && !b.hidden) b.click(); });
     await page.waitForTimeout(30);
   }
   await page.$eval(`li[data-id="${id}"]`, (el) => el.scrollIntoView({ block: 'center' }));
