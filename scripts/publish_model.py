@@ -2,14 +2,20 @@
 
     python scripts/publish_model.py runs/v2/best
 
-Uploads model.json + model.bin (and, if given, a comparison image) to the
-private model repo `<user>/handwriting-fable-model` on Hugging Face.  The web
-app downloads these two files after sign-in.  Needs HF_TOKEN (or
-HUGGINGFACE_ACCESS_TOKEN) with write access.
+Uploads to the private model repo `<user>/handwriting-fable-model` on
+Hugging Face:
+
+    model.json, model.bin      what the web app downloads after sign-in
+    checkpoint/model.pt, …     the PyTorch checkpoint, so that a later training
+                               run can continue from here (`--init`)
+    vergleich.png              optional comparison image
+
+Needs HF_TOKEN (or HUGGINGFACE_ACCESS_TOKEN) with write access.
 """
 import argparse
 import json
 import os
+import shutil
 import tempfile
 
 from huggingface_hub import HfApi
@@ -59,6 +65,12 @@ def main():
             manifest = json.load(f)
         with open(os.path.join(tmp, "README.md"), "w", encoding="utf-8") as f:
             f.write(CARD)
+        os.makedirs(os.path.join(tmp, "checkpoint"))
+        for name in ("model.pt", "meta.json"):
+            shutil.copyfile(os.path.join(args.model_dir, name), os.path.join(tmp, "checkpoint", name))
+        history = os.path.join(os.path.dirname(os.path.normpath(args.model_dir)), "history.json")
+        if os.path.exists(history):
+            shutil.copyfile(history, os.path.join(tmp, "checkpoint", "history.json"))
         if args.image:
             with open(args.image, "rb") as src, open(os.path.join(tmp, "vergleich.png"), "wb") as dst:
                 dst.write(src.read())
