@@ -8,6 +8,8 @@ import { makeWriter } from './writer.js';
 import { capabilities } from './capture/recorder.js';
 import { createCaptureView } from './capture/view.js';
 import { createGenerateView } from './generate/view.js';
+import { normalize as normalizeDisplay } from './capture/ink.js';
+import { createLookControls } from './capture/look.js';
 
 const CFG = self.HW_CONFIG;
 const $ = (id) => document.getElementById(id);
@@ -20,6 +22,7 @@ const app = {
   remoteDone: new Set(),  // ... that exist in the dataset (current writer)
   remoteAll: {},          // writer id -> prompt ids seen in the dataset
   skippedAll: {},         // writer id -> prompt ids skipped
+  displayBy: {},          // writer id -> "Stift & Papier" options (display only, never what is recorded)
   remoteUser: null,       // the account app.remoteAll belongs to
   repoDialogDismissed: false,
   framed: false,          // running inside the huggingface.co/spaces iframe
@@ -31,6 +34,7 @@ const app = {
   capture: null,
   generate: null,
   route: null,
+  look: null,             // the "Stift & Papier" controls in Einstellungen
 };
 const doneIds = () => new Set([...app.localDone, ...app.remoteDone]);
 
@@ -138,6 +142,27 @@ async function refreshRemoteDone() {
   }
 }
 
+// ---------- Stift & Papier ----------
+
+const displayOf = (w) => normalizeDisplay(w ? app.displayBy[w.id] : null);
+
+/** Remember the current writer's look on this device and show it on the sheet. */
+async function saveDisplay(o) {
+  const d = normalizeDisplay(o);
+  if (app.capture) app.capture.setDisplay(d);
+  if (!app.writer) return;
+  app.displayBy[app.writer.id] = d;
+  if (app.look && app.route === 'einstellungen') app.look.render();
+  await store.kvSet('displayBy', app.displayBy);
+}
+
+function renderLook() {
+  $('look-for').textContent = app.writer ? `Gilt für ${app.writer.name}. Ändert nur, wie die Schrift aussieht, nicht was aufgezeichnet wird.` : '';
+  $('g-look-box').hidden = !app.writer;
+  $('look-none').hidden = !!app.writer;
+  if (app.writer && app.look) app.look.render();
+}
+
 // ---------- writers ----------
 
 const saveSkipped = () => {
@@ -162,7 +187,7 @@ async function useWriter(text) {
   app.remoteDone = new Set(app.remoteAll[w.id] || []);
   app.skipped = new Set(app.skippedAll[w.id] || []);
   await loadLocalDone();
-  if (app.capture) app.capture.newSession();
+  if (app.capture) { app.capture.setDisplay(displayOf(w)); app.capture.newSession(); }
   refreshRemoteDone();
   return w;
 }
@@ -190,7 +215,7 @@ function wireWriters() {
     const w = app.writers.find((x) => x.id === b.dataset.writer);
     if (!w || (app.writer && app.writer.id === w.id)) return;
     await useWriter(w.name);
-    renderWriters();
+    renderWriters(); renderLook();
     toast(`Jetzt schreibt ${w.name}.`);
   });
   const open = (on) => {
@@ -203,7 +228,7 @@ function wireWriters() {
     e.preventDefault();
     const w = await useWriter($('wr-input').value);
     if (!w) { $('wr-err').hidden = false; return; }
-    open(false); renderWriters();
+    open(false); renderWriters(); renderLook();
     toast(`Jetzt schreibt ${w.name}.`);
   });
 }
@@ -260,6 +285,7 @@ async function renderDiagnostics() {
 
 function renderSettings() {
   renderWriters();
+  renderLook();
   renderAccount();
   $('allow-finger').checked = !!app.settings.allowFinger;
   updateWaiting();
@@ -395,6 +421,7 @@ async function boot() {
   const wid = await store.kvGet('writer', null);
   app.writer = app.writers.find((w) => w.id === wid) || null;
   app.skippedAll = await store.kvGet('skippedBy', {});
+  app.displayBy = (await store.kvGet('displayBy', {})) || {};
   app.skipped = new Set(app.writer ? app.skippedAll[app.writer.id] || [] : []);
   const rd = await store.kvGet('remoteDone', null);
   app.remoteUser = hf.userName();
@@ -417,6 +444,8 @@ async function boot() {
     doneIds,
     skippedIds: () => app.skipped,
     writer: () => app.writer,
+    display: () => displayOf(app.writer),
+    saveDisplay,
     settings: () => app.settings,
     uaData: () => app.uaData,
     skip: async (id) => { app.skipped.add(id); await saveSkipped(); },
@@ -455,11 +484,11 @@ async function boot() {
   wireRepoDialog();
 
   wireWriters();
+  app.look = createLookControls($('look-settings'), { get: () => displayOf(app.writer), set: saveDisplay });
   const startGo = async () => {
     const w = await useWriter($('start-writer').value);
     if (!w) { $('start-err').hidden = false; $('start-writer').focus(); return; }
     await store.kvSet('firstRunDone', true);
-    app.capture.enterFullscreen();
     location.hash = '#/erfassen';
   };
   $('start-go').addEventListener('click', startGo);
@@ -507,5 +536,5 @@ async function boot() {
   window.addEventListener('online', refreshRemoteDone);
 }
 
-window.__hw = { app, store, hf, outbox, get capture() { return app.capture; }, get generate() { return app.generate; } };
+window.__hw = { app, store, hf, outbox, saveDisplay, get capture() { return app.capture; }, get generate() { return app.generate; } };
 window.__hwReady = boot().then(() => true, (e) => { console.error(e); return false; });

@@ -7,11 +7,23 @@
   --ink: #1C2330;         /* text */
   --muted: #5E6775;
   --line: #DDE2E8;        /* hairlines, borders */
-  --rule: #9DB0CB;        /* the faint blue baseline on the sheet */
   --accent: #2847C4;      /* Königsblau */
   --accent-ink: #FFFFFF;
   --accent-soft: #E7ECFA;
-  --ink-stroke: #2141B8;  /* the writer's ink on the sheet */
+  /* The writing sheet has its own two schemes ("Farben"), independent of the app theme.
+     ink.js reads these for the canvas. */
+  --paper-light-bg: #FFFFFF;
+  --paper-light-ink: #2141B8;       /* the writer's ink: Königsblau */
+  --paper-light-graphite: #2B2E34;  /* Bleistift */
+  --paper-light-rule: #9DB0CB;      /* the faint blue baseline */
+  --paper-light-faint: #DFE5EE;     /* ruled / squared lines, fainter still */
+  --paper-light-muted: #5E6775;
+  --paper-dark-bg: #1B1F26;
+  --paper-dark-ink: #C9D4FF;
+  --paper-dark-graphite: #E9ECF1;
+  --paper-dark-rule: #52637F;
+  --paper-dark-faint: #2F3746;
+  --paper-dark-muted: #9AA3B1;
   --shadow: 0 1px 2px rgba(28, 35, 48, .06), 0 8px 28px rgba(28, 35, 48, .06);
   --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Helvetica Neue", Arial, sans-serif;
   --tap: 52px;
@@ -25,11 +37,9 @@
     --ink: #E6E9EE;
     --muted: #9AA3B1;
     --line: #2D333D;
-    --rule: #4C5D78;
     --accent: #8EA4FF;
     --accent-ink: #0F1424;
     --accent-soft: #232B44;
-    --ink-stroke: #A9B9FF;
     --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .25);
     color-scheme: dark;
   }
@@ -162,20 +172,64 @@ main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .cap-tools .btn.primary { min-width: 156px; }
 .sheet {
   position: relative; flex: 1; min-height: 200px; max-height: 420px;
-  background: var(--sheet); border-radius: 18px; box-shadow: var(--shadow);
+  background: var(--paper-light-bg); border-radius: 18px; box-shadow: var(--shadow);
   overflow: hidden; touch-action: none;
+  --sheet-muted: var(--paper-light-muted);
 }
+.sheet[data-scheme="light_on_dark"], .look-preview[data-scheme="light_on_dark"] { background: var(--paper-dark-bg); --sheet-muted: var(--paper-dark-muted); }
 .sheet canvas { position: absolute; inset: 0; display: block; touch-action: none; cursor: crosshair; }
 .sheet-hint {
   position: absolute; left: 0; right: 0; bottom: 18px; text-align: center; pointer-events: none;
-  color: var(--muted); font-size: 15px;
+  color: var(--sheet-muted); font-size: 15px;
 }
 .turn-hint { display: none; margin-top: 12px; font-size: 15px; color: var(--muted); text-align: center; }
 @media (orientation: portrait) and (max-width: 700px) {
   .turn-hint { display: block; }
   .cap-tools .btn.tool span { display: none; }
-  .cap-tools .btn.primary { min-width: 0; }
+  .cap-tools { gap: 0; }
+  .cap-tools .btn.tool { min-width: 48px; padding: 0 12px; }
+  .cap-tools .sep { margin: 0 6px; }
+  .cap-tools .btn.primary { min-width: 0; padding: 0 18px; }
   .sheet { max-height: 300px; }
+}
+@media (max-width: 1100px) and (orientation: landscape) {
+  .cap-tools .btn.tool { padding: 0 10px; }
+  .cap-tools .sep { margin: 0 8px; }
+}
+
+/* ---------- Stift & Papier ---------- */
+.dlg.look-dlg { width: min(1040px, calc(100vw - 32px)); max-height: calc(100dvh - 24px); padding: 20px 24px 24px; overflow-y: auto; }
+.look-dlg::backdrop { background: rgba(20, 23, 28, .18); }
+.look-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.look-head h2 { margin: 0; }
+.look-dlg .look-note { margin: 4px 0 14px; font-size: 15px; }
+.look-preview { border-radius: 12px; background: var(--paper-light-bg); box-shadow: inset 0 0 0 1px var(--line); overflow: hidden; }
+.look-preview canvas { display: block; }
+.look-groups { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px 28px; margin-top: 16px; }
+.look-label { font-size: 15px; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
+.segs { display: flex; gap: 6px; }
+.seg {
+  appearance: none; font: inherit; font-size: 15px; font-weight: 500; color: var(--ink);
+  min-height: 52px; min-width: 52px; padding: 0 12px; flex: 1 1 auto;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--sheet); border: 1.5px solid var(--line); border-radius: 12px;
+  cursor: pointer; touch-action: manipulation; white-space: nowrap;
+}
+.seg[aria-checked="true"] { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.look-width .seg { flex-direction: column; gap: 6px; padding: 8px 6px; font-size: 13px; min-height: 60px; }
+.wline { display: block; width: 34px; min-height: 0.5px; border-radius: 2px; background: var(--ink); }
+.swatch { width: 26px; height: 20px; flex: none; border-radius: 4px; box-shadow: inset 0 0 0 1px var(--line); background: var(--paper-light-bg); }
+.sw-linie { background: linear-gradient(to bottom, transparent 13px, var(--paper-light-rule) 13px, var(--paper-light-rule) 14px, transparent 14px), var(--paper-light-bg); }
+.sw-liniert { background: repeating-linear-gradient(to bottom, transparent 0 5px, var(--paper-light-rule) 5px 6px), var(--paper-light-bg); }
+.sw-kariert { background: repeating-linear-gradient(to bottom, transparent 0 5px, var(--paper-light-rule) 5px 6px), repeating-linear-gradient(to right, transparent 0 5px, var(--paper-light-rule) 5px 6px), var(--paper-light-bg); }
+.sw-dark_on_light { background: linear-gradient(135deg, var(--paper-light-bg) 50%, var(--paper-light-ink) 50%); }
+.sw-light_on_dark { background: linear-gradient(135deg, var(--paper-dark-bg) 50%, var(--paper-dark-ink) 50%); }
+#g-look-box .look { margin-top: 14px; }
+#look-for { font-size: 15px; color: var(--muted); }
+@media (max-width: 700px) {
+  .look-groups { grid-template-columns: 1fr; }
+  .dlg.look-dlg { padding: 16px; }
+  .segs { flex-wrap: wrap; }
 }
 
 .cap-panel { flex: 1; flex-direction: column; justify-content: center; max-width: 1100px; width: 100%; margin: 0 auto; padding: 16px 0 24px; gap: 16px; }

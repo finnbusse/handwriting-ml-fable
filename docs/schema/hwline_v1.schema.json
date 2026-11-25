@@ -36,9 +36,17 @@
       "dpr": {"type": "number"}, "visual_viewport_scale": {"type": "number"},
       "mm_per_unit": {"type": ["number", "null"], "description": "physical size of one coordinate unit, null if unknown"},
       "mm_source": {"enum": ["calibration", "model_lookup", "lattice_estimate", null]}}},
-    "guides": {"type": ["object", "null"], "description": "everything drawn on the canvas besides ink, in the same coordinates as the strokes", "properties": {
+    "guides": {"type": ["object", "null"], "description": "everything drawn on the canvas besides ink, in the same coordinates as the strokes, and how the ink looked. Display only: the samples are raw whatever is reported here", "properties": {
       "visible": {"type": "boolean"}, "baseline_y": {"type": "number"}, "x_start": {"type": "number"}, "x_end": {"type": "number"},
-      "extra_lines_y": {"type": "array", "items": {"type": "number"}}, "ink_width_css": {"type": "number"}, "pressure_width": {"type": "boolean"}}},
+      "extra_lines_y": {"type": "array", "items": {"type": "number"}, "description": "horizontal guide lines drawn besides the baseline (ruled or squared paper)"},
+      "extra_lines_x": {"type": "array", "items": {"type": "number"}, "description": "vertical guide lines (squared paper only)"},
+      "ink_width_css": {"type": "number", "description": "nominal ink width chosen by the writer (CSS px)"},
+      "pressure_width": {"type": "boolean", "description": "true when the shown width followed pen pressure"},
+      "pen": {"enum": ["fineliner", "fueller", "bleistift"], "description": "fineliner: constant width; fueller: width follows smoothed pressure; bleistift: grey graphite whose tone follows pressure"},
+      "paper": {"enum": ["linie", "liniert", "kariert"], "description": "one baseline / ruled / squared"},
+      "spacing_css": {"type": "number", "description": "distance between ruled or squared lines (CSS px); absent for a single baseline"},
+      "scheme": {"enum": ["dark_on_light", "light_on_dark"], "description": "colours of the writing sheet"},
+      "display_changed": {"type": "boolean", "description": "the look was changed while the line was being written; the fields above give the final look"}}},
     "screen": {"type": "object", "properties": {
       "screen_css": {"type": "array", "items": {"type": "number"}}, "inner_css": {"type": "array", "items": {"type": "number"}},
       "orientation": {"type": "string"}, "angle": {"type": "number"}, "fullscreen": {"type": "boolean"}, "display_mode": {"type": "string"}}},

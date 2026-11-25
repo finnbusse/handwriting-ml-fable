@@ -111,8 +111,18 @@ Rules that come from measurements on this writer's earlier recordings:
 - `touch-action: none` on the canvas, `overscroll-behavior: none` on the page,
   no text selection, no context menu, no text inputs on the capture screen.
 - One line per screen. The prompt is shown above the writing band in a neutral
-  typeface. A single faint baseline, nothing else (its y is stored). Constant
-  ink width, no pressure-dependent rendering.
+  typeface. The baseline always sits at the same place (its y is stored).
+- "Stift & Papier" (a button next to the toolbar, the same options in the
+  settings; remembered per writer on the device): pen Fineliner (constant
+  width), Füller (width follows smoothed pressure) or Bleistift (grey graphite,
+  tone follows pressure); five ink widths 0.75–3 CSS px (default 1); paper with
+  one baseline (default), ruled or squared at 28 CSS px; dark ink on a light
+  sheet (default) or light on dark, independent of the app theme. A change
+  mid-line redraws the strokes, never discards them. These options change only
+  what is shown: the samples stay raw and identical (`js/capture/ink.js` draws,
+  the recorder never sees the options); `guides` reports what was shown (`pen`,
+  `ink_width_css`, `pressure_width`, `paper`, `spacing_css`, `scheme`,
+  `extra_lines_y`/`extra_lines_x`, `display_changed`).
 - Buttons sit outside the canvas and are ignored for 300 ms after a stroke
   ends, so a resting pen never becomes a "stroke" or a click.
 - Flow: write → **Fertig** → confirm screen shows prompt and ink side by side
@@ -133,8 +143,11 @@ Rules that come from measurements on this writer's earlier recordings:
   screen; switching starts a new session id. The capture screen shows the
   writer's name next to the progress, and the number of lines written
   instead of a total.
-- Fullscreen + landscape lock + screen wake lock where available; failures of
-  these must never block recording.
+- Screen wake lock where available. Fullscreen only on request (a "Vollbild"
+  button; the app never switches or locks the orientation by itself), and
+  everything fits with the browser bar visible. Entering or leaving fullscreen
+  during a line pauses it like any other layout change. Failures of these must
+  never block recording.
 
 ### 2.4 Prompts
 

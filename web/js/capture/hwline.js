@@ -117,6 +117,18 @@ export function validate(r) {
   need(isObj(c) && ['css_px', 'device_px'].includes(c.unit) && c.origin === 'canvas_top_left' && c.y_down === true
        && Array.isArray(c.canvas_css) && c.canvas_css.length === 2 && isNum(c.dpr), 'coord');
   need(r.guides === null || isObj(r.guides), 'guides');
+  if (isObj(r.guides)) {
+    // Optional display fields (SPEC 2.3): only what the writer saw, never part of the samples.
+    const g = r.guides;
+    const opt = (k, ok) => { if (g[k] !== undefined) need(ok(g[k]), `guides.${k}`); };
+    const nums = (v) => Array.isArray(v) && v.every(isNum);
+    for (const k of ['baseline_y', 'x_start', 'x_end', 'ink_width_css', 'spacing_css']) opt(k, isNum);
+    for (const k of ['visible', 'pressure_width', 'display_changed']) opt(k, (v) => typeof v === 'boolean');
+    opt('extra_lines_y', nums); opt('extra_lines_x', nums);
+    opt('pen', (v) => ['fineliner', 'fueller', 'bleistift'].includes(v));
+    opt('paper', (v) => ['linie', 'liniert', 'kariert'].includes(v));
+    opt('scheme', (v) => ['dark_on_light', 'light_on_dark'].includes(v));
+  }
   need(isObj(r.screen), 'screen');
   need(isObj(r.device) && typeof r.device.ua === 'string', 'device');
   need(isObj(r.pointer) && ['pen', 'touch', 'mouse'].includes(r.pointer.type)

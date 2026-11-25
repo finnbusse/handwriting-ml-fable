@@ -30,6 +30,9 @@
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.2"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
     <symbol id="i-copy" viewBox="0 0 24 24"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6.5a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2"/></symbol>
+    <symbol id="i-nib" viewBox="0 0 24 24"><path d="M12 3.5 17.5 10 12 20.5 6.5 10z"/><path d="M12 13.2v7.3"/><circle cx="12" cy="11.6" r="1.4"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
+    <symbol id="i-shrink" viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/></symbol>
   </defs>
 </svg>
 
@@ -100,6 +103,9 @@
           <button class="btn tool" id="cap-skip" type="button" aria-label="Überspringen"><svg class="ic"><use href="#i-skip"/></svg><span>Überspringen</span></button>
           <button class="btn tool" id="cap-clear" type="button" aria-label="Löschen"><svg class="ic"><use href="#i-clear"/></svg><span>Löschen</span></button>
           <span class="spacer"></span>
+          <button class="btn tool" id="cap-look" type="button" aria-label="Stift & Papier" aria-haspopup="dialog"><svg class="ic"><use href="#i-nib"/></svg><span>Stift &amp; Papier</span></button>
+          <button class="btn tool" id="cap-fs" type="button" aria-label="Vollbild" aria-pressed="false"><svg class="ic"><use id="cap-fs-icon" href="#i-expand"/></svg><span id="cap-fs-label">Vollbild</span></button>
+          <span class="sep" aria-hidden="true"></span>
           <button class="btn primary" id="cap-done" type="button"><svg class="ic"><use href="#i-check"/></svg><span>Fertig</span></button>
         </div>
         <div class="sheet" id="cap-sheet">
@@ -158,6 +164,15 @@
 
       <div class="cap-panel cap-loading"><p class="muted">Einen Moment …</p></div>
     </div>
+
+    <dialog class="dlg look-dlg" id="dlg-look" aria-labelledby="look-title">
+      <div class="look-head">
+        <h2 id="look-title">Stift &amp; Papier</h2>
+        <button class="btn primary" id="look-close" type="button"><span>Schließen</span></button>
+      </div>
+      <p class="look-note">So sieht deine Schrift auf dem Blatt aus. Aufgezeichnet wird immer genau dasselbe.</p>
+      <div id="look-controls"></div>
+    </dialog>
   </section>
 
   <!-- Generate: text in, handwriting out -->
@@ -260,6 +275,15 @@
             <button class="btn primary" id="wr-ok" type="submit">Hinzufügen</button>
           </div>
         </form>
+      </section>
+
+      <section class="group" aria-labelledby="g-look">
+        <h2 id="g-look">Stift &amp; Papier</h2>
+        <p class="muted" id="look-none">Wähle zuerst, wer schreibt.</p>
+        <div id="g-look-box" hidden>
+          <p id="look-for"></p>
+          <div id="look-settings"></div>
+        </div>
       </section>
 
       <section class="group" aria-labelledby="g-account">

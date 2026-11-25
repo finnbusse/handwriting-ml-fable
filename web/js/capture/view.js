@@ -3,11 +3,10 @@ import { createRecorder } from './recorder.js';
 import { buildRecord, validate, uuid } from './hwline.js';
 import * as qa from './qa.js';
 import { nextPrompt, progressOf } from '../prompts.js';
+import { normalize, sameDisplay, computeGuides, schemeColors, drawPaper, createInk } from './ink.js';
+import { createLookControls } from './look.js';
 
-const INK_WIDTH = 2;            // constant CSS px, no pressure-dependent width
 const BUTTON_QUIET_MS = 300;    // buttons ignore taps this long after a stroke ends
-const BASELINE_FRAC = 0.64;     // baseline position inside the band
-const GUIDE_INSET = 32;         // baseline starts/ends this far inside the band
 
 export function createCaptureView(deps) {
   const { cfg, store, outbox, toast } = deps;
@@ -20,12 +19,17 @@ export function createCaptureView(deps) {
     undo: $('cap-undo'), clear: $('cap-clear'), skip: $('cap-skip'), done: $('cap-done'),
     redo: $('confirm-redo'), ok: $('confirm-ok'), pause: $('pause-ok'),
     blockPause: $('block-pause'), blockNext: $('block-next'), restGo: $('rest-go'),
+    look: $('cap-look'), lookClose: $('look-close'), fs: $('cap-fs'),
   };
+  const lookDlg = $('dlg-look');
 
   let ctx2d = null;
   let size = { w: 0, h: 0, dpr: 1, px: [0, 0] };
   let guides = null;
-  let colors = { sheet: '#fff', ink: '#000', rule: '#ccc' };
+  let display = normalize(deps.display ? deps.display() : null);   // how the sheet looks (never what is recorded)
+  let ink = null;               // renderer of the writing canvas
+  let confirmInk = null;        // renderer of the confirm canvas
+  let displayChanged = false;   // the look was changed while this line was being written
   let state = 'loading';
   let visible = false;
   let current = null;           // prompt being written
@@ -49,12 +53,12 @@ export function createCaptureView(deps) {
     onStrokeStart: () => {
       if (!layoutAtStart) {
         layoutAtStart = geometry();
-        lineLayout = { size: { w: size.w, h: size.h, dpr: size.dpr, px: size.px.slice() }, guides: Object.assign({}, guides) };
+        lineLayout = { size: { w: size.w, h: size.h, dpr: size.dpr, px: size.px.slice() }, guides: computeGuides(size.w, size.h, display) };
       }
       cleared = null;            // writing again ends the chance to restore a cleared line
       hint.hidden = true;
     },
-    onSamples: (s, from) => drawSegment(s, from),
+    onSamples: (s, from) => { if (ink) ink.draw(s, from); },
     onStrokeEnd: () => { lastStrokeEnd = performance.now(); updateTools(); },
     onIgnored: (e) => {
       if (rec.strokes.length) return;
@@ -131,6 +135,7 @@ export function createCaptureView(deps) {
     cleared = null;
     flags = [];
     edits = { undo: 0, clear: 0 };
+    displayChanged = false;
     hint.textContent = 'Schreib mit dem Stift auf die Linie.';
     hint.hidden = false;
     redraw();
@@ -170,15 +175,6 @@ export function createCaptureView(deps) {
 
   // ---------- canvas ----------
 
-  function readColors() {
-    const cs = getComputedStyle(document.documentElement);
-    colors = {
-      sheet: cs.getPropertyValue('--sheet').trim() || '#fff',
-      ink: cs.getPropertyValue('--ink-stroke').trim() || '#123',
-      rule: cs.getPropertyValue('--rule').trim() || '#ccc',
-    };
-  }
-
   function geometry() {
     const r = canvas.getBoundingClientRect();
     return { left: r.left, top: r.top, w: r.width, h: r.height, dpr: devicePixelRatio || 1,
@@ -201,39 +197,42 @@ export function createCaptureView(deps) {
     canvas.style.width = `${w}px`; canvas.style.height = `${h}px`;
     canvas.width = size.px[0]; canvas.height = size.px[1];
     ctx2d = canvas.getContext('2d', { desynchronized: true, alpha: false });
-    const baselineY = Math.round(h * BASELINE_FRAC) + 0.5;
-    const inset = Math.min(GUIDE_INSET, Math.round(w * 0.04));
-    guides = { visible: true, baseline_y: baselineY, x_start: inset, x_end: w - inset,
-               extra_lines_y: [], ink_width_css: INK_WIDTH, pressure_width: false };
+    if (!ink) ink = createInk(ctx2d);
+    guides = computeGuides(w, h, display);
     redraw();
   }
 
+  /** Paper, lines and every stroke in the current look (same pixels as drawing them live). */
   function redraw() {
     if (!ctx2d) return;
-    readColors();
     const c = ctx2d;
+    const colors = schemeColors(display.scheme);
     c.setTransform(size.dpr, 0, 0, size.dpr, 0, 0);
-    c.fillStyle = colors.sheet; c.fillRect(0, 0, size.w, size.h);
-    c.strokeStyle = colors.rule; c.lineWidth = 1;
-    c.beginPath(); c.moveTo(guides.x_start, guides.baseline_y); c.lineTo(guides.x_end, guides.baseline_y); c.stroke();
-    for (const s of rec.strokes) drawSegment(s, 0);
+    drawPaper(c, size.w, size.h, guides, colors, 1);
+    ink.configure(display, colors, size.dpr);
+    for (const s of rec.strokes) ink.draw(s, 0);
   }
 
-  function drawSegment(s, from) {
-    if (!ctx2d) return;
-    const c = ctx2d;
-    c.strokeStyle = colors.ink; c.fillStyle = colors.ink;
-    c.lineWidth = INK_WIDTH; c.lineCap = 'round'; c.lineJoin = 'round';
-    if (s.x.length === 1) {
-      c.beginPath(); c.arc(s.x[0], s.y[0], INK_WIDTH / 2, 0, Math.PI * 2); c.fill();
-      return;
+  /** A new look: the strokes stay and are drawn again; only the guides metadata follows. */
+  function setDisplay(o) {
+    const next = normalize(o);
+    if (sameDisplay(next, display)) return;
+    display = next;
+    sheet.dataset.scheme = display.scheme;
+    if (size.w) guides = computeGuides(size.w, size.h, display);
+    if (lineLayout) {
+      lineLayout.guides = computeGuides(lineLayout.size.w, lineLayout.size.h, display);
+      if (rec.strokes.length) displayChanged = true;
     }
-    const i0 = Math.max(1, from);
-    if (i0 >= s.x.length) return;
-    c.beginPath(); c.moveTo(s.x[i0 - 1], s.y[i0 - 1]);
-    for (let i = i0; i < s.x.length; i++) c.lineTo(s.x[i], s.y[i]);
-    c.stroke();
+    if (cleared && cleared.lineLayout) {
+      cleared.lineLayout.guides = computeGuides(cleared.lineLayout.size.w, cleared.lineLayout.size.h, display);
+      cleared.displayChanged = true;
+    }
+    redraw();
+    if (state === 'confirm' && visible) requestAnimationFrame(drawConfirm);
+    if (lookDlg.open) look.render();
   }
+  sheet.dataset.scheme = display.scheme;
 
   function drawConfirm() {
     if (state !== 'confirm' || !lineLayout) return;
@@ -250,20 +249,15 @@ export function createCaptureView(deps) {
     cv.style.width = `${cw}px`; cv.style.height = `${ch}px`;
     cv.width = Math.round(cw * dpr); cv.height = Math.round(ch * dpr);
     const c = cv.getContext('2d');
+    if (!confirmInk) confirmInk = createInk(c);
+    const cols = schemeColors(display.scheme);
     c.setTransform(dpr * scale, 0, 0, dpr * scale, 0, -y0 * dpr * scale);
-    c.fillStyle = colors.sheet; c.fillRect(0, y0, size.w, y1 - y0);
-    c.strokeStyle = colors.rule; c.lineWidth = 1 / scale;
-    c.beginPath(); c.moveTo(guides.x_start, guides.baseline_y); c.lineTo(guides.x_end, guides.baseline_y); c.stroke();
-    c.strokeStyle = colors.ink; c.fillStyle = colors.ink; c.lineWidth = INK_WIDTH; c.lineCap = 'round'; c.lineJoin = 'round';
-    for (const s of rec.strokes) {
-      if (s.x.length === 1) { c.beginPath(); c.arc(s.x[0], s.y[0], INK_WIDTH / 2, 0, Math.PI * 2); c.fill(); continue; }
-      c.beginPath(); c.moveTo(s.x[0], s.y[0]);
-      for (let i = 1; i < s.x.length; i++) c.lineTo(s.x[i], s.y[i]);
-      c.stroke();
-    }
+    drawPaper(c, size.w, size.h, guides, cols, 1 / scale);
+    confirmInk.configure(display, cols, dpr * scale);
+    for (const s of rec.strokes) confirmInk.draw(s, 0);
     // Ring stray strokes so the writer sees what the hint means.
     if (flags.includes('stray_stroke')) {
-      c.strokeStyle = colors.ink; c.lineWidth = 1.5 / scale; c.setLineDash([4 / scale, 4 / scale]);
+      c.strokeStyle = cols.ink; c.lineWidth = 1.5 / scale; c.setLineDash([4 / scale, 4 / scale]);
       for (const i of qa.strayStrokes(rec.strokes)) {
         const s = rec.strokes[i];
         const cx = (Math.min(...s.x) + Math.max(...s.x)) / 2, cy = (Math.min(...s.y) + Math.max(...s.y)) / 2;
@@ -282,8 +276,8 @@ export function createCaptureView(deps) {
     if (state !== 'write') return;
     const inLine = rec.strokes.length > 0 || rec.active;
     if (inLine) {
-      const leftFullscreen = kind === 'fullscreenchange' && !document.fullscreenElement;
-      if (leftFullscreen || !sameGeometry(layoutAtStart, geometry())) {
+      // Entering or leaving fullscreen moves the sheet, even when the size happens to match.
+      if (kind === 'fullscreenchange' || !sameGeometry(layoutAtStart, geometry())) {
         rec.paused = true;
         setState('pause');
         return;
@@ -303,7 +297,7 @@ export function createCaptureView(deps) {
   watchDpr();
 
   for (const ev of ['resize', 'orientationchange']) window.addEventListener(ev, () => layoutEvent(ev));
-  document.addEventListener('fullscreenchange', () => layoutEvent('fullscreenchange'));
+  document.addEventListener('fullscreenchange', () => { updateFsButton(); layoutEvent('fullscreenchange'); });
   if (window.visualViewport) visualViewport.addEventListener('resize', () => layoutEvent('visualviewport'));
   if (screen.orientation && screen.orientation.addEventListener) {
     screen.orientation.addEventListener('change', () => layoutEvent('orientation'));
@@ -327,14 +321,28 @@ export function createCaptureView(deps) {
     } catch (_) { wakeLock = null; }   // battery saver etc.: never blocks recording
   }
 
-  async function enterFullscreen() {
+  // Fullscreen only when the writer asks for it (button); recording never depends on it.
+  const fsAvailable = () => !!(document.fullscreenEnabled && document.documentElement.requestFullscreen);
+
+  function updateFsButton() {
+    const on = !!document.fullscreenElement;
+    // An app installed to start in fullscreen has nothing to switch.
+    btn.fs.hidden = !fsAvailable() || (!on && matchMedia('(display-mode: fullscreen)').matches);
+    btn.fs.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.fs.setAttribute('aria-label', on ? 'Vollbild beenden' : 'Vollbild');
+    $('cap-fs-label').textContent = on ? 'Vollbild beenden' : 'Vollbild';
+    $('cap-fs-icon').setAttribute('href', on ? '#i-shrink' : '#i-expand');
+  }
+  updateFsButton();
+
+  async function toggleFullscreen() {
     try {
-      if (!document.fullscreenElement && document.documentElement.requestFullscreen
-          && !matchMedia('(display-mode: fullscreen)').matches) {
-        await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
-      }
-    } catch (_) {}
-    try { if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape'); } catch (_) {}
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen({ navigationUI: 'hide' });
+    } catch (_) {
+      toast('Vollbild geht hier gerade nicht. Schreiben klappt auch so.');
+    }
+    updateFsButton();
   }
 
   // ---------- actions ----------
@@ -344,7 +352,7 @@ export function createCaptureView(deps) {
   document.addEventListener('pointerdown', (e) => {
     if (e.pointerType !== 'touch') return;
     activeTouches.add(e.pointerId);
-    if (activeTouches.size > 1 && e.target.closest && e.target.closest('#cap button')) ignoreClickUntil = performance.now() + 1000;
+    if (activeTouches.size > 1 && e.target.closest && e.target.closest('#v-erfassen button')) ignoreClickUntil = performance.now() + 1000;
   }, true);
   for (const ev of ['pointerup', 'pointercancel']) {
     document.addEventListener(ev, (e) => { if (e.pointerType === 'touch') activeTouches.delete(e.pointerId); }, true);
@@ -373,7 +381,7 @@ export function createCaptureView(deps) {
       if (!sameGeometry(cleared.layoutAtStart, geometry())) { cleared = null; updateTools(); return; }
       const c = cleared; cleared = null;
       rec.restore(c.rec);
-      layoutAtStart = c.layoutAtStart; lineLayout = c.lineLayout;
+      layoutAtStart = c.layoutAtStart; lineLayout = c.lineLayout; displayChanged = c.displayChanged;
       edits.undo++;
       hint.hidden = true;
       redraw(); updateTools();
@@ -388,7 +396,7 @@ export function createCaptureView(deps) {
   btn.clear.addEventListener('click', guarded(() => {
     if (!rec.strokes.length) return;
     const e = edits;
-    const keep = { rec: rec.stash(), layoutAtStart, lineLayout };
+    const keep = { rec: rec.stash(), layoutAtStart, lineLayout, displayChanged };
     resetLine();
     cleared = keep;
     edits = { undo: e.undo, clear: e.clear + 1 };
@@ -446,7 +454,8 @@ export function createCaptureView(deps) {
     const record = buildRecord({
       cfg, writer, sessionId: session.id, seq: session.seq, prompt: current, flags,
       attempt: attempts[current.id] || 1, edits, rec,
-      canvasCss: [ls.w, ls.h], canvasPx: ls.px.slice(), dpr: ls.dpr, guides: Object.assign({}, lineLayout.guides),
+      canvasCss: [ls.w, ls.h], canvasPx: ls.px.slice(), dpr: ls.dpr,
+      guides: Object.assign({}, lineLayout.guides, displayChanged ? { display_changed: true } : {}),
       uaData: deps.uaData(),
     });
     const errors = validate(record);
@@ -466,8 +475,7 @@ export function createCaptureView(deps) {
     setState('write');
   }));
 
-  btn.blockNext.addEventListener('click', guarded(async () => {
-    await enterFullscreen();
+  btn.blockNext.addEventListener('click', guarded(() => {
     session = { id: uuid(), seq: 0 };
     loadNext();
   }));
@@ -477,11 +485,30 @@ export function createCaptureView(deps) {
     setState('resting');
   }));
 
-  btn.restGo.addEventListener('click', guarded(async () => {
-    await enterFullscreen();
+  btn.restGo.addEventListener('click', guarded(() => {
     session = { id: uuid(), seq: 0 };
     loadNext();
   }));
+
+  btn.fs.addEventListener('click', guarded(async () => {
+    // Switching moves the sheet, which would cost the line: finish or clear it first.
+    if (rec.strokes.length) { showHint('Erst die Zeile fertig schreiben oder löschen.'); return; }
+    await toggleFullscreen();
+  }));
+
+  // "Stift & Papier": a panel over the sheet; the sheet behind follows every choice.
+  const look = createLookControls($('look-controls'), {
+    get: () => display,
+    set: async (o) => { setDisplay(o); if (deps.saveDisplay) await deps.saveDisplay(normalize(o)); },
+    wrap: (fn) => guarded(fn),
+  });
+  btn.look.addEventListener('click', guarded(() => {
+    if (lookDlg.open) return;
+    lookDlg.showModal();
+    look.render();
+  }));
+  btn.lookClose.addEventListener('click', () => lookDlg.close());
+  lookDlg.addEventListener('click', (e) => { if (e.target === lookDlg) lookDlg.close(); });   // tap beside the panel
 
   // ---------- public ----------
 
@@ -513,10 +540,13 @@ export function createCaptureView(deps) {
         if (rec.strokes.length && !sameGeometry(layoutAtStart, geometry())) { rec.paused = true; setState('pause'); }
         else requestAnimationFrame(() => layoutCanvas(true));
       }
+      if (state === 'confirm') requestAnimationFrame(drawConfirm);
+      updateFsButton();
       updateInline();
     },
     hide() {
       visible = false;
+      if (lookDlg.open) lookDlg.close();
       delete document.body.dataset.inline;
       if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
       outbox.flush('session-end');
@@ -529,7 +559,13 @@ export function createCaptureView(deps) {
       updateProgress();
     },
     setPenOnly(v) { rec.penOnly = v; },
-    enterFullscreen,
+    /** The current writer's look (from the panel, the settings or a writer switch). */
+    setDisplay,
+    get display() { return Object.assign({}, display); },
+    get guides() { return guides && Object.assign({}, guides); },
+    get sheetColors() { return Object.assign({}, schemeColors(display.scheme)); },
+    /** Full redraw, as after undo or an option change (tests compare it with live drawing). */
+    redraw,
     get state() { return state; },
     get recorder() { return rec; },
     get lastRate() { return lastConfirmRate; },

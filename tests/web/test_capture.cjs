@@ -147,8 +147,16 @@ const L = require('./lib.cjs');
       (await page.textContent('#cap-prompt')) === promptBeforeSkip && (await page.evaluate(() => window.__hw.capture.recorder.strokes.length)) === 1
       && (await page.textContent('#cap-hint')).includes('erst die Zeile löschen'));
 
-    // Leaving fullscreen during a line -> pause and write again.
-    L.check('"Los geht\'s" entered fullscreen', await page.evaluate(() => !!document.fullscreenElement));
+    // Fullscreen only on request; entering or leaving it during a line -> pause and write again.
+    L.check('"Los geht\'s" does not switch to fullscreen by itself', await page.evaluate(() => !document.fullscreenElement));
+    await cdp.send('Runtime.evaluate', { expression: 'document.documentElement.requestFullscreen()', userGesture: true, awaitPromise: true });
+    await page.waitForTimeout(300);
+    L.check('entering fullscreen during a line pauses', (await page.getAttribute('#cap', 'data-state')) === 'pause');
+    await L.settle(page);
+    await page.click('#pause-ok');
+    await page.waitForTimeout(100);
+    const rectFs = await L.canvasRect(page);
+    await p.stroke(L.glyph(rectFs.left + 100, rectFs.top + rectFs.height * 0.64, 6));
     await page.evaluate(() => document.exitFullscreen());
     await page.waitForTimeout(300);
     L.check('leaving fullscreen during a line pauses', (await page.getAttribute('#cap', 'data-state')) === 'pause');
