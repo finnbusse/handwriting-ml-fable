@@ -1107,7 +1107,7 @@ Der Husten dauert nun schon eine Woche.
 Ich bin heute leider krank geschrieben.
 Die Apotheke hat bis 18:30 Uhr geöffnet.
 Schlaf ist wichtig für die Gesundheit.
-Ich gehe jeden Tag eine Stunde spazieren.
+Ich gehe täglich eine Stunde spazieren.
 Das Pflaster klebt auf der Wunde.
 Bewegung an der frischen Luft tut gut.
 Mein Knie schmerzt beim Treppensteigen.
@@ -1115,10 +1115,10 @@ Der Schnupfen ist fast schon vorbei.
 Ich brauche einen neuen Termin.
 Die Impfung ist gut für uns alle.
 Mir ist schwindelig und kalt.
-Der Verband muss täglich gewechselt werden.
+Der Verband wird täglich gewechselt.
 Nach dem Essen ist mir oft übel.
 Der Hausarzt ist bis Freitag im Urlaub.
-Gesund essen, viel schlafen, Sport treiben
+Gesund essen, viel schlafen, Sport
 Ich habe mir den Finger geklemmt.
 Die Salbe hilft gegen den Juckreiz.
 Tee mit Honig lindert den Husten.
@@ -1128,7 +1128,7 @@ Der Blutdruck ist ganz in Ordnung.
 Ich fühle mich heute viel besser.
 Bitte die Hände gründlich waschen.
 Mein Ohr tut weh, ich gehe zum Arzt.
-Der Zahn muss leider gezogen werden.
+Der Zahn braucht leider eine Füllung.
 Ein Glas Wasser vor dem Frühstück
 Ich schlafe 8 Stunden pro Nacht.
 Nach der Spritze tut der Arm weh.
@@ -1139,18 +1139,18 @@ Die Physiotherapie beginnt um 14:00 Uhr.
 Bitte ruhig atmen und entspannen.
 Ich habe mich beim Sport verletzt.
 Sonne tanken ist gut für die Laune.
-Die Praxis ist montags bis freitags offen.
+Die Praxis ist Mo bis Fr geöffnet.
 Bei Fieber bitte im Bett bleiben.
 Der Arzt untersucht meinen Hals.
 Ich bin müde und gähne ständig.
 Der Nacken ist ganz verspannt.
 Ich brauche dringend Urlaub und Ruhe.
 Nach dem Sport trinke ich Wasser.
-Ein Pflaster, bitte, ich blute.
+Ein Pflaster, bitte, ich bin gestolpert.
 Der Doktor sagt: Alles in Ordnung.
 Die Tropfen müssen kühl gelagert werden.
 Heute habe ich überhaupt keinen Hunger.
-Das Medikament wirkt schon nach 30 Minuten.
+Die Tablette wirkt nach 30 Minuten.
 Ich putze die Zähne zweimal täglich.
 Mein Magen knurrt laut.
 Im Bad liegt die Zahnbürste bereit.
@@ -1159,7 +1159,7 @@ Das Bein ist wieder voll belastbar.
 Ein warmes Bad hilft gegen Verspannung.
 Ich muss zur Kontrolle in die Klinik.
 Gesundheit ist das höchste Gut.
-Der Termin beim Augenarzt ist am 7.
+Augenarzt: Termin am 7.12. um 11 Uhr
 Ich habe schlecht geschlafen.
 Die Kopfschmerzen sind weg, zum Glück!
 Frische Luft macht den Kopf frei.
@@ -1188,3 +1188,1041 @@ en|My appointment is on Monday at 9.
 en|I feel much better today, thanks.
 en|Take one tablet twice a day.
 en|Get well soon, my friend!
+Ich freue mich riesig auf morgen!
+Das finde ich wirklich großartig.
+Heute bin ich richtig gut gelaunt.
+Ich bin ein bisschen aufgeregt.
+Das war eine schöne Überraschung!
+Mir gefällt das Bild sehr gut.
+Ich bin stolz auf dich.
+Das ist mir ein bisschen peinlich.
+Zum Glück ist nichts passiert.
+Ich finde, das ist eine gute Idee.
+Ehrlich gesagt, bin ich erleichtert.
+Das klingt für mich vernünftig.
+Mir ist das alles zu laut.
+Ich bin neugierig, wie es ausgeht.
+Das macht mich richtig glücklich.
+Ich würde lieber zu Hause bleiben.
+Es ärgert mich, dass es regnet.
+Ich bin heute total müde.
+Meine Meinung dazu ist ganz einfach.
+Der Film hat mir gut gefallen.
+Ich fühle mich hier sehr wohl.
+Das Ergebnis überrascht mich nicht.
+Ich bin dankbar für deine Hilfe.
+Manchmal brauche ich einfach Ruhe.
+Der Brief hat mich sehr gefreut.
+Ich mag Menschen, die ehrlich sind.
+Das war ein anstrengender Tag.
+Ich bin zufrieden mit dem Ergebnis.
+Mir fällt das Aufstehen schwer.
+Ich bin gespannt auf dein Urteil.
+Der Gedanke gefällt mir nicht.
+Ich genieße die Stille am Morgen.
+Das Essen war köstlich, vielen Dank!
+Ich glaube, du hast recht.
+Ich bin überzeugt, dass es klappt.
+Ich würde das auch so machen.
+Nach der Arbeit bin ich ruhig und müde.
+Lustig, was uns heute passiert ist!
+Schade, dass es schon vorbei ist.
+Ich habe wirklich großes Glück gehabt.
+Das ist doch kein Problem!
+Das finde ich übertrieben.
+Ich bin hin- und hergerissen.
+Mut zu haben ist nicht immer leicht.
+Ich bin froh, dass wir uns kennen.
+Das ist zu schön, um wahr zu sein.
+Der Gedanke daran macht mir Freude.
+Mich stört der Lärm kaum noch.
+Ich lache über den Witz.
+Du hast mich zum Lachen gebracht.
+Ich habe heute einfach keine Lust.
+Das ist genau mein Geschmack.
+Das war wirklich ein Spaß!
+Ich bin gern draußen in der Natur.
+Das Wetter macht mich fröhlich.
+Ehrlich währt am längsten.
+Das hätte ich nicht erwartet.
+Ich vertraue dir ganz und gar.
+Ich liebe den Duft von frischem Brot.
+Wie schön, dass es dir gutgeht!
+Ich habe Lust auf ein Eis.
+Meiner Meinung nach ist das zu teuer.
+Ich mag Regen, wenn ich drinnen bin.
+Mir ist heute nach Singen zumute.
+Ein ruhiger Abend gefällt mir.
+Ich finde es toll, dass du hilfst.
+Das macht mir wirklich nichts aus.
+Keine Sorge, das wird schon wieder.
+Ich fühle mich heute leicht und frei.
+Das schmeckt mir ausgezeichnet.
+Ich denke gern an den Sommer zurück.
+Ich bin gespannt auf die Überraschung.
+Ich habe das Gefühl, es wird gut.
+Der Tag hat mir viel Freude gebracht.
+Ich bin dir dankbar für alles.
+Ich finde den Text gelungen.
+Er wirkt ruhig und gelassen.
+Ich bin schon ganz ungeduldig.
+Manchmal siegt die Vernunft.
+Da hast du aber Glück gehabt!
+Das Leben ist schön, genieße es.
+Mir tut der Rücken von der Arbeit weh.
+Ich bin begeistert von diesem Ausflug.
+Ein Lächeln kostet nichts.
+Ich würde gern mehr davon lesen.
+Es war ein tolles Wochenende.
+Stille Momente sind mir wichtig.
+Ich glaube fest an unseren Erfolg.
+Ich bin stolz auf meine Leistung.
+Es tut mir leid, ich war zu laut.
+Ich bewundere deine Geduld.
+Das war ein köstlicher Nachtisch.
+Ach, das macht doch nichts!
+Mir ist es hier zu warm.
+Wunderbar, das passt mir gut.
+en|I am really happy today.
+en|That sounds like a great idea.
+en|I think you are right.
+en|I am a little bit nervous.
+en|Honestly, I do not mind at all.
+en|I love the smell of fresh bread.
+en|It was a wonderful surprise!
+Wir treffen uns am 14.02. um 15:30 Uhr.
+Der Termin ist am Dienstag um 9:00 Uhr.
+Am 3. März ist Elternabend.
+Treffpunkt: Haupteingang, 7:45 Uhr
+Das Meeting läuft von 10:00 bis 11:15.
+Wir sehen uns am 1. Mai im Park.
+Freitag, den 13., bleibe ich daheim.
+Urlaub vom 28.07. bis 11.08.
+Abgabe: spätestens bis 31.01. um 12 Uhr
+Wir haben am 6.10. einen Arzttermin.
+Der Kurs startet am 2.9. um 18 Uhr.
+Am Montag früh ist Teambesprechung.
+Wir treffen uns halb acht vorm Kino.
+Ruf mich zwischen 16 und 17 Uhr an.
+Die Feier beginnt um 19 Uhr.
+Der Zug fährt am 24.12. um 6:12 Uhr.
+Das Wochenende ist schon verplant.
+Am Samstag gehen wir zum Flohmarkt.
+Nächste Woche habe ich viel zu tun.
+Heute ist Dienstag, der 17. November.
+Mittwochs Chor, donnerstags Sport.
+Der Friseur hat mich auf 11:30 gesetzt.
+Wir verschieben den Termin auf Mittwoch.
+Bis Monatsende muss alles fertig sein.
+Die Sitzung wurde auf 14:45 Uhr verlegt.
+Am Donnerstag kommt der Handwerker.
+Um Punkt 8 Uhr fängt der Unterricht an.
+Morgen um 7:30 klingelt der Wecker.
+Ich bin ab 9 Uhr wieder erreichbar.
+In zwei Wochen fahren wir in den Urlaub.
+Bitte bis zum 15.05. zusagen.
+Das Konzert ist am 22. Juni um 20 Uhr.
+Der Geburtstag meiner Oma ist am 9.4.
+Zeit für ein Mittagessen um 12:15?
+Wir treffen uns übermorgen am Bahnhof.
+Die Prüfung beginnt Punkt 9:00 Uhr.
+Vormittags habe ich einen Arzttermin.
+Dienstag und Donnerstag bin ich frei.
+Das Fest ist vom 5. bis 7. August.
+Bis zum Wochenende ist es nicht weit.
+Reserviere einen Tisch für 6 Personen.
+Die Besprechung ist von 13 bis 14 Uhr.
+Der Vortrag ist um 18:30 in Raum 204.
+Ich komme gegen 17 Uhr bei dir vorbei.
+Am letzten Tag des Jahres feiern wir.
+Wann passt es dir am besten?
+Der Flug geht am 19.06. um 7:10 Uhr.
+Morgen früh um 5 Uhr geht es los.
+Frühestens ab 10 Uhr bin ich zu Hause.
+Wir planen eine Wanderung für den 12.09.
+Der Kalender ist schon ganz voll.
+Das Treffen ist Montag um 16 Uhr.
+Verlängerung bis zum 30.06. möglich
+Zum Jahreswechsel sind wir zu Hause.
+Ab 1. Januar gilt der neue Plan.
+Rückmeldung bis Freitag, 12 Uhr, bitte.
+Wir haben noch 3 Wochen Zeit.
+Das Fest geht bis 23:00 Uhr.
+In der Woche vom 6. bis 10. Juli
+Ich habe den Termin im Kalender notiert.
+Um 6 Uhr früh stehe ich auf.
+Der Ausflug ist am Sonntag um 9 Uhr.
+Am 15. November ist Laternenumzug.
+Das Frühstück ist ab 6:30 Uhr bereit.
+Abfahrt um 7:20 Uhr am Busbahnhof.
+Sicherheitshalber komme ich früher.
+Das Treffen ist leider schon vorbei.
+Gleich um die Ecke, in 5 Minuten!
+Der Zahnarzt hat Dienstag 15 Uhr Zeit.
+Am 31. Oktober ist Halloween.
+Am Ende der Woche ist alles geschafft.
+Ich fahre im Mai für 14 Tage weg.
+Wir haben noch bis 18 Uhr Zeit.
+Bitte pünktlich um 10:00 Uhr da sein!
+Ab Montag gelten neue Öffnungszeiten.
+Die Veranstaltung beginnt um 19:00 Uhr.
+Wir sehen uns Ende Februar wieder.
+Der Anmeldeschluss ist der 20.08.
+Das Treffen fällt am Freitag aus.
+Zum Abendessen bin ich um 18:45 da.
+Der Abholtermin ist heute um 16:30.
+Ich schaue morgen um 10 Uhr vorbei.
+Um 20 Uhr beginnt das Fußballspiel.
+Das Paket kommt am 4. oder 5. Dezember.
+Bis bald, wir sehen uns Mitte Juli!
+Der letzte Bus fährt um 23:40 Uhr.
+Noch 12 Tage bis zu den Ferien!
+Kalender: 12.04. Zahnarzt, 15.04. Chor
+en|The meeting is at 10:30 on Monday.
+en|See you on March 3rd at 4 pm.
+en|Let us meet at half past seven.
+en|Is Friday at noon okay for you?
+en|My train leaves at 6:45 tomorrow.
+en|The deadline is on the 15th of May.
+en|I will call you at about five.
+en|Dinner is at seven o'clock sharp.
+Ich arbeite von 8 bis 16 Uhr im Büro.
+Die Besprechung ist heute um 14 Uhr.
+Der Chef ist bis Mittwoch verreist.
+Bitte schick mir die Rechnung per Post.
+Meine Kollegin hat Geburtstag, Kuchen!
+Die Überweisung dauert zwei Werktage.
+Der Lohn kommt am Monatsende aufs Konto.
+Heute habe ich viele Termine.
+Wir müssen das Angebot noch prüfen.
+Ich schreibe einen Bericht für morgen.
+Die Mitarbeiter treffen sich im Foyer.
+Der Kunde fragt nach dem Preis.
+Bitte unterschreiben Sie hier unten.
+Die Kasse stimmt, alles ist gezählt.
+Mein Arbeitsweg dauert 25 Minuten.
+Das Konto ist leider leer.
+Ich zahle die Miete jeden Monat am 1.
+Die Buchhaltung ist im zweiten Stock.
+Wir sparen jeden Monat 50 €.
+Die Rechnung beträgt 135,60 €.
+Der Auftrag muss bis Freitag raus.
+Das Projekt läuft sehr gut.
+Heute ist Betriebsfeier im Garten.
+Der Kollege hilft mir mit dem Bericht.
+Ich brauche noch eine Unterschrift.
+Das Team plant den Messestand.
+Die Preise steigen um 3 % im Jahr.
+Das Geld reicht gerade so für Miete.
+Der Vertrag läuft ein Jahr lang.
+Ich habe 12 Tage Urlaub übrig.
+Mein Arbeitgeber zahlt einen Zuschuss.
+Bitte bis morgen die Zahlen liefern.
+Der Chef lobt unsere gute Arbeit.
+Die Firma sucht neue Mitarbeiter.
+Wir bieten Ausbildungsplätze an.
+Der Praktikant lernt schnell dazu.
+Das Büro ist ab 7 Uhr geöffnet.
+Ich bewerbe mich um eine neue Stelle.
+Der Lebenslauf muss noch ergänzt werden.
+Wir führen eine Liste aller Aufgaben.
+Die Kasse zeigt einen Überschuss.
+Ich kalkuliere die Kosten neu.
+Mein Gehalt wird am 28. überwiesen.
+Der Taschenrechner liegt auf dem Tisch.
+Ich sortiere alle Belege nach Datum.
+Die Sekretärin schreibt den Brief.
+Das Protokoll liegt auf dem Tisch.
+Bei Rückfragen rufen Sie mich an.
+Die Steuererklärung gebe ich im Mai ab.
+Unsere Firma hat 120 Mitarbeiter.
+Ich habe heute Spätdienst bis 22 Uhr.
+Die Lieferung kommt Dienstagvormittag.
+Freitags wird der Lagerbestand gezählt.
+Der Lieferschein liegt beim Pförtner.
+Bitte die Rechnungsnummer angeben.
+Der Laden macht 5 % mehr Umsatz.
+Die Preisliste ist nicht mehr gültig.
+Wir haben die Kosten gut im Griff.
+Der Schreibtisch ist höhenverstellbar.
+Ich drucke die Unterlagen fürs Treffen.
+Der Termin mit dem Kunden steht fest.
+Das Angebot gilt 4 Wochen lang.
+Der Chef will uns heute noch sprechen.
+Ich habe 35 Stunden pro Woche.
+Zum Jahresende gibt es einen Bonus.
+Das Meeting fällt heute leider aus.
+Ich sende dir die Unterlagen als Anhang.
+Das Geschäft läuft nach Plan.
+Der Handwerker schickt die Rechnung.
+Die Tasche mit dem Laptop steht im Flur.
+Mit dem Geld kaufe ich ein Fahrrad.
+Der Betrag wurde gestern überwiesen.
+Ich bewahre alle Quittungen auf.
+Die Bank hat bis 16 Uhr geöffnet.
+Der Zinssatz liegt bei 2,5 %.
+Mein Konto führe ich online.
+Alle Mitarbeiter bekommen ein Geschenk.
+Pause machen wir um Punkt 12 Uhr.
+Der Chef braucht die Zahlen bis 17 Uhr.
+Der Handwerker kommt um 8:00 Uhr.
+Das Taschengeld reicht für ein Eis.
+Mein Sparschwein ist schon ganz voll.
+Der Betrieb wurde 1998 gegründet.
+Das Büro liegt direkt am Marktplatz.
+Der Drucker im Büro ist defekt.
+Der Briefumschlag braucht eine Marke.
+Zum Feierabend räume ich den Tisch auf.
+Das Sekretariat ist bis 15 Uhr besetzt.
+Der Lehrling bekommt 700 € im Monat.
+Die Hälfte ist schon bezahlt.
+Bitte rechnen Sie das noch einmal nach.
+Auf dem Konto liegen noch 85 €.
+Wir machen einen Kassensturz um 17 Uhr.
+en|The meeting starts at 2 pm.
+en|I work from nine to five.
+en|Please send me the invoice.
+en|My salary arrives at the end of May.
+en|I will finish the report today.
+en|Our team has twelve members.
+en|The office is on the third floor.
+Die Straßenbahn kommt in drei Minuten.
+An der Kreuzung ist eine Baustelle.
+Die Ampel schaltet gleich auf Grün.
+Der Verkehr ist heute besonders dicht.
+Bitte den Zebrastreifen benutzen!
+Die Linie 12 fährt zum Marktplatz.
+Der Parkplatz ist leider schon voll.
+Die Umleitung führt zur Hauptstraße.
+Wir wohnen am Stadtrand in Jena.
+Das Rathaus liegt in der Altstadt.
+Im Park steht ein kleiner Brunnen.
+Die Bücherei ist neben dem Schwimmbad.
+Im Kreisverkehr zweite Ausfahrt nehmen
+Der Fußweg ist durch Laub gefährlich.
+Die Haltestelle liegt vor der Schule.
+Das Kino ist in der Bahnhofstraße.
+Der Marktplatz ist immer gut besucht.
+Das Rad steht am Fahrradständer.
+Zur Arbeit fahre ich mit der Bahn.
+Die Stadt ist besonders im Sommer schön.
+Hier darf man nur 30 fahren.
+Die Brücke über den Fluss ist neu.
+Das Museum öffnet um 10:00 Uhr.
+Der Weg zur Post ist nicht weit.
+Der Spielplatz liegt hinter der Kirche.
+Im Zentrum gibt es viele Läden.
+Der Bus ist heute pünktlich gekommen.
+Die Radwege sind frisch asphaltiert.
+Das Auto steht in der Garage.
+Wir sind im Stau stecken geblieben.
+Die Ampel ist schon wieder rot.
+Die Eisdiele an der Ecke ist gemütlich.
+Die Tiefgarage schließt um 24 Uhr.
+Der Taxistand ist vor dem Bahnhof.
+Die Fußgängerzone ist autofrei.
+In der Innenstadt ist ein Straßenfest.
+Wir fahren mit der U-Bahn zum Zoo.
+Die Hausnummer ist 17, nicht 71.
+Der Fahrer hupt ungeduldig.
+Auf der Hauptstraße ist viel los.
+Vorsicht, hier kommen Radfahrer!
+Der Park schließt bei Dunkelheit.
+Das Hochhaus hat 20 Stockwerke.
+Hinter dem Marktplatz liegt die Post.
+Die Stadtbibliothek hat lange geöffnet.
+Die Feuerwehr übt am Samstag.
+Wir parken in der Seitenstraße.
+Das Schwimmbad liegt am Stadtrand.
+Der Weg führt durch den Stadtpark.
+Der Bahnhof wird gerade umgebaut.
+Die Kinder gehen zu Fuß zur Schule.
+Der Gehweg ist mit Schnee bedeckt.
+Das Parkhaus kostet 2 € pro Stunde.
+Die Straße ist gesperrt, bitte umfahren.
+Das alte Stadttor steht noch heute.
+Die Stadtmauer ist 600 Jahre alt.
+Der Lieferwagen steht im Halteverbot.
+Der Fahrplan hängt an der Haltestelle.
+Wir bleiben bis zur letzten Station.
+Die Innenstadt ist ab 6 Uhr belebt.
+Der Radweg führt am Fluss entlang.
+Bitte nicht auf dem Gehweg parken.
+Chemnitz, Jena, Weimar und Halle
+Der Zug nach Dresden fährt um 8:08 Uhr.
+Fußgänger haben hier immer Vorrang.
+Der Schulbus hält vor dem Tor.
+Die Baustelle bleibt bis Oktober.
+Am Hafen liegen viele Schiffe.
+Die Eisdiele hat schon geöffnet.
+Der Wochenmarkt ist jeden Donnerstag.
+Der Verkehr rollt wieder normal.
+Der Turm der Kirche ist 60 Meter hoch.
+Der Spielplatz ist bis 20 Uhr offen.
+Der Tunnel ist zwei Kilometer lang.
+Der Fluss teilt die Stadt in zwei Teile.
+Das Straßenschild ist abgeknickt.
+Die Haltestelle heißt Rathausplatz.
+Straße, Platz, Allee, Gasse und Weg
+Wir fahren über die Autobahn A9.
+Ich gehe heute zu Fuß zur Arbeit.
+Hier bin ich als Kind oft gewesen.
+Die neue Straße ist breit und glatt.
+Der Bahnübergang ist wieder offen.
+Die Haltestelle ist gleich um die Ecke.
+Der Stadtbus fährt bis 23 Uhr.
+Das Verkehrsschild zeigt Tempo 50.
+en|The bus stops in front of the school.
+en|Where is the post office, please?
+en|The traffic is heavy this morning.
+en|Take the second street on the left.
+en|The park is behind the church.
+en|Is there a bakery near here?
+en|The library closes at six.
+Wie geht es dir heute?
+Was machst du am Wochenende?
+Hast du Lust auf einen Spaziergang?
+Wo hast du das Buch gekauft?
+Wie spät ist es eigentlich?
+Kennst du den Weg zur Post?
+Wann kommt der nächste Bus?
+Was gibt es heute zum Mittagessen?
+Hast du schon gefrühstückt?
+Wohin fährst du im Urlaub?
+Kannst du mir bitte kurz helfen?
+Wer kommt heute Abend zum Essen?
+Wie war dein Tag heute?
+Darf ich mich zu dir setzen?
+Weißt du, wo mein Schlüssel ist?
+Magst du lieber Tee oder Kaffee?
+Hast du etwas Kleingeld für mich?
+Wie heißt die Straße noch einmal?
+Wer hat angerufen?
+Wie lange dauert der Film?
+Was meinst du dazu?
+Möchtest du mit uns essen?
+Gehst du morgen zur Arbeit?
+Wie viel Uhr haben wir jetzt?
+Was möchtest du trinken?
+Kommst du am Freitag zur Feier?
+Hast du gut geschlafen?
+Wie komme ich am besten dorthin?
+Wo wohnst du eigentlich?
+Haben wir noch Milch im Haus?
+Was für ein schöner Tag, oder?
+Wie alt ist dein Bruder?
+Sollen wir einen Kaffee trinken gehen?
+Hast du meine Nachricht gelesen?
+Wofür brauchst du den Hammer?
+Wie wird das Wetter morgen?
+Welche Farbe gefällt dir besser?
+Wie lange wartest du schon?
+Sind Sie hier zum ersten Mal?
+Passt dir Dienstag oder Mittwoch besser?
+Darf ich dir etwas anbieten?
+Seit wann kennst du ihn?
+Was hast du heute vor?
+Wollen wir ins Kino gehen?
+Wer hat Lust auf eine Runde Spiele?
+Wie viel kostet die Fahrkarte?
+Ist hier noch ein Platz frei?
+Warum bist du so früh aufgestanden?
+Hast du Lust auf Pizza oder Pasta?
+Wo ist denn die Fernbedienung?
+Was gibt es Neues bei euch?
+Wo steht mein Fahrrad?
+Hast du die Hausaufgaben schon fertig?
+Kannst du bitte das Fenster öffnen?
+Wer ist da an der Tür?
+Hast du schon einen Plan für den Sommer?
+Warum ist der Himmel blau?
+Wie sieht dein Wochenende aus?
+Magst du Äpfel oder Birnen lieber?
+Wann ist der Laden geöffnet?
+Wie weit ist es bis zum Bahnhof?
+Hallo, schön dich zu sehen!
+Guten Morgen, gut geschlafen?
+Guten Tag, kann ich Ihnen helfen?
+Na, wie läuft es bei dir?
+Ach, hier bist du! Ich suche dich schon.
+Bis später, pass gut auf dich auf!
+Tschüss und einen schönen Tag noch!
+Entschuldigung, ist hier noch frei?
+Verzeihung, wo ist der Ausgang?
+Danke, gleichfalls! Bis bald!
+Gern geschehen, das war doch klar.
+Nein danke, ich bin schon satt.
+Ja gern, das wäre wunderbar.
+Moment, ich bin gleich bei dir.
+Einen Augenblick, ich komme gleich.
+Möchten Sie noch etwas trinken?
+Wie bitte? Ich habe dich nicht gehört.
+Könnten Sie das bitte wiederholen?
+Ach so, jetzt verstehe ich!
+Ist das dein Ernst?
+Das ist ja interessant!
+Ich weiß nicht, was ich sagen soll.
+Genau, so habe ich es gemeint.
+Warte kurz, ich schaue nach.
+Nicht schlecht, würde ich sagen.
+Entschuldige die Verspätung!
+Schön, dass du da bist.
+Das ist doch nicht so schlimm!
+Was für eine Überraschung!
+Könntest du mir das erklären?
+Hast du noch einen Moment Zeit?
+Wo kann ich mich hier waschen?
+Welche Größe hast du?
+Was ist dein Lieblingsessen?
+Woher kommst du eigentlich?
+Wie buchstabiert man das Wort?
+en|How are you doing today?
+en|What time is it, please?
+en|Do you want to come with us?
+en|Where did you put my keys?
+en|Could you help me for a moment?
+en|Nice to meet you, how are you?
+en|What are you doing on the weekend?
+en|Excuse me, is this seat free?
+Herzlichen Glückwunsch zum Geburtstag!
+Alles Gute für das neue Jahr!
+Viel Erfolg bei der Prüfung!
+Gute Reise und kommt gesund zurück!
+Ich wünsche dir einen schönen Tag!
+Frohe Feiertage und einen guten Rutsch!
+Hurra, wir haben es geschafft!
+Toll gemacht, weiter so!
+Prima, das passt perfekt!
+Oh, wie schön ist das denn!
+Pass auf dich auf!
+Vorsicht, die Stufe ist hoch!
+Achtung, frisch gestrichen!
+Bitte Ruhe, ich lerne gerade!
+Los, beeil dich, wir sind spät dran!
+Schnell, der Bus kommt schon!
+Hilfe, ich habe den Schlüssel verloren!
+Wunderbar, das Wetter wird besser!
+Auf Wiedersehen und gute Fahrt!
+Viel Spaß beim Spielen!
+Genieße den Abend und die Ruhe!
+Schlaf gut und träum etwas Schönes!
+Bis morgen, ich freue mich!
+Danke schön, das ist sehr lieb!
+Mach's gut und melde dich bald!
+Gesundheit! Und gute Besserung!
+Zum Wohl, auf einen schönen Abend!
+Mahlzeit, lasst es euch schmecken!
+Willkommen zu Hause, ihr Lieben!
+Sei vorsichtig auf dem glatten Weg!
+Halt die Ohren steif!
+Daumen drücken für morgen!
+Ich wünsche euch viel Glück!
+Kopf hoch, es wird wieder besser!
+Auf geht's, packen wir es an!
+Nur Mut, du schaffst das!
+Schön, endlich ist Wochenende!
+Ach, wie gemütlich ist es hier!
+Juhu, die Ferien fangen an!
+Gut gemacht, das war schwer!
+Alles Liebe zum Hochzeitstag!
+Viel Freude mit dem neuen Zuhause!
+Ich wünsche dir gute Besserung!
+Herzlich willkommen im neuen Jahr!
+Mögen all deine Wünsche wahr werden!
+Ich drücke dir die Daumen, es klappt!
+Gutes Gelingen und schöne Ferien!
+Bleib gesund und munter!
+Süße Träume, mein Schatz!
+Genug gelernt, jetzt ist Feierabend!
+Es lebe die Gemütlichkeit!
+Wie wunderbar, ich bin begeistert!
+Toll, so viele Gäste heute!
+Danke für die schöne Zeit!
+Auf die Plätze, fertig, los!
+Das war ein richtig schöner Tag!
+Schönen Feierabend und bis morgen!
+Gute Nacht, schlaf schön!
+Gutes Gelingen beim Backen!
+Ich freue mich auf euren Besuch!
+Beste Grüße und alles Gute!
+Euch allen ein schönes Fest!
+Frohes Schaffen und viel Erfolg!
+Das haben wir uns verdient!
+Ein dreifaches Hoch auf den Sieger!
+Fröhliche Grüße aus dem Urlaub!
+Herzliche Grüße aus der Stadt!
+Mögest du immer Glück haben!
+Weiter so, du machst das prima!
+Für dich nur das Allerbeste!
+Hoffentlich scheint morgen die Sonne!
+Wie schön, dass es endlich Sommer ist!
+Ich wünsche mir einen ruhigen Abend.
+Ich würde so gern verreisen!
+Hoffentlich klappt alles reibungslos!
+Dir und deiner Familie ein schönes Fest!
+Hoffentlich bist du bald wieder fit!
+Wäre es nicht schön, am Meer zu leben?
+Ich wünsche mir ein neues Fahrrad.
+Ach, wenn doch schon Sommer wäre!
+Wenn ich nur mehr Zeit hätte!
+Möge dein Tag voller Freude sein!
+Oh je, das tut mir leid!
+Na so was, das ist ja ein Ding!
+Ach du meine Güte, wie spät ist es!
+Zum Glück ist alles gut gegangen!
+Mensch, das war knapp!
+Juchhu, es hat geklappt!
+Nanu, wer klingelt denn jetzt?
+Igitt, die Milch ist sauer!
+Aua, ich habe mich gestoßen!
+Pst, das Baby schläft!
+Ei, das schmeckt aber gut!
+Wow, was für ein toller Ausblick!
+Na endlich, da seid ihr ja!
+en|Happy birthday and all the best!
+en|Good luck with your exam!
+en|Have a wonderful weekend, everyone!
+en|Well done, keep it up!
+en|Merry Christmas and a happy new year!
+en|Wow, what a great view!
+en|Sleep well and sweet dreams!
+en|Thank you so much, you are kind!
+Einkauf: Milch, Brot, Butter, Käse
+Zettel: Schlüssel, Handy, Geldbeutel
+Packliste: Jacke, Schuhe, Zahnbürste
+To-do: Wäsche waschen, Müll rausbringen
+Notiz: Mittwoch Elternabend, 19 Uhr
+Rezept: 200 g Mehl + 100 g Zucker
+Tel.: 0351 / 123 45 67
+Raum 3.14, zweiter Stock, links
+Aufgabe 1 + 2 + 3 = fertig
+Zimmer 12 (Erdgeschoss), Gebäude B
+Treffpunkt: Bahnhof (Haupteingang)
+Preis: 4,50 € (inkl. 7 % MwSt.)
+Heute: Äpfel (1 kg), Brötchen (6)
+Gruppe A: 9 Uhr; Gruppe B: 10 Uhr
+Seite 5-8 lesen, Seite 9 überfliegen
+Ziel: 10.000 Schritte pro Tag
+Mo-Fr 8-18 Uhr, Sa 9-13 Uhr
+Notiz an mich: Blumen gießen!
+Hausaufgaben: Mathe (S. 23), Deutsch
+Fahrplan: ab 7:41, an 8:19
+Bitte nachfüllen: Salz, Zucker, Mehl
+Sonderangebot! Nur 2,99 € / Stück
+Alle Angaben ohne Gewähr.
+Adresse: Lindenweg 4, 07743 Jena
+Telefon: 03641 / 55 20 11
+Adresse: Gartenstraße 9, Zimmer 17
+Frage: Wer bringt Getränke mit?
+Antwort: Ich, und zwar 12 Flaschen.
+Frühstück 7:30; Mittag 12; Abend 18:30
+Namen: Jule, Ben, Lena und Tim
+Freitag: Schwimmen (16 Uhr)
+Passwort ändern (alle 3 Monate)
+Zutaten: 3 Eier, 1 Prise Salz, Öl
+50 % Rabatt auf alles & noch mehr
+Tisch & Stühle & Sofa im Angebot
+Geheimcode: 7-3-9-1
+Kontostand: 120,50 € (heute)
+Notfall: Nummer 112 anrufen
+Anmeldung bis 5.5.: anna@beispiel.de
+Fragen an: info@beispiel.de
+Mail an: post@beispiel.de bitte
+Ordner: Fotos_2025 (nicht löschen!)
+Das Buch kostet 12,90 € bzw. 9,90 €.
+Termin: Mi, 6.3., 10-11 Uhr
+Anreise: Freitag (ab 14 Uhr)
+Bitte mitbringen: Stift & Block
+Raumnummer: 4/12 (dritter Stock)
+Telefonnummer: 0171 / 234 56 78
+Name: Müller & Söhne
+Kosten: ca. 40 € pro Person
+Maße: 120 x 80 x 75 cm
+Gewicht: 2,5 kg (netto)
+Temperatur: 18-22 Grad
+Heizung: Stufe 3 (nachts: 2)
+Zeit: 45 Min. pro Einheit
+Mindestens 18 Jahre alt
+Kinder bis 6 Jahre: kostenlos
+Haltbar bis: 12.2027
+Menge: 250 ml (ca. 1 Tasse)
+Mo: Lauf; Di: Pause; Mi: Rad; Do: Judo
+Liste: Tomaten, Gurken, Paprika & Salz
+Schlüssel (Haustür), Schlüssel (Keller)
+Bitte nicht stören! (Lernzeit)
+Vorsicht: heiß! Nicht anfassen!
+Eingang rechts, Ausgang links
+Kasse 2 ist geöffnet.
+Notizzettel: Brot nicht vergessen!
+Zuerst Suppe, danach Fisch, dann Eis
+Kuchen (Apfel) oder Torte (Schoko)?
+Klasse 6c: Raum 105, 1. Stock
+Zugnummer 1234, Gleis 6, Wagen 8
+Mein Code: 4711 (nicht weitersagen)
+Spielstand: 3:1 (Halbzeit)
+Die Ziffern 0-9 schreibe ich gern.
+Zahlen: 12, 34, 56, 78 und 90
+Uhrzeit: 08:15, 12:30, 17:45
+Postleitzahl: 01067 Dresden
+Heutiges Datum: 02.03.2026
+Bestellnummer: 45 87 32
+Betrag: 79,00 € netto
+Anteil: 25 % (ein Viertel)
+Rechnung Nr. 2026-18
+Sitzplatz 12 A, Wagen 5
+Hausnummer 6-8 (Eingang B)
+Bus 14 oder 21 bis zur Haltestelle
+Zimmer: 6 m x 4 m = 24 qm
+Rechnung: 8 x 7 = 56
+100 - 36 = 64, 64 + 36 = 100
+Ergebnis: 15 : 3 = 5
+en|Shopping list: milk, bread, cheese
+en|Room 204, second floor, on the left
+en|Open Mon-Fri, 9 am - 5 pm
+en|Total: 15.80 euros (incl. tax)
+en|To do: call Anna & book a table
+en|Note to self: buy stamps!
+en|Meeting at 3:30 pm in room 12
+en|Please bring: pen, paper & water
+Aller Anfang ist schwer.
+Ohne Fleiß kein Preis.
+Morgenstund hat Gold im Mund.
+Der Apfel fällt nicht weit vom Stamm.
+Wer rastet, der rostet.
+Lieber spät als nie.
+Was lange währt, wird endlich gut.
+Aus den Augen, aus dem Sinn.
+Wo ein Wille ist, ist auch ein Weg.
+Gut Ding will Weile haben.
+Der frühe Vogel fängt den Wurm.
+Hunde, die bellen, beißen nicht.
+Reden ist Silber, Schweigen ist Gold.
+Wer sucht, der findet.
+Ende gut, alles gut.
+Den Tag nicht vor dem Abend loben.
+Der Klügere gibt nach.
+In der Ruhe liegt die Kraft.
+Wie man in den Wald ruft, schallt es.
+Probieren geht über Studieren.
+Das Gras ist woanders immer grüner.
+Viele Köche verderben den Brei.
+Steter Tropfen höhlt den Stein.
+Kleinvieh macht auch Mist.
+Von nichts kommt nichts.
+Ein Bild sagt mehr als tausend Worte.
+Wer zuerst kommt, mahlt zuerst.
+Gleich und gleich gesellt sich gern.
+Der Ton macht die Musik.
+Ein gutes Wort kostet nichts.
+Wer wagt, gewinnt.
+Handwerk hat goldenen Boden.
+Geteilte Freude ist doppelte Freude.
+Es ist nicht alles Gold, was glänzt.
+Wer die Wahl hat, hat die Qual.
+Lügen haben kurze Beine.
+Geduld bringt Rosen.
+Aus Fehlern wird man klug.
+Wer ernten will, muss säen.
+Ordnung ist das halbe Leben.
+Frisch begonnen, halb gewonnen.
+Mit Speck fängt man Mäuse.
+Die Zeit heilt alle Wunden.
+Not macht erfinderisch.
+Kommt Zeit, kommt Rat.
+Der Weg ist das Ziel.
+Das Auge isst mit.
+Kleider machen Leute.
+Nach dem Regen kommt Sonnenschein.
+Aller guten Dinge sind drei.
+Lachen ist gesund.
+Beim Essen kommt der Appetit.
+Einmal ist keinmal.
+Alte Liebe rostet nicht.
+Wer lacht, lebt länger.
+Jeder ist seines Glückes Schmied.
+Wer schön sein will, muss leiden.
+Ein Lächeln öffnet viele Türen.
+Wer nicht wagt, der nicht gewinnt.
+Bellende Hunde beißen nicht.
+Man lernt nie aus.
+Der Kluge baut vor.
+Alles hat seine Zeit.
+Mit gutem Willen geht alles besser.
+Gebranntes Kind scheut das Feuer.
+Allzu viel ist ungesund.
+Die Wahrheit kommt ans Licht.
+Der Mensch wächst mit seinen Aufgaben.
+Qualität kommt vor Quantität.
+Ruhe bewahren und weitermachen!
+Geld allein macht nicht glücklich.
+Wer fragt, der führt.
+Jedem Tierchen sein Pläsierchen.
+Hauptsache gesund!
+Jeder Tag ist ein neuer Anfang.
+Dem Mutigen gehört das Glück.
+Nichts ist so beständig wie der Wandel.
+Das Leben ist kein Ponyhof.
+en|A friend in need is a friend indeed.
+en|Practice makes perfect.
+en|Better late than never.
+en|Actions speak louder than words.
+en|The early bird catches the worm.
+en|Every cloud has a silver lining.
+en|Look before you leap.
+en|Time flies when you have fun.
+"Komm bitte schnell", rief die Mutter.
+"Ich weiß es nicht", sagte er leise.
+"Heute Abend gibt's Pizza", sagte Papa.
+Sie fragte: "Wo ist mein Schlüssel?"
+Er antwortete: "Im Auto, glaube ich."
+"Gute Nacht", flüsterte das Mädchen.
+"Das schaffen wir", sagte der Trainer.
+Auf dem Schild steht "Bitte leise sein".
+Das Wort "Fußball" schreibt man mit ß.
+Er nannte es einfach "mein Häuschen".
+Der Satz "Heute ist Montag" ist kurz.
+"Wie geht's dir?", fragte die Nachbarin.
+"Mir geht's gut, danke!", rief ich.
+Gibt's heute noch einen Nachtisch?
+Wie geht's, wie steht's?
+Mach's gut und bis bald!
+Was gibt's Neues im Dorf?
+Das ist ja 'ne tolle Idee!
+Wenn's regnet, bleiben wir drin.
+Hab ich's dir nicht gesagt?
+Ob's morgen schneit, wissen wir nicht.
+Ich geb's zu, das war mein Fehler.
+So 'n Mist, der Zug ist weg!
+Lass uns 'ne Pause machen.
+"Hallo!", rief sie über die Straße.
+Der Lehrer sagte: "Bitte ruhig sein!"
+"Zwei Kaffee, bitte", sagte der Gast.
+"Danke für alles", sagte sie lächelnd.
+"Vielleicht", sagte er, "später."
+Sie las: "Geöffnet von 9 bis 17 Uhr".
+Auf der Tür stand "Bitte klingeln".
+"Nicht so schnell!", rief der Vater.
+Das Lied heißt "Über den Wolken".
+"Tschüss, bis morgen!", rief das Kind.
+Die Frage "Warum?" hört man oft.
+Bitte schreibe "Ja" oder "Nein" auf.
+Das Buch heißt "Die kleine Hexe".
+Im Heft steht: "Aufgabe 4 bitte lösen."
+Der Brief beginnt mit "Liebe Oma,".
+Am Ende steht "Viele Grüße, Jule".
+Er sagte: "Bis später, ich muss los."
+"Pst", sagte Opa, "das Baby schläft."
+"Quatsch!", lachte sie, "nein!"
+"Wunderbar", sagte der Gast, "lecker."
+Meine Mail: mail@beispiel.de
+Schreib mir an max@beispiel.de.
+Meine Adresse: lena.k@beispiel.de
+Kontakt: service@beispiel.de bitte
+E-Mail: chor@beispiel.org
+Anfragen an: team@beispiel.net
+Bitte antworte an hallo@beispiel.de
+Schule: sekretariat@beispiel.de
+Verein: jugend@beispiel.de
+@ steht für "at" in einer Adresse.
+Bitte per Mail an kurs@beispiel.de
+Frage an: hilfe@beispiel.de
+Mein Konto: ben_w@beispiel.de
+Bestellungen: shop@beispiel.de
+Fragen? Schreib an: tim@beispiel.de
+Bitte Rückmeldung an: zoo@beispiel.de
+Mail: jonas.p@beispiel.de (privat)
+Die Suppe (ohne Fleisch) ist fertig.
+Ich komme später (gegen 18 Uhr).
+Der Raum (Nr. 8) ist abgeschlossen.
+Die Wanderung (ca. 12 km) beginnt früh.
+Er kommt aus Köln (nicht aus Bonn).
+Die Torte (mit Nüssen) ist fertig.
+Mein Opa (82) fährt noch Rad.
+Das Spiel (ab 8 Jahren) macht Spaß.
+Eis (Vanille) oder Kuchen (Apfel)?
+Der Weg (links) führt zum See.
+Das Brot (frisch) kostet 3,20 €.
+Wir sehen uns (hoffentlich) morgen.
+Die Feier (im Garten) fällt aus.
+Das Fest (am Sonntag) war schön.
+Bitte warten (ca. 5 Minuten).
+Er hat gewonnen (4:2).
+Tee (grün) und Kuchen (Mohn)
+Der Hund (ein Terrier) bellt laut.
+Alles Gute (und viel Glück)!
+Bis 18 Uhr (spätestens) erreichbar
+Die Miete (480 €) ist überwiesen.
+Der Zug (ICE 574) hat Verspätung.
+Die Tasche (blau) gehört mir.
+Das Haus (Baujahr 1965) ist alt.
+Der Rest (ca. 20 %) kommt später.
+en|"Come in", she said, "it's open."
+en|He said: "I'll be there at six."
+en|Don't forget to call me, okay?
+en|It's cold, so wear a warm jacket.
+en|She's coming on Friday, isn't she?
+en|We can't find the key anywhere.
+en|I'm sorry, I didn't hear you.
+en|That's all, thanks a lot!
+Der Bär brummt in seiner Höhle.
+Käse, Brötchen und Gemüse vom Markt
+Das Mädchen trägt einen roten Rock.
+Der Jäger wartet im Wald.
+Ich zähle die Tage bis zu den Ferien.
+Wir brauchen mehr Räume für die Gäste.
+Die Kinder sind heute so fröhlich.
+Der Löwe schläft im Schatten.
+Es ist möglich, dass es heute schneit.
+Zum Frühstück gibt es Brötchen mit Öl.
+Der Lärm stört mich beim Lesen.
+Gemüse, Nüsse und Früchte sind gesund.
+Auf dem Hügel stehen drei alte Bäume.
+Die Kühe fressen frisches Gras.
+Die Lücke im Zaun ist zu groß.
+Ich bin sehr müde und gehe schlafen.
+Wir prüfen die Aufgaben noch einmal.
+Mein Rücken tut vom langen Sitzen weh.
+Die Suppe ist würzig und schmeckt süß.
+In Zürich war ich noch nie.
+Die Tür klemmt, sie geht nicht auf.
+Die Gäste sitzen im Garten und lachen.
+Die Nähe zum Wald gefällt mir sehr.
+Wir fahren mit der Fähre über den See.
+Die Fäden sind aus Wolle.
+Der Gärtner schneidet die Hecke.
+Meine Hände sind eiskalt.
+Es ist kalt, ich brauche eine Mütze.
+Bei Kälte bleibe ich lieber drinnen.
+Der Läufer ist als Erster am Ziel.
+In den Nächten ist es jetzt kühl.
+Ein Pärchen sitzt auf der Parkbank.
+Das Päckchen kommt morgen früh an.
+Das Rätsel ist wirklich schwer.
+Die Säge liegt in der Werkstatt.
+Ich schreibe drei Sätze in mein Heft.
+Der Tänzer springt über die Bühne.
+Meine Väter und Großväter waren Bäcker.
+Die Wärme der Sonne tut mir gut.
+Die Wäsche trocknet auf dem Balkon.
+Die Zähne putzt man zweimal am Tag.
+Der Schäfer hütet seine Schafe.
+Die Schätze der Natur sind kostbar.
+In den Städten ist es oft laut.
+Wir kommen später als geplant.
+Spätzle mit Soße sind mein Favorit.
+Der Ständer für das Fahrrad ist kaputt.
+Die Bäume tragen schon bunte Blätter.
+Die Mäuse haben ein Nest gebaut.
+Die Träume vergesse ich meistens.
+Die Häuser im Dorf sind alt.
+Wir kaufen Brötchen beim Bäcker.
+Die Bäckerei öffnet um 6 Uhr.
+Die Bäche führen viel Wasser.
+Mein Zimmer hat zwei Fenster.
+Die Löffel liegen in der Schublade.
+Die Möbel sind aus Holz gebaut.
+Wir fahren morgen nach Köln.
+Der Boden im Flur ist kalt.
+Die Röhre im Bad tropft.
+Der König trägt eine goldene Krone.
+Die Möhren wachsen im Beet.
+Die Söhne helfen dem Vater im Garten.
+Die Töpfe stehen auf dem Herd.
+Die Vögel singen schon früh am Morgen.
+Wir lernen neue Wörter und Sätze.
+Das Mädchen trägt Zöpfe.
+Öl und Essig gehören in die Küche.
+Die Öfen sind im Winter immer warm.
+Die Röcke hängen im Schrank.
+Mein Körper braucht mehr Schlaf.
+Der Förster geht durch den Wald.
+Der Hirsch trägt ein großes Geweih.
+Die Dörfer liegen weit auseinander.
+Die Störche fliegen im Herbst weg.
+Das Törtchen ist mit Beeren verziert.
+Die Börse ist heute geschlossen.
+In der Mauer sind kleine Löcher.
+Die Köchin schmeckt die Suppe ab.
+Die Größe der Schuhe passt genau.
+Die Flöte klingt hell und klar.
+Die Blöcke sind aus Holz.
+Plötzlich fing es an zu regnen.
+Die Frösche springen ins Wasser.
+Zwei Bücher liegen auf meinem Tisch.
+Meine Brüder spielen im Hof Fußball.
+Die Küche ist hell und freundlich.
+Das Wasser ist angenehm kühl.
+Die Mütze hält meine Ohren warm.
+Im Süden ist es meist wärmer.
+Die Rüben sind schon ausgegraben.
+Zur Übung schreibe ich jeden Tag.
+Das Geschenk ist eine Überraschung.
+Die Würfel liegen auf dem Brett.
+Zwei Würste und ein Brötchen, bitte.
+Die Füße sind nass und kalt.
+Früh am Morgen ist es still.
+Viele Grüße von uns allen!
+Der Gürtel passt nicht zur Hose.
+Das Huhn legt jeden Tag ein Ei.
+Die Hüte hängen an der Garderobe.
+Das jüngste Kind ist drei Jahre alt.
+Der Kürbis wiegt fast fünf Kilo.
+Lügen haben kurze Beine, sagt man.
+Die Mühle steht am Bach.
+Die Münze fiel auf den Boden.
+Er ist immer pünktlich und zuverlässig.
+Das Stück Kuchen schmeckt köstlich.
+Die Stühle stehen im Kreis.
+Die Wüste ist heiß und trocken.
+Die Düne glänzt in der Abendsonne.
+Die Bürste liegt im Bad.
+Die Bühne ist schön geschmückt.
+Die Blüten duften wunderbar.
+Die Brücke ist 80 Meter lang.
+Im Büro ist es heute ruhig.
+Die Flügel des Vogels sind braun.
+Die Flüsse sind im Frühling voll.
+Das Obst und die Früchte sind reif.
+Glück im Unglück gehabt!
+Die Glühbirne leuchtet warm.
+Wir haben gute Gründe dafür.
+Das Gras ist grün und saftig.
+Die Hüfte tut mir etwas weh.
+Natürlich komme ich gerne mit.
+Ich wünsche dir einen schönen Abend.
+Die Schüler schreiben fleißig mit.
+Der Schlüssel liegt unter der Matte.
+Die Schüssel ist aus Glas.
+Die Strümpfe sind frisch gewaschen.
+Die Stürme im Herbst sind stark.
+Die Türme der Burg sind hoch.
+Der Würfelzucker steht neben dem Tee.
+Ärzte arbeiten oft bis in die Nacht.
+Äpfel und Birnen aus dem Garten
+Der Ärmel ist an der Jacke zu kurz.
+Wir haben viel Ärger gehabt.
+Die Äste knacken im Wind.
+Die Ähren stehen golden im Feld.
+Mein Opa ist älter als mein Onkel.
+Meine Schwester fliegt nach Ägypten.
+Österreich liegt südlich von uns.
+Öffne bitte die Tür für den Gast.
+Das Öl ist alle, wir brauchen neues.
+Ein Örtchen am Fluss ist mein Zuhause.
+Die Öffnungszeiten stehen an der Tür.
+Übermorgen ist schon Freitag!
+Überstunden machen mich müde.
+Die Übersetzung war nicht einfach.
+Die Übernachtung kostet 40 €.
+Übrigens, ich komme etwas später.
+Über den Wolken scheint die Sonne.
+Über uns fliegen die Gänse.
+Übung, Übung und noch einmal Übung
+Üppige Blumen schmücken den Tisch.
+Ärgere dich nicht über Kleinigkeiten.
+Äpfel schälen und in Würfel schneiden
+Ärzte, Bäcker, Köche und Lehrer
+Öfen, Töpfe, Pfannen und Löffel
+Übers Wochenende fahren wir weg.
+en|The bear sleeps in a cave.
+en|I need more cheese and bread.
