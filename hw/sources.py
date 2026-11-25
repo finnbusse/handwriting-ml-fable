@@ -13,7 +13,7 @@ words-v1   parquet rows  dx/dy/eos, normalised so the word is 1 unit wide;
 words-raw  jsonl, strokes -> points {x,y,t,p,...}                (Jan 2026)
 lines-sol  one json per line, strokes -> [{x,y,t,pressure,...}]  (Oct 2026)
 inktrace   jsonl bundles, digit strings, strokes -> points       (Sep 2026)
-capture-v1 the format written by this project's own capture app
+hwline-v1  the format written by this project's own capture app (docs/schema)
 """
 from __future__ import annotations
 
@@ -36,6 +36,7 @@ LEGACY_SOURCES = {
     "v3testing": ("v3testing", "words-v1"),
     "handwritten-numbers-codex": ("handwritten-numbers-codex", "inktrace"),
     "handwriting-gpt6.1sol": ("handwriting-gpt6.1sol", "lines-sol"),
+    "handwriting-fable": ("handwriting-fable", "hwline-v1"),
 }
 
 _PATTERNS = {
@@ -43,7 +44,7 @@ _PATTERNS = {
     "words-raw": ["data/*.jsonl"],
     "lines-sol": ["raw/*.json"],
     "inktrace": ["inktrace/**/*.jsonl"],
-    "capture-v1": ["data/**/*.jsonl", "data/*.jsonl"],
+    "hwline-v1": ["raw/v1/**/*.json"],
 }
 
 
@@ -147,27 +148,37 @@ def load_inktrace(root: str, source: str) -> list[Ink]:
     return inks
 
 
-def load_capture_v1(root: str, source: str) -> list[Ink]:
-    """Recordings of this project's capture app (see docs/capture-format.md)."""
+def load_hwline_v1(root: str, source: str, include_flagged: bool = False,
+                   pointer_types: tuple[str, ...] = ("pen",)) -> list[Ink]:
+    """Recordings of this project's capture app: one hwline/v1 JSON per line
+    (docs/schema/hwline_v1.schema.json), under raw/v1/<session>/<id>.json."""
     inks = []
-    files = sorted(set(glob.glob(os.path.join(root, "data", "**", "*.jsonl"), recursive=True)))
-    for f in files:
+    for f in sorted(glob.glob(os.path.join(root, "raw", "v1", "**", "*.json"), recursive=True)):
         with open(f, encoding="utf-8") as fh:
-            for line in fh:
-                if not line.strip():
-                    continue
-                r = json.loads(line)
-                if r.get("status", "ok") != "ok":
-                    continue
-                strokes = [{"points": [dict(x=p[0], y=p[1], t=p[2]) for p in s["points"]]}
-                           for s in r["strokes"] if s.get("points")]
-                ink = _ink_from_stroke_dicts(
-                    strokes, text=r["text"], id=str(r["id"]), source=source,
-                    kind=r.get("kind", "line"),
-                    meta={"session": r.get("session_id", ""), "created_at": r.get("created_at", ""),
-                          "prompt_id": r.get("prompt_id", "")})
-                if ink is not None:
-                    inks.append(ink)
+            r = json.load(fh)
+        if r.get("schema") != "hwline/v1":
+            continue
+        if r.get("status") != "accepted" and not include_flagged:
+            continue
+        if r.get("pointer", {}).get("type", "pen") not in pointer_types:
+            continue
+        pts, ts = [], []
+        for st in r["strokes"]:
+            n = len(st["x"])
+            if n == 0:
+                continue
+            eos = np.zeros(n)
+            eos[-1] = 1.0
+            pts.append(np.column_stack([np.asarray(st["x"], dtype=np.float64),
+                                        np.asarray(st["y"], dtype=np.float64), eos]))
+            ts.append(np.asarray(st["t"], dtype=np.float64))
+        if not pts:
+            continue
+        inks.append(Ink(np.vstack(pts), text=r["text"], id=str(r["id"]), source=source, kind="line",
+                        meta={"t": np.concatenate(ts), "session": r.get("session_id", ""),
+                              "created_at": r.get("created_at", ""),
+                              "prompt_id": r.get("prompt", {}).get("id", ""),
+                              "flags": r.get("flags", [])}))
     return inks
 
 
@@ -176,7 +187,7 @@ LOADERS = {
     "words-raw": load_words_raw,
     "lines-sol": load_lines_sol,
     "inktrace": load_inktrace,
-    "capture-v1": load_capture_v1,
+    "hwline-v1": load_hwline_v1,
 }
 
 
@@ -190,7 +201,12 @@ def load_all(cache_dir: str, token: str | None = None, extra: dict | None = None
         full = repo if "/" in repo else f"{REPO_OWNER}/{repo}"
         local = os.path.join(cache_dir, full.replace("/", "__"))
         if fetch:
-            local = download(full, fmt, cache_dir, token)
+            try:
+                local = download(full, fmt, cache_dir, token)
+            except Exception as e:                       # e.g. the capture repo does not exist yet
+                if name not in ("handwriting-fable",):
+                    raise
+                print(f"note: {full} not available ({type(e).__name__}); continuing without it")
         if not os.path.isdir(local):
             continue
         inks.extend(LOADERS[fmt](local, name))

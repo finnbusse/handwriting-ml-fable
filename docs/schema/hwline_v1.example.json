@@ -1,0 +1,30 @@
+{
+  "schema": "hwline/v1",
+  "id": "3f0c9d1e-6c1b-4b0e-9a57-2d0a3c1f7e11",
+  "session_id": "b8a4f6d2-0e9b-4f6f-8a43-7c1d2e5f9a00",
+  "seq": 22,
+  "writer_id": "w1",
+  "created_at": "2026-11-25T14:03:11.123Z",
+  "tz_offset_min": 60,
+  "app": {"name": "handwriting-capture", "version": "1.0.0", "build": "abc1234"},
+  "prompt": {"id": "de-core-0042", "set": "de-core@1", "text": "Bitte bring mir das blaue Buch mit.", "lang": "de"},
+  "text": "Bitte bring mir das blaue Buch mit.",
+  "status": "accepted",
+  "attempt": 1,
+  "edits": {"undo": 0, "clear": 0},
+  "flags": [],
+  "time": {"unit": "ms", "base": "first_pen_down", "t0_epoch_ms": 1795615380412.3, "source": "event.timeStamp", "resolution_ms": 0.1},
+  "coord": {"unit": "css_px", "origin": "canvas_top_left", "y_down": true, "canvas_css": [1400, 360], "canvas_px": [2450, 630],
+            "canvas_client_rect": [145.5, 320, 1400, 360], "dpr": 1.75, "visual_viewport_scale": 1, "mm_per_unit": 0.186, "mm_source": "lattice_estimate"},
+  "guides": {"visible": true, "baseline_y": 230, "x_start": 40, "x_end": 1360, "extra_lines_y": [], "ink_width_css": 2, "pressure_width": false},
+  "screen": {"screen_css": [1691, 1056], "inner_css": [1691, 1056], "orientation": "landscape-primary", "angle": 0, "fullscreen": true, "display_mode": "fullscreen"},
+  "device": {"ua": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/31.0 Chrome/148.0.0.0 Safari/537.36",
+             "ua_data": {"platform": "Android", "platformVersion": "16.0.0", "model": "", "mobile": false}, "max_touch_points": 10, "language": "de-DE"},
+  "pointer": {"type": "pen", "api": "pointerrawupdate", "pen_only": true, "rate_hz": 480.6, "pressure_levels_seen": 812},
+  "strokes": [
+    {"x": [107.9341, 107.9341, 108.1497, 108.7426], "y": [228.6118, 228.6118, 227.9649, 226.5094], "t": [0, 2.1, 4.1, 6.2],
+     "p": [0.1123, 0.1658, 0.2244, 0.2713], "tiltX": [49, 49, 49, 49], "tiltY": [-15, -15, -15, 0], "buttons": 1,
+     "end": "up", "up": {"t": 8.4, "x": 108.7426, "y": 226.5094}}
+  ],
+  "anomalies": {"cancelled": 0, "touch_ignored": 3, "non_monotonic": 0, "dt_gt_10ms": 0, "button_strokes": 0}
+}

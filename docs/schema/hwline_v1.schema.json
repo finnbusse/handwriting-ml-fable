@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hwline/v1",
+  "title": "One recorded handwriting line (raw capture, v1)",
+  "type": "object",
+  "required": ["schema", "id", "session_id", "created_at", "app", "prompt", "text", "status", "time", "coord", "guides", "screen", "device", "pointer", "strokes"],
+  "properties": {
+    "schema": {"const": "hwline/v1"},
+    "id": {"type": "string", "description": "UUID v4; also the file name -> uploads are idempotent"},
+    "session_id": {"type": "string"},
+    "seq": {"type": "integer", "description": "0-based index of this line within the session"},
+    "writer_id": {"type": "string", "description": "pseudonym, never a real name"},
+    "created_at": {"type": "string", "description": "ISO-8601 UTC wall clock when the line was accepted"},
+    "tz_offset_min": {"type": "integer"},
+    "app": {"type": "object", "required": ["name", "version"], "properties": {"name": {"type": "string"}, "version": {"type": "string"}, "build": {"type": "string"}}},
+    "prompt": {"type": "object", "required": ["id", "text"], "properties": {
+      "id": {"type": "string"}, "set": {"type": "string", "description": "prompt-set name@version"},
+      "text": {"type": "string", "description": "exactly the string shown (NFC)"}, "lang": {"type": "string"}}},
+    "text": {"type": "string", "description": "what was actually written (NFC). Equals prompt.text unless the writer corrected the transcription."},
+    "status": {"enum": ["accepted", "flagged"], "description": "skipped/redone attempts are never uploaded as samples"},
+    "attempt": {"type": "integer", "minimum": 1},
+    "edits": {"type": "object", "properties": {"undo": {"type": "integer"}, "clear": {"type": "integer"}}},
+    "flags": {"type": "array", "items": {"type": "string"}, "description": "automatic QA flags, e.g. stroke_count_low, stroke_count_high, out_of_bounds, stray_stroke, pointercancel, touch_during_writing, button_pressed, low_rate, layout_changed"},
+    "time": {"type": "object", "required": ["unit", "base", "t0_epoch_ms"], "properties": {
+      "unit": {"const": "ms"}, "base": {"const": "first_pen_down"},
+      "t0_epoch_ms": {"type": "number", "description": "performance.timeOrigin + event.timeStamp of the first pen-down"},
+      "source": {"type": "string", "description": "event.timeStamp of each (coalesced) PointerEvent"},
+      "resolution_ms": {"type": "number"}}},
+    "coord": {"type": "object", "required": ["unit", "origin", "y_down", "canvas_css", "dpr"], "properties": {
+      "unit": {"enum": ["css_px", "device_px"], "description": "v1 recorder always writes css_px; device_px only for converted legacy data"},
+      "origin": {"const": "canvas_top_left"}, "y_down": {"const": true},
+      "canvas_css": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "[width,height] of the canvas in CSS px"},
+      "canvas_px": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2, "description": "backing-store size"},
+      "canvas_client_rect": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4, "description": "[left,top,width,height] from getBoundingClientRect() at first pen-down"},
+      "dpr": {"type": "number"}, "visual_viewport_scale": {"type": "number"},
+      "mm_per_unit": {"type": ["number", "null"], "description": "physical size of one coordinate unit, null if unknown"},
+      "mm_source": {"enum": ["calibration", "model_lookup", "lattice_estimate", null]}}},
+    "guides": {"type": ["object", "null"], "description": "everything drawn on the canvas besides ink, in the same coordinates as the strokes", "properties": {
+      "visible": {"type": "boolean"}, "baseline_y": {"type": "number"}, "x_start": {"type": "number"}, "x_end": {"type": "number"},
+      "extra_lines_y": {"type": "array", "items": {"type": "number"}}, "ink_width_css": {"type": "number"}, "pressure_width": {"type": "boolean"}}},
+    "screen": {"type": "object", "properties": {
+      "screen_css": {"type": "array", "items": {"type": "number"}}, "inner_css": {"type": "array", "items": {"type": "number"}},
+      "orientation": {"type": "string"}, "angle": {"type": "number"}, "fullscreen": {"type": "boolean"}, "display_mode": {"type": "string"}}},
+    "device": {"type": "object", "required": ["ua"], "properties": {
+      "ua": {"type": "string"}, "ua_data": {"type": ["object", "null"], "description": "navigator.userAgentData.getHighEntropyValues(['model','platform','platformVersion','fullVersionList'])"},
+      "max_touch_points": {"type": "integer"}, "language": {"type": "string"}}},
+    "pointer": {"type": "object", "required": ["type", "api"], "properties": {
+      "type": {"enum": ["pen", "touch", "mouse"]}, "api": {"enum": ["pointerrawupdate", "pointermove+coalesced", "pointermove"]},
+      "pen_only": {"type": "boolean"}, "rate_hz": {"type": "number", "description": "1000 / median dt inside strokes"},
+      "pressure_levels_seen": {"type": "integer"}}},
+    "strokes": {"type": "array", "minItems": 1, "items": {"type": "object", "required": ["x", "y", "t", "p"], "properties": {
+      "x": {"type": "array", "items": {"type": "number"}}, "y": {"type": "array", "items": {"type": "number"}},
+      "t": {"type": "array", "items": {"type": "number"}, "description": "ms since time.base, strictly increasing over the whole line"},
+      "p": {"type": "array", "items": {"type": "number"}, "description": "PointerEvent.pressure 0..1, stored as delivered (0 is legal)"},
+      "tiltX": {"type": "array", "items": {"type": "number"}}, "tiltY": {"type": "array", "items": {"type": "number"}},
+      "buttons": {"type": "integer", "description": "PointerEvent.buttons at pointerdown (1 = tip only)"},
+      "end": {"enum": ["up", "cancel", "unknown"]},
+      "up": {"type": ["object", "null"], "description": "the pointerup/pointercancel sample, kept OUT of the arrays (its pressure is 0 by spec)", "properties": {"t": {"type": "number"}, "x": {"type": "number"}, "y": {"type": "number"}}}}}},
+    "anomalies": {"type": "object", "description": "recorder counters: cancelled, touch_ignored, non_monotonic, dt_gt_10ms, button_strokes"},
+    "legacy": {"type": "object", "description": "only on converted old recordings: source path, old schema version, known defects"}
+  }
+}

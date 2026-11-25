@@ -243,7 +243,7 @@ def main(argv=None):
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
             opt.step()
             sched.step()
-            run += float(nll.sum())
+            run += float(nll.detach().sum())
             pts += int(xl.sum())
         v_real, v_comp = evaluate_dev(val_real), evaluate_dev(val_comp)
         # real lines are what we want to imitate; composed lines keep the score stable
