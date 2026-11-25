@@ -1,0 +1,51 @@
+name: Modell neu trainieren
+
+# Läuft jeden Tag einmal und trainiert nur dann, wenn im Dataset neue Zeilen
+# liegen. Über "Run workflow" lässt es sich auch von Hand starten.
+# Einmalig nötig: unter Settings > Secrets and variables > Actions ein Secret
+# namens HF_TOKEN anlegen (Hugging-Face-Token mit Schreibrecht).
+
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: Auch ohne neue Aufnahmen trainieren
+        type: boolean
+        default: false
+  schedule:
+    - cron: "23 3 * * *"
+
+concurrency:
+  group: retrain
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Abhängigkeiten installieren
+        run: |
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+      - name: Gibt es neue Aufnahmen?
+        id: check
+        run: python scripts/retrain.py check ${{ inputs.force && '--force' || '' }}
+      - name: Trainieren, vergleichen, veröffentlichen
+        if: steps.check.outputs.needed == 'true'
+        run: python scripts/retrain.py run
+      - name: Vergleichsbild sichern
+        if: steps.check.outputs.needed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: vergleich
+          path: runs/retrain/vergleich.png
+          retention-days: 14

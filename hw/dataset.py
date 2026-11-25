@@ -269,13 +269,19 @@ class LineComposer:
     """
 
     def __init__(self, words: list[Ink], gap_mean: float = 1.6, gap_sd: float = 0.35,
-                 max_points: int = MAX_POINTS, max_chars: int = 34, seed: int = 0):
+                 max_points: int = MAX_POINTS, max_chars: int = 34, seed: int = 0,
+                 special_chars: str = "", special_share: float = 0.0):
         self.words = words
         self.gap_mean, self.gap_sd = gap_mean, gap_sd
         self.max_points, self.max_chars = max_points, max_chars
         self.rng = np.random.default_rng(seed)
         self.digits = [w for w in words if w.text.isdigit() and len(w.text) <= 5]
         self.letters = [w for w in words if not w.text.isdigit()]
+        # words with characters the pretrained network has never seen (umlauts,
+        # sharp s ...) are drawn more often: there are few of them and each new
+        # character has to be learned from scratch
+        self.special = [w for w in self.letters if any(c in special_chars for c in w.text)]
+        self.special_share = special_share if self.special else 0.0
 
     def compose(self, parts: list[Ink], rng=None) -> Ink:
         rng = rng or self.rng
@@ -298,7 +304,13 @@ class LineComposer:
         n_target = int(rng.integers(1, 6))
         parts, n_pts, n_chars = [], 0, 0
         for _ in range(n_target):
-            pool = self.digits if (self.digits and rng.random() < 0.08) else self.letters
+            r = rng.random()
+            if self.digits and r < 0.08:
+                pool = self.digits
+            elif r < 0.08 + self.special_share:
+                pool = self.special
+            else:
+                pool = self.letters
             w = pool[int(rng.integers(len(pool)))]
             if parts and (n_pts + len(w) > self.max_points or n_chars + len(w.text) + 1 > self.max_chars):
                 break

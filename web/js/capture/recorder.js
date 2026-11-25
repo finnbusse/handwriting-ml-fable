@@ -33,7 +33,7 @@ export function createRecorder(canvas, opts = {}) {
   let rawSamples = 0;      // samples that arrived first through pointerrawupdate
   let types = {};
   let anomalies;
-  const freshAnomalies = () => ({ cancelled: 0, touch_ignored: 0, non_monotonic: 0, button_strokes: 0, multi_pointer: 0 });
+  const freshAnomalies = () => ({ cancelled: 0, touch_ignored: 0, non_monotonic: 0, button_strokes: 0, multi_pointer: 0, empty_strokes: 0 });
   anomalies = freshAnomalies();
   let paused = false;
 
@@ -108,6 +108,7 @@ export function createRecorder(canvas, opts = {}) {
       if (kind === 'cancel') anomalies.cancelled++;
       if (cur._btn) anomalies.button_strokes++;
       const s = cur; cur = null;
+      if (!s.x.length) { anomalies.empty_strokes++; return; }   // every sample was stale: nothing to keep
       types[s.pointerType] = (types[s.pointerType] || 0) + 1;
       delete s.pointerId;
       s.button = s._btn; delete s._btn;

@@ -53,9 +53,14 @@ def style_stats(inks):
         steep = d[np.abs(d[:, 1]) > 2.0 * np.abs(d[:, 0])]
         if len(steep) > 10:
             slant.append(float(np.degrees(np.arctan(np.median(-steep[:, 0] / steep[:, 1])))))
-        g, _ = dataset.measure_gaps([probe])
-        if ink.text.count(" ") >= 2:
-            gaps.append(g)
+        n_sp = ink.text.count(" ")
+        if n_sp:
+            strokes = probe.strokes()
+            reach, jumps = strokes[0][:, 0].max(), []
+            for st in strokes[1:]:
+                jumps.append(float(st[:, 0].min() - reach))
+                reach = max(reach, float(st[:, 0].max()))
+            gaps += [j for j in sorted(jumps, reverse=True)[:n_sp] if j > 0.2]
     med = lambda v: round(float(np.median(v)), 2) if v else None
     return {"x_height": med(xh), "ascender_ratio": med(tall), "width_per_char": med(width),
             "slant_deg": med(slant), "word_gap": med(gaps), "strokes_per_letter": med(lifts)}

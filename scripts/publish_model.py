@@ -9,6 +9,7 @@ Hugging Face:
     checkpoint/model.pt, …     the PyTorch checkpoint, so that a later training
                                run can continue from here (`--init`)
     vergleich.png              optional comparison image
+    trained_on.json            optional: which dataset revision the model has seen
 
 Needs HF_TOKEN (or HUGGINGFACE_ACCESS_TOKEN) with write access.
 """
@@ -51,6 +52,7 @@ def main():
     ap.add_argument("model_dir")
     ap.add_argument("--repo", default="handwriting-fable-model")
     ap.add_argument("--image", default=None, help="comparison image to store next to the model")
+    ap.add_argument("--marker", default=None, help="JSON file stored as trained_on.json (which recordings were used)")
     ap.add_argument("--message", default=None)
     args = ap.parse_args()
 
@@ -71,6 +73,8 @@ def main():
         history = os.path.join(os.path.dirname(os.path.normpath(args.model_dir)), "history.json")
         if os.path.exists(history):
             shutil.copyfile(history, os.path.join(tmp, "checkpoint", "history.json"))
+        if args.marker:
+            shutil.copyfile(args.marker, os.path.join(tmp, "trained_on.json"))
         if args.image:
             with open(args.image, "rb") as src, open(os.path.join(tmp, "vergleich.png"), "wb") as dst:
                 dst.write(src.read())

@@ -96,6 +96,17 @@ const L = require('./lib.cjs');
     await L.settle(page);
     await page.click('#cap-clear');
     L.check('clear removes everything', (await page.evaluate(() => window.__hw.capture.recorder.strokes.length)) === 0);
+
+    // A stroke whose samples all carry stale timestamps must not leave an empty stroke behind.
+    await p.stroke(L.glyph(rect.left + 100, base, 6));
+    const old = Date.now() / 1000 - 60;
+    for (const [i, type] of ['mousePressed', 'mouseMoved', 'mouseReleased'].entries()) {
+      await cdp.send('Input.dispatchMouseEvent', { type, x: rect.left + 300 + i, y: base, button: 'left', buttons: type === 'mouseReleased' ? 0 : 1, clickCount: 1, pointerType: 'pen', force: 0.5, timestamp: old + i * 0.002 });
+    }
+    const st = await page.evaluate(() => ({ n: window.__hw.capture.recorder.strokes.length, a: window.__hw.capture.recorder.anomalies }));
+    L.check('stale-only stroke is dropped, not stored empty', st.n === 1 && st.a.empty_strokes === 1 && st.a.non_monotonic >= 1, JSON.stringify(st));
+    await L.settle(page);
+    await page.click('#cap-clear');
     const before = await page.textContent('#cap-prompt');
     await L.settle(page);
     await page.click('#cap-skip');

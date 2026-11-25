@@ -95,6 +95,9 @@ body[data-route="start"] .bar { display: none; }
   color: var(--muted); text-decoration: none; font-size: 15px;
 }
 .waiting .ic { width: 20px; height: 20px; }
+.waiting { white-space: nowrap; }
+.w-short { display: none; }
+@media (max-width: 700px) { .w-long { display: none; } .w-short { display: inline; } .tabs a { padding: 0 12px; } }
 
 main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
 .view { flex: 1; display: flex; flex-direction: column; min-height: 0; }

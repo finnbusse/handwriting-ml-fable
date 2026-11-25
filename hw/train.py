@@ -45,7 +45,7 @@ SAMPLE_TEXTS = [
 # ----------------------------------------------------------------------- data
 class Corpus:
     def __init__(self, inks: list[Ink], report: dict, charset: Charset, mu, std, seed: int = 0,
-                 max_points: int = dataset.MAX_POINTS, long_points: int = 1250):
+                 max_points: int = dataset.MAX_POINTS, long_points: int = 1250, special_share: float = 0.3):
         self.charset, self.mu, self.std = charset, mu, std
         self.xh_model = report["xh_model"]
         self.max_points, self.long_points = max_points, long_points
@@ -57,7 +57,9 @@ class Corpus:
         vl = [i for i in val if i.kind == "line"]
         gap_mean, gap_sd = dataset.measure_gaps(tl + vl)
         self.gap = (gap_mean, gap_sd)
-        self.composer = dataset.LineComposer(tw, gap_mean, gap_sd, max_points=max_points, seed=seed)
+        new_chars = charset.chars[len(BASE_CHARSET):]
+        self.composer = dataset.LineComposer(tw, gap_mean, gap_sd, max_points=max_points, seed=seed,
+                                             special_chars=new_chars, special_share=special_share)
         self.train_real = self._real(tl)
         self.val_real = self._real(vl)
         self.val_lines = vl
@@ -168,6 +170,10 @@ def main(argv=None):
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--lr-final", type=float, default=2e-5)
     ap.add_argument("--clip", type=float, default=5.0)
+    ap.add_argument("--new-char-boost", type=float, default=20.0,
+                    help="learning-rate multiplier for the weights that read the newly added characters")
+    ap.add_argument("--special-share", type=float, default=0.3,
+                    help="share of composed words drawn from words with newly added characters")
     ap.add_argument("--patience", type=int, default=8)
     ap.add_argument("--sample-every", type=int, default=5)
     ap.add_argument("--threads", type=int, default=0)
@@ -191,7 +197,7 @@ def main(argv=None):
 
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_ACCESS_TOKEN")
     inks, report = load_corpus_inks(args.cache, base_stats, token, fetch=not args.no_fetch)
-    corpus = Corpus(inks, report, charset, mu, std, seed=args.seed)
+    corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share)
     val_real, val_comp = corpus.validation()
     print("data:", json.dumps({**corpus.counts, "gap_xh": [round(g, 2) for g in corpus.gap],
                                "xh_model": round(report["xh_model"], 1), "excluded": report["excluded"],
@@ -220,6 +226,15 @@ def main(argv=None):
         return total / max(n, 1)
 
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
+    # The appended characters (umlauts, sharp s ...) start as copies of similar
+    # base letters.  Fine-tuning takes only a few hundred small steps -- enough
+    # to bend a hand, far too little to pull "ä" away from "a".  The rows of
+    # weights that read those characters therefore move `new_char_boost` times
+    # as far per step as everything else.
+    n_base, H = len(BASE_CHARSET) + 1, model.hidden_size
+    new_idx = torch.arange(n_base, charset.size, device=device)
+    boosted = [(model.lstm1.W_xh, 3 + new_idx), (model.lstm2.W_xh, 3 + H + new_idx),
+               (model.lstm3.W_xh, 3 + H + new_idx)] if args.new_char_boost != 1.0 and len(new_idx) else []
     steps_per_epoch = math.ceil((args.composed + args.real_repeat * len(corpus.train_real)) / args.batch)
     total_steps = steps_per_epoch * args.epochs
     sched = torch.optim.lr_scheduler.LambdaLR(
@@ -243,7 +258,11 @@ def main(argv=None):
             opt.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+            before = [W.detach()[rows].clone() for W, rows in boosted]
             opt.step()
+            with torch.no_grad():
+                for (W, rows), b in zip(boosted, before):
+                    W[rows] = b + args.new_char_boost * (W[rows] - b)
             sched.step()
             run += float(nll.detach().sum())
             pts += int(xl.sum())

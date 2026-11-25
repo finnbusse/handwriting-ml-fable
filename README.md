@@ -4,9 +4,7 @@ Text eingeben, die eigene Handschrift kommt heraus. Ein kleines neuronales Netz
 wird auf die Stiftaufnahmen einer Person feingetunt und läuft danach komplett
 im Browser.
 
-**Stand:** Das Training auf den vorhandenen Aufnahmen läuft, die Erfassungs-App
-für neue Zeilen ist im Bau. Details zum Aufbau stehen in
-[docs/SPEC.md](docs/SPEC.md).
+Details zum Aufbau stehen in [docs/SPEC.md](docs/SPEC.md).
 
 ## Wie es funktioniert
 
@@ -33,7 +31,11 @@ Aufnahmen als flüchtig oder fehlerhaft aufgefallen sind.
 ## Selbst ausführen
 
 ```bash
-pip install torch numpy pandas pyarrow matplotlib huggingface_hub
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+```
+
+```bash
+pip install -r requirements.txt
 ```
 
 ```bash
@@ -45,12 +47,23 @@ python scripts/compare.py runs/v1/best --out vergleich.png
 ```
 
 ```bash
-python -m hw.export runs/v1/best web/model
+python scripts/publish_model.py runs/v1/best
 ```
 
 Das Training braucht keine Grafikkarte; auf vier CPU-Kernen dauert ein Lauf
-etwa eine Stunde. Für den Zugriff auf private Datasets muss `HF_TOKEN` gesetzt
-sein.
+etwa eine Stunde. Für den Zugriff auf die privaten Repos muss `HF_TOKEN`
+gesetzt sein.
+
+## Nachtrainieren mit neuen Zeilen
+
+Die GitHub-Aktion **Modell neu trainieren** (`.github/workflows/retrain.yml`)
+läuft einmal täglich. Sie trainiert nur, wenn im Dataset `handwriting-fable`
+neue Zeilen liegen, und legt das Ergebnis im Modell-Repo ab; die Web-App lädt
+es beim nächsten Öffnen. Über *Actions → Modell neu trainieren → Run workflow*
+lässt sie sich auch sofort starten.
+
+Einmalig nötig: im GitHub-Repo unter *Settings → Secrets and variables →
+Actions* ein Secret `HF_TOKEN` anlegen (Hugging-Face-Token mit Schreibrecht).
 
 ## Herkunft und Lizenzen
 

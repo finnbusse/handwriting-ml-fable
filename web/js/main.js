@@ -43,6 +43,7 @@ async function updateWaiting() {
   const st = outbox.status();
   $('waiting-text').textContent = st.running ? 'Lädt hoch …'
     : `${n} ${n === 1 ? 'Zeile wartet' : 'Zeilen warten'} aufs Hochladen`;
+  $('waiting-short').textContent = st.running ? '…' : `${n} ${n === 1 ? 'wartet' : 'warten'}`;
   el.title = hf.getAuth() ? 'Wird automatisch hochgeladen' : 'Zum Hochladen anmelden';
   if (app.route === 'einstellungen') renderUploadStatus(n);
 }

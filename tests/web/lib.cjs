@@ -67,7 +67,9 @@ async function newApp(browser, server, opts = {}) {
 }
 
 /** Pen helper. Coordinates are viewport CSS px. Timestamps spaced like a 480 Hz pen. */
+const pens = new WeakMap();
 function pen(cdp) {
+  if (pens.has(cdp)) return pens.get(cdp);   // one clock per page: timestamps never run backwards
   let clock = Date.now() / 1000;
   const send = (type, x, y, extra = {}) => {
     clock += 0.0021;
@@ -76,7 +78,7 @@ function pen(cdp) {
       pointerType: 'pen', force: 0.5, tiltX: 0, tiltY: 20, twist: 0, timestamp: clock,
     }, extra));
   };
-  return {
+  const api = {
     /** points: [[x,y,pressure], ...]; first = down, last = up position (not stored). */
     async stroke(points, extra = {}) {
       const [x0, y0, p0] = points[0];
@@ -94,6 +96,8 @@ function pen(cdp) {
       await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     },
   };
+  pens.set(cdp, api);
+  return api;
 }
 
 /** A small glyph-like stroke (loop) starting at (x, y). */
