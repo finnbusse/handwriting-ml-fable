@@ -180,79 +180,67 @@
   <section class="view view-write" id="v-schreiben" hidden>
     <div class="gen" id="gen">
 
-      <!-- No model to write with yet: why, and what to do -->
-      <div class="placeholder gen-model" id="gen-model" role="status">
-        <svg class="ic big" aria-hidden="true"><use href="#i-pen"/></svg>
-        <p id="gm-text"></p>
-        <div class="pbar wide" id="gm-bar" hidden><span id="gm-fill"></span></div>
-        <div class="actions" id="gm-actions">
-          <button class="btn primary" id="gm-signin" type="button" hidden>Anmelden</button>
-          <a class="btn primary" id="gm-capture" href="#/erfassen" hidden><svg class="ic"><use href="#i-pen"/></svg><span>Zeilen schreiben</span></a>
-          <button class="btn" id="gm-retry" type="button" hidden><svg class="ic"><use href="#i-again"/></svg><span>Nochmal versuchen</span></button>
+      <!-- The sheet. It is always there; without a model it says why and what to do. -->
+      <div class="gen-stage" id="gen-stage">
+        <div class="gen-paper" id="gen-paper">
+          <canvas id="gen-canvas" aria-label="Geschriebener Text"></canvas>
+          <p class="gen-empty" id="gen-empty">Hier erscheint deine Schrift.</p>
+          <div class="gen-state" id="gen-model" role="status">
+            <div class="gen-state-in">
+              <p id="gm-text"></p>
+              <div class="pbar" id="gm-bar" hidden><span id="gm-fill"></span></div>
+              <div class="gen-state-actions" id="gm-actions">
+                <button class="btn primary" id="gm-signin" type="button" hidden>Anmelden</button>
+                <a class="btn primary" id="gm-capture" href="#/erfassen" hidden>Zeilen schreiben</a>
+                <button class="btn" id="gm-retry" type="button" hidden><span>Nochmal versuchen</span></button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="gen-work" id="gen-work" hidden>
-        <div class="gen-left">
-          <div class="gen-in">
-            <label class="sr-only" for="gen-text">Text</label>
-            <textarea id="gen-text" rows="4" maxlength="4000" placeholder="Was soll ich schreiben?" autocomplete="off" spellcheck="true"></textarea>
-            <div class="gen-go">
-              <button class="btn primary" id="gen-write" type="button" title="Strg + Eingabe"><svg class="ic"><use href="#i-pen"/></svg><span>Schreiben</span></button>
-              <button class="btn" id="gen-again" type="button" disabled><svg class="ic"><use href="#i-again"/></svg><span>Nochmal schreiben</span></button>
-            </div>
-            <div class="gen-busy" id="gen-busy" hidden>
-              <span class="pen-dot" aria-hidden="true"></span><span id="gen-busy-text" role="status">schreibt …</span>
-              <button class="btn tool" id="gen-cancel" type="button">Abbrechen</button>
-            </div>
-            <p class="gen-note" id="gen-note" role="status" hidden></p>
-            <p class="gen-note" id="gen-chars" hidden></p>
-            <p class="gen-note" id="gen-bad" hidden></p>
+      <div class="gen-dock" id="gen-work" hidden>
+        <div class="gen-row">
+          <div class="gen-status">
+            <span class="gen-busy" id="gen-busy" hidden><span class="pen-dot" aria-hidden="true"></span><span id="gen-busy-text" role="status">schreibt …</span></span>
+            <span class="gen-info" id="gen-info"><span id="gi-text" role="status"></span><span class="pbar" id="gi-bar" hidden><span id="gi-fill"></span></span></span>
           </div>
-
-          <div class="gen-ctl" role="group" aria-label="Einstellungen">
-            <div class="ctl">
-              <label class="ctl-name" for="gen-bias">Lesbarkeit</label>
-              <input type="range" id="gen-bias" min="0" max="1.2" step="0.05" value="0.4">
-              <div class="ctl-ends" aria-hidden="true"><span>natürlicher</span><span>ordentlicher</span></div>
-            </div>
-            <div class="ctl">
-              <label class="ctl-name" for="gen-size">Schriftgröße</label>
-              <input type="range" id="gen-size" min="9" max="30" step="1" value="16">
-              <div class="ctl-ends" aria-hidden="true"><span>kleiner</span><span>größer</span></div>
-            </div>
-            <div class="ctl">
-              <label class="ctl-name" for="gen-spacing">Zeilenabstand</label>
-              <input type="range" id="gen-spacing" min="5" max="9" step="0.25" value="6.5">
-              <div class="ctl-ends" aria-hidden="true"><span>enger</span><span>weiter</span></div>
-            </div>
-            <div class="ctl" role="radiogroup" aria-labelledby="gen-ink-l">
-              <span class="ctl-name" id="gen-ink-l">Tinte</span>
-              <div class="inks" id="gen-inks">
-                <button class="ink" type="button" role="radio" aria-checked="true" data-ink="blueblack"><i style="background:#1b2a49"></i><span>Blauschwarz</span></button>
-                <button class="ink" type="button" role="radio" aria-checked="false" data-ink="black"><i style="background:#15171a"></i><span>Schwarz</span></button>
-                <button class="ink" type="button" role="radio" aria-checked="false" data-ink="blue"><i style="background:#2141b8"></i><span>Blau</span></button>
+          <div class="gen-tools">
+            <button class="gen-tool" id="gen-again" type="button" title="Denselben Text noch einmal schreiben" disabled><svg class="ic" aria-hidden="true"><use href="#i-again"/></svg><span>Nochmal</span></button>
+            <button class="gen-tool" id="gen-style-btn" type="button" aria-expanded="false" aria-controls="gen-style"><svg class="ic" aria-hidden="true"><use href="#i-nib"/></svg><span>Stil</span></button>
+            <div class="gen-menu-wrap">
+              <button class="gen-tool" id="gen-save" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="gen-save-menu" disabled><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg><span>Speichern</span></button>
+              <div class="gen-menu" id="gen-save-menu" role="menu" hidden>
+                <button type="button" role="menuitem" id="gen-png" disabled>Als Bild</button>
+                <button type="button" role="menuitem" id="gen-svg" disabled>Als SVG</button>
+                <button type="button" role="menuitem" id="gen-copy" disabled hidden>Kopieren</button>
               </div>
             </div>
-            <p class="ctl-fine">Lesbarkeit gilt beim nächsten Schreiben. Größe, Abstand und Tinte ändern das Blatt sofort.</p>
-            <div class="gen-info" id="gen-info">
-              <p id="gi-text" role="status"></p>
-              <div class="pbar" id="gi-bar" hidden><span id="gi-fill"></span></div>
+          </div>
+        </div>
+
+        <div class="gen-style" id="gen-style" hidden>
+          <label class="gen-ctl"><span>Lesbarkeit</span><input type="range" id="gen-bias" min="0" max="1.2" step="0.05" value="0.4"></label>
+          <label class="gen-ctl"><span>Größe</span><input type="range" id="gen-size" min="6" max="30" step="1" value="11"></label>
+          <label class="gen-ctl"><span>Zeilenabstand</span><input type="range" id="gen-spacing" min="5" max="9" step="0.25" value="6.5"></label>
+          <div class="gen-ctl gen-ctl-ink"><span id="gen-ink-l">Tinte</span>
+            <div class="gen-inks" id="gen-inks" role="radiogroup" aria-labelledby="gen-ink-l">
+              <button class="gen-ink" type="button" role="radio" aria-checked="true" data-ink="blueblack" aria-label="Blauschwarz" title="Blauschwarz"><i style="background:#1b2a49"></i></button>
+              <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="black" aria-label="Schwarz" title="Schwarz"><i style="background:#15171a"></i></button>
+              <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="blue" aria-label="Königsblau" title="Königsblau"><i style="background:#2141b8"></i></button>
             </div>
           </div>
         </div>
 
-        <div class="gen-right">
-          <div class="paper" id="gen-paper">
-            <canvas id="gen-canvas" aria-label="Geschriebener Text"></canvas>
-            <p class="paper-empty" id="gen-empty">Hier erscheint deine Schrift.</p>
-          </div>
-          <div class="gen-export">
-            <button class="btn" id="gen-png" type="button" disabled><svg class="ic"><use href="#i-down"/></svg><span>Als Bild speichern</span></button>
-            <button class="btn" id="gen-svg" type="button" disabled><svg class="ic"><use href="#i-down"/></svg><span>Als SVG speichern</span></button>
-            <button class="btn" id="gen-copy" type="button" disabled hidden><svg class="ic"><use href="#i-copy"/></svg><span>Kopieren</span></button>
-          </div>
+        <div class="gen-composer">
+          <label class="sr-only" for="gen-text">Text</label>
+          <textarea id="gen-text" rows="1" maxlength="4000" placeholder="Was soll ich schreiben?" autocomplete="off" spellcheck="true" enterkeyhint="enter"></textarea>
+          <button class="gen-go" id="gen-write" type="button" title="Strg + Eingabe">Schreiben</button>
+          <button class="gen-go stop" id="gen-cancel" type="button" hidden><i aria-hidden="true"></i>Abbrechen</button>
         </div>
+        <p class="gen-note" id="gen-note" role="status" hidden></p>
+        <p class="gen-note" id="gen-chars" hidden></p>
+        <p class="gen-note" id="gen-bad" hidden></p>
       </div>
     </div>
   </section>

@@ -78,6 +78,10 @@ const ink = (page) => page.evaluate(() => {
 const type = async (page, text) => { await page.fill('#gen-text', text); };
 const writeText = async (page, text) => { await type(page, text); await page.click('#gen-write'); await finished(page); };
 const setRange = (page, id, v) => page.evaluate(([i, val]) => { const e = document.getElementById(i); e.value = val; e.dispatchEvent(new Event('input', { bubbles: true })); }, [id, v]);
+/** The look sits behind "Stil", the export behind "Speichern". */
+const openStyle = async (page) => { if (!(await page.isVisible('#gen-style'))) await page.click('#gen-style-btn'); };
+const openSave = async (page) => { if (!(await page.isVisible('#gen-save-menu'))) await page.click('#gen-save'); };
+const pickInk = async (page, name) => { await openStyle(page); await page.click(`#gen-inks [data-ink="${name}"]`); };
 const cachedSha = (page) => page.evaluate(async () => { const e = await window.__hw.store.kvGet('model', null); return e ? e.manifest.sha256 : null; });
 const infoText = (page) => page.textContent('#gi-text');
 
@@ -143,10 +147,10 @@ async function tabletRun(browser, server) {
 
   // ---- colour and size only redraw / lay out again, no generating ----
   const seedBefore = (await state(page)).seed;
-  await page.click('#gen-inks [data-ink="black"]');
+  await pickInk(page, 'black');
   await page.waitForTimeout(100);
   const black = await ink(page);
-  await page.click('#gen-inks [data-ink="blue"]');
+  await pickInk(page, 'blue');
   await page.waitForTimeout(100);
   const blue = await ink(page);
   L.check('ink colour: redrawn at once, same amount of ink', black.rgb && black.rgb[0] < 60 && blue.rgb && blue.rgb[2] > 150 && Math.abs(blue.n - black.n) < 0.02 * black.n, JSON.stringify([black.rgb, blue.rgb, black.n, blue.n]));
@@ -172,7 +176,7 @@ async function tabletRun(browser, server) {
   await page.waitForTimeout(300);
 
   // ---- export ----
-  const dl = async (sel) => { const [d] = await Promise.all([page.waitForEvent('download'), page.click(sel)]); return { name: d.suggestedFilename(), data: fs.readFileSync(await d.path()) }; };
+  const dl = async (sel) => { await openSave(page); const [d] = await Promise.all([page.waitForEvent('download'), page.click(sel)]); return { name: d.suggestedFilename(), data: fs.readFileSync(await d.path()) }; };
   const svg = await dl('#gen-svg');
   const svgText = svg.data.toString('utf8');
   L.check('SVG export: file name, path data, no NaN', /^handschrift-\d{4}-\d{2}-\d{2}\.svg$/.test(svg.name) && /<path d="M[^"]+"/.test(svgText) && !svgText.includes('NaN') && svgText.includes('<svg'), svg.name + ' ' + svgText.slice(0, 80));
@@ -181,6 +185,7 @@ async function tabletRun(browser, server) {
   L.check('PNG export: a real PNG, crisp and not trivial', /^handschrift-\d{4}-\d{2}-\d{2}\.png$/.test(png.name) && png.data.slice(1, 4).toString() === 'PNG' && w >= 1500 && h > 100 && png.data.length > 20000, `${png.name} ${w}x${h} ${png.data.length} bytes`);
   const today = new Date(); const ymd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
   L.check('export file names carry the date', png.name === `handschrift-${ymd}.png`, png.name);
+  await openSave(page);
   if (await page.isVisible('#gen-copy')) {
     await page.click('#gen-copy');
     await L.until(async () => /^Kopiert\.|Kopieren hat nicht/.test(await page.textContent('#toast')), 5000);
@@ -219,7 +224,7 @@ async function tabletRun(browser, server) {
   await setRange(page, 'gen-bias', 0.9);
   await setRange(page, 'gen-size', 20);
   await setRange(page, 'gen-spacing', 7.5);
-  await page.click('#gen-inks [data-ink="black"]');
+  await pickInk(page, 'black');
   await page.waitForTimeout(600);
   const kv = await page.evaluate(() => window.__hw.store.kvGet('generate', null));
   L.check('settings stored', kv && kv.text === 'Guten Morgen' && kv.bias === 0.9 && kv.size === 20 && kv.spacing === 7.5 && kv.ink === 'black' && !('page' in kv) && !('strokes' in kv), JSON.stringify(kv));
@@ -352,7 +357,7 @@ async function phoneAndDark(browser, server) {
     const small = await page.evaluate(() => [...document.querySelectorAll('#v-schreiben button, #v-schreiben a.btn, #v-schreiben input[type=range]')].filter((e) => e.offsetParent && !e.hidden).map((e) => { const r = e.getBoundingClientRect(); return [e.id || e.className, Math.round(r.width), Math.round(r.height)]; }).filter(([, w, h]) => h < 47.5 || w < 47.5));
     L.check(`${tag}: touch targets at least 48 px`, small.length === 0, JSON.stringify(small));
     await shot('03-done');
-    await page.evaluate(() => { const v = document.getElementById('v-schreiben'); v.scrollTop = v.scrollHeight; });
+    await page.evaluate(() => { const v = document.getElementById('gen-stage'); v.scrollTop = v.scrollHeight; });
     await page.waitForTimeout(200);
     await shot('04-done-scrolled');
     L.check(`${tag}: no page errors`, errors.filter((e) => !/Failed to load resource|ERR_/.test(e)).length === 0, errors.join(' | '));

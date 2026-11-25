@@ -22,7 +22,7 @@ const CATCHUP_S = 1.0;             // ... and never slower than "everything wait
 const MAX_PIXELS = 16e6;           // canvas budget (per canvas; there are two)
 const RECHECK_MS = 5 * 60 * 1000;  // look for a newer model at most this often
 
-const DEFAULTS = { text: '', bias: 0.4, size: 16, spacing: 6.5, ink: 'blueblack' };
+const DEFAULTS = { text: '', bias: 0.4, size: 11, spacing: 6.5, ink: 'blueblack' };   // size: CSS px per x-height
 
 const mb = (bytes) => (bytes / 1e6).toFixed(1).replace('.', ',');
 
@@ -49,7 +49,9 @@ export function createGenerateView(deps) {
     note: $('gen-note'), chars: $('gen-chars'), bad: $('gen-bad'),
     bias: $('gen-bias'), size: $('gen-size'), spacing: $('gen-spacing'), inks: $('gen-inks'),
     infoText: $('gi-text'), infoBar: $('gi-bar'), infoFill: $('gi-fill'),
-    paper: $('gen-paper'), canvas: $('gen-canvas'), empty: $('gen-empty'),
+    stage: $('gen-stage'), paper: $('gen-paper'), canvas: $('gen-canvas'), empty: $('gen-empty'),
+    info: $('gen-info'), styleBtn: $('gen-style-btn'), style: $('gen-style'),
+    save: $('gen-save'), saveMenu: $('gen-save-menu'),
     png: $('gen-png'), svg: $('gen-svg'), copy: $('gen-copy'),
   };
   const ctx = el.canvas.getContext('2d');
@@ -96,12 +98,15 @@ export function createGenerateView(deps) {
     el.retry.querySelector('span').textContent = kind === 'nomodel' ? 'Nochmal prüfen' : 'Nochmal versuchen';
     el.card.hidden = false;
     el.work.hidden = true;
+    el.empty.hidden = true;
   }
 
   function showWork() {
     el.card.hidden = true;
     el.work.hidden = false;
     renderInfo();
+    syncUi();
+    autosize();
     if (S.visible) { requestAnimationFrame(() => { fit(); rebuildLayer(); paint(); }); }
   }
 
@@ -305,9 +310,9 @@ function framed(page) {
     if (!w) return;
     const top = el.canvas.getBoundingClientRect().top;
     const y = top + w.y * S.geo.cssScale;                  // the baseline of the word being written
-    const box = el.view.getBoundingClientRect();
-    const room = 3.5 * S.settings.spacing * S.geo.cssScale;
-    if (y + room > box.bottom - 16) el.view.scrollBy({ top: y + room - box.bottom + 24, behavior: 'smooth' });
+    const box = el.stage.getBoundingClientRect();
+    const room = 2.5 * S.settings.spacing * S.geo.cssScale;
+    if (y + room > box.bottom - 16) el.stage.scrollBy({ top: y + room - box.bottom + 24, behavior: 'smooth' });
   }
 
   function redrawAll() {
@@ -337,17 +342,47 @@ function framed(page) {
   function syncUi() {
     const writing = S.phase === 'writing';
     el.write.disabled = writing || !S.engine;
+    el.write.hidden = writing; el.cancel.hidden = !writing;       // one place, two meanings
     el.again.disabled = writing || !S.engine || !S.lastText;
-    el.busy.hidden = !writing;
+    el.busy.hidden = !writing; el.info.hidden = writing;
     el.size.disabled = writing; el.spacing.disabled = writing;
     const canExport = !!S.page && !writing;
+    el.save.disabled = !canExport;
     el.png.disabled = !canExport; el.svg.disabled = !canExport; el.copy.disabled = !canExport;
-    el.empty.hidden = !!S.page || writing;
+    if (!canExport) closeMenu();
+    el.empty.hidden = !!S.page || writing || !el.card.hidden;
+  }
+
+  // ---------- small pieces of the surface ----------
+
+  /** The text line grows with its text (up to the height the stylesheet allows). */
+  function autosize() {
+    if (!S.visible) return;
+    el.text.style.height = 'auto';
+    el.text.style.height = `${el.text.scrollHeight}px`;
+  }
+
+  function closeMenu() {
+    if (el.saveMenu.hidden) return;
+    el.saveMenu.hidden = true;
+    el.save.setAttribute('aria-expanded', 'false');
+  }
+
+  function toggleMenu() {
+    if (!el.saveMenu.hidden) { closeMenu(); return; }
+    el.saveMenu.hidden = false;
+    el.save.setAttribute('aria-expanded', 'true');
+  }
+
+  function toggleStyle() {
+    const open = el.style.hidden;
+    el.style.hidden = !open;
+    el.styleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
   function badText(n) {
-    return n === 1 ? 'Eine Stelle ist unsauber geworden. „Nochmal schreiben“ schreibt alles neu.'
-      : `${n} Stellen sind unsauber geworden. „Nochmal schreiben“ schreibt alles neu.`;
+    return n === 1 ? 'Eine Stelle ist unsauber geworden. „Nochmal“ schreibt alles neu.'
+      : `${n} Stellen sind unsauber geworden. „Nochmal“ schreibt alles neu.`;
   }
 
   function charsText(list) {
@@ -370,6 +405,8 @@ function framed(page) {
     }
 
     const mine = ++S.runId;
+    if (matchMedia('(pointer: coarse)').matches) el.text.blur();   // put the on-screen keyboard away: the sheet is the thing to watch
+    el.stage.scrollTop = 0;
     S.phase = 'writing'; S.cancelled = false; S.follow = true;
     S.lastText = text; S.seed = (Math.random() * 2 ** 32) >>> 0;
     if (S.raf) { cancelAnimationFrame(S.raf); S.raf = 0; }
@@ -456,7 +493,7 @@ function framed(page) {
       toast('Kopiert.');
     } catch (e) {
       console.error(e);
-      toast('Kopieren hat nicht geklappt. „Als Bild speichern“ geht immer.');
+      toast('Kopieren hat nicht geklappt. Speichern „Als Bild“ geht immer.');
     }
   }
 
@@ -486,8 +523,15 @@ function framed(page) {
     el.text.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); run(el.text.value); }
     });
-    el.text.addEventListener('input', () => { setNote(el.note, ''); save(); });
+    el.text.addEventListener('input', () => { setNote(el.note, ''); autosize(); save(); });
     el.bias.addEventListener('input', () => { S.settings.bias = Number(el.bias.value); save(); });
+    // Lesbarkeit changes how the network writes, so letting go of the slider writes the text again.
+    el.bias.addEventListener('change', () => { if (S.lastText && S.phase === 'idle') run(S.lastText); });
+    el.styleBtn.addEventListener('click', toggleStyle);
+    el.save.addEventListener('click', toggleMenu);
+    el.saveMenu.addEventListener('click', (e) => { if (e.target.closest('button')) closeMenu(); });
+    document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.gen-menu-wrap')) closeMenu(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !el.saveMenu.hidden) { closeMenu(); el.save.focus(); } });
     const later = () => { cancelAnimationFrame(relayoutFrame); relayoutFrame = requestAnimationFrame(relayout); };
     el.size.addEventListener('input', () => { S.settings.size = Number(el.size.value); save(); later(); });
     el.spacing.addEventListener('input', () => { S.settings.spacing = Number(el.spacing.value); save(); later(); });
@@ -503,7 +547,7 @@ function framed(page) {
     el.signin.addEventListener('click', () => deps.signIn());
     el.retry.addEventListener('click', () => refresh());
     // The writer scrolling by hand ends the automatic following.
-    for (const type of ['wheel', 'touchmove']) el.view.addEventListener(type, () => { S.follow = false; }, { passive: true });
+    for (const type of ['wheel', 'touchmove']) el.stage.addEventListener(type, () => { S.follow = false; }, { passive: true });
     let lastW = 0;
     new ResizeObserver(() => {
       const w = el.paper.clientWidth;
@@ -511,7 +555,7 @@ function framed(page) {
       lastW = w;
       redrawAll();
     }).observe(el.paper);
-    window.addEventListener('resize', redrawAll);
+    window.addEventListener('resize', () => { redrawAll(); autosize(); });
     window.addEventListener('hw-auth', () => { S.stale = true; if (S.visible) refresh(); });
     window.addEventListener('online', () => { if (S.visible && !S.syncing) refresh(); });
   };
@@ -524,12 +568,12 @@ function framed(page) {
         S.settings = {
           text: typeof saved.text === 'string' ? saved.text : '',
           bias: num(saved.bias, 0, 1.2, DEFAULTS.bias),
-          size: num(saved.size, 9, 30, DEFAULTS.size),
+          size: num(saved.size, 6, 30, DEFAULTS.size),
           spacing: num(saved.spacing, 5, 9, DEFAULTS.spacing),
           ink: INKS[saved.ink] ? saved.ink : DEFAULTS.ink,
         };
         el.text.value = S.settings.text;
-      } else if (window.innerWidth < 600) S.settings.size = 12;
+      } else if (window.innerWidth < 600) S.settings.size = 9;
     } catch (_) { /* no stored settings: defaults */ }
     applySettings();
     wire();
@@ -539,6 +583,7 @@ function framed(page) {
   function show() {
     S.visible = true;
     S.follow = true;
+    autosize();
     if (S.page) redrawAll();
     const stale = S.stale || hf.userName() !== S.authUser || Date.now() - S.lastCheck > RECHECK_MS || el.card.hidden === false;
     if (stale && !S.syncing) refresh();

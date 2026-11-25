@@ -37,8 +37,8 @@ web/
   js/capture/hwline.js      build / validate an hwline/v1 record
   js/capture/qa.js          automatic checks on a finished line
   js/capture/view.js        the Erfassen screen
-  js/generate/…             the Schreiben screen            (phase 2)
-  js/engine/…               the network in JavaScript        (phase 2)
+  js/generate/…             the Schreiben screen
+  js/engine/…               the network in JavaScript
   prompts/de-core.json      what the writer is asked to write
   model/                    model.json + model.bin (not in git; fetched from the model repo)
 ```
@@ -180,16 +180,23 @@ Rules that come from measurements on this writer's earlier recordings:
   Later blocks balance letter and bigram frequencies and add the rarer signs.
 - `scripts/check_prompts.py` verifies all of the above and prints coverage.
 
-### 2.5 Schreiben (generate) – phase 2
+### 2.5 Schreiben (generate)
 
-Text box → handwriting on a paper-like canvas, written out stroke by stroke.
-Controls: Lesbarkeit (bias), Schriftgröße, Zeilenabstand, Strichstärke, Farbe,
-"Nochmal schreiben" (new random sample), export SVG / PNG / copy. Long text is
-wrapped into lines; each line is generated in word groups of at most ~27
-characters that are placed on a common baseline with the writer's own word
-spacing (`gap_xh` in `model.json`).
+Two things on the screen: the sheet, and below it the line where the text is
+typed. The sheet is always there and fills the height; without a model it
+says why and what to do. Between the two sits one quiet row: what is going on
+(left) and three tools (right): **Nochmal** (same text, new random sample),
+**Stil** (opens in place, so the sheet stays in view while it changes) and
+**Speichern** (menu: image, SVG, copy). "Schreiben" turns into "Abbrechen"
+while the pen is running. Ctrl/Cmd + Enter writes.
 
-### 2.6 Engine – phase 2
+Long text is wrapped into lines; each line is generated in word groups of at
+most ~27 characters that are placed on a common baseline with the writer's own
+word spacing (`gap_xh` in `model.json`). Lesbarkeit (bias) regenerates;
+size and line spacing only lay the finished pieces out again; ink only redraws.
+The UI typeface (Instrument Sans, OFL) is bundled in `web/fonts/`.
+
+### 2.6 Engine
 
 `js/engine/` loads `model.json` + `model.bin` (see `hw/export.py`) and
 reproduces `hw.model.SynthesisNetwork.sample` exactly. Reference vectors for a
