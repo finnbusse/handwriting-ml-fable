@@ -1,7 +1,7 @@
 name: Übersicht aktualisieren und neu trainieren
 
 # Läuft nur, wenn es von Hand gestartet wird (Actions > dieser Eintrag > Run workflow).
-# 1. aktualisiert die Tabelle für den Dataset Viewer auf Hugging Face,
+# 1. ergänzt fehlende Vorschaubilder für den Dataset Viewer (normalerweise legt die App sie selbst an),
 # 2. trainiert das Modell neu, wenn mindestens 20 neue Zeilen dazugekommen sind
 #    (oder "force" angehakt ist), und legt es im Modell-Repo ab.
 # Braucht das Repository-Secret HF_TOKEN (Hugging-Face-Token mit Schreibrecht).
@@ -35,8 +35,8 @@ jobs:
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
-      - name: Übersicht im Dataset aktualisieren
-        run: python scripts/update_viewer.py
+      - name: Fehlende Vorschaubilder im Dataset ergänzen
+        run: python scripts/rebuild_preview.py
       - name: Gibt es genug neue Aufnahmen?
         id: check
         run: python scripts/retrain.py check ${{ inputs.force && '--force' || '' }}
