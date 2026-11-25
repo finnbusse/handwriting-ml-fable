@@ -71,12 +71,13 @@ Upload = one NDJSON POST per batch, plain `fetch`:
 POST https://huggingface.co/api/datasets/<user>/handwriting-fable/commit/main
 Authorization: Bearer <token>          Content-Type: application/x-ndjson
 {"key":"header","value":{"summary":"Erfassung: 12 Zeilen"}}
-{"key":"file","value":{"path":"raw/v1/<session_id>/<id>.json","content":"<json text>","encoding":"utf-8"}}
+{"key":"file","value":{"path":"raw/v1/<session_id>/<prompt_id>__<id>.json","content":"<json text>","encoding":"utf-8"}}
 …
 ```
 
 One file per line; the path contains the line id, so a retried upload
-overwrites instead of duplicating. At most 25 lines per commit. Lines are
+overwrites instead of duplicating, and the prompt id, so progress can be
+restored from a file listing alone. At most 25 lines per commit. Lines are
 written to IndexedDB *before* any upload attempt and leave the outbox only
 after a 2xx answer. The outbox is flushed after every accepted line (debounced:
 when 5 lines are waiting, when the session ends, when the app starts, when the
@@ -118,7 +119,8 @@ Rules that come from measurements on this writer's earlier recordings:
   is then stored with `status: "flagged"` and the flags): stroke count outside
   0.4–2.0 per non-space character, a tiny stroke far from everything else,
   samples outside the canvas, `pointercancel`, pen button pressed, sample rate
-  below 100 Hz, layout change during the line.
+  below 200 Hz (this writer's S Pen delivers about 480 Hz; 120 Hz means the
+  browser is not passing on the intermediate samples), layout change during the line.
 - Sessions of 20 lines with a progress display; the writer can stop at any
   time and continue later on any device (progress = which prompt ids already
   exist in the dataset + the local outbox).

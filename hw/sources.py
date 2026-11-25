@@ -149,9 +149,10 @@ def load_inktrace(root: str, source: str) -> list[Ink]:
 
 
 def load_hwline_v1(root: str, source: str, include_flagged: bool = False,
-                   pointer_types: tuple[str, ...] = ("pen",)) -> list[Ink]:
+                   pointer_types: tuple[str, ...] = ("pen",), writer: str | None = None) -> list[Ink]:
     """Recordings of this project's capture app: one hwline/v1 JSON per line
-    (docs/schema/hwline_v1.schema.json), under raw/v1/<session>/<id>.json."""
+    (docs/schema/hwline_v1.schema.json), under raw/v1/<writer>/<session>/….
+    With `writer` only that writer's lines are returned."""
     inks = []
     for f in sorted(glob.glob(os.path.join(root, "raw", "v1", "**", "*.json"), recursive=True)):
         with open(f, encoding="utf-8") as fh:
@@ -161,6 +162,8 @@ def load_hwline_v1(root: str, source: str, include_flagged: bool = False,
         if r.get("status") != "accepted" and not include_flagged:
             continue
         if r.get("pointer", {}).get("type", "pen") not in pointer_types:
+            continue
+        if writer is not None and r.get("writer_id") != writer:
             continue
         pts, ts = [], []
         for st in r["strokes"]:
@@ -178,6 +181,7 @@ def load_hwline_v1(root: str, source: str, include_flagged: bool = False,
                         meta={"t": np.concatenate(ts), "session": r.get("session_id", ""),
                               "created_at": r.get("created_at", ""),
                               "prompt_id": r.get("prompt", {}).get("id", ""),
+                              "writer": r.get("writer_id", ""),
                               "flags": r.get("flags", [])}))
     return inks
 
@@ -191,10 +195,15 @@ LOADERS = {
 }
 
 
+CAPTURE_SOURCES = ("handwriting-fable",)
+
+
 def load_all(cache_dir: str, token: str | None = None, extra: dict | None = None,
-             fetch: bool = True) -> list[Ink]:
-    """Load every known recording.  `extra` maps source name -> (repo, format)."""
-    sources = dict(LEGACY_SOURCES)
+             fetch: bool = True, writer: str | None = None, legacy: bool = True) -> list[Ink]:
+    """Load every known recording.  `extra` maps source name -> (repo, format).
+    `writer` selects one writer of the capture app's recordings; the older
+    datasets carry no writer and are included unless `legacy` is False."""
+    sources = {k: v for k, v in LEGACY_SOURCES.items() if legacy or k in CAPTURE_SOURCES}
     sources.update(extra or {})
     inks: list[Ink] = []
     for name, (repo, fmt) in sources.items():
@@ -204,10 +213,13 @@ def load_all(cache_dir: str, token: str | None = None, extra: dict | None = None
             try:
                 local = download(full, fmt, cache_dir, token)
             except Exception as e:                       # e.g. the capture repo does not exist yet
-                if name not in ("handwriting-fable",):
+                if name not in CAPTURE_SOURCES:
                     raise
                 print(f"note: {full} not available ({type(e).__name__}); continuing without it")
         if not os.path.isdir(local):
             continue
-        inks.extend(LOADERS[fmt](local, name))
+        if fmt == "hwline-v1":
+            inks.extend(load_hwline_v1(local, name, writer=writer))
+        else:
+            inks.extend(LOADERS[fmt](local, name))
     return inks

@@ -27,6 +27,7 @@ import torch
 
 from . import dataset, sources
 from .base import ensure_base
+from .config import MAIN_WRITER
 from .charset import BASE_CHARSET, DEFAULT_CHARSET, EXTRA_CHARS, Charset
 from .ink import Ink, contact_sheet
 from .model import SynthesisNetwork, extend_alphabet, load_state
@@ -148,8 +149,8 @@ def build_model(base_dir: str, charset: Charset):
 
 
 def load_corpus_inks(cache: str, base_stats: dict, token: str | None, fetch: bool,
-                     extra_sources: dict | None = None):
-    raw = sources.load_all(cache, token=token, fetch=fetch, extra=extra_sources)
+                     extra_sources: dict | None = None, writer: str | None = None, legacy: bool = True):
+    raw = sources.load_all(cache, token=token, fetch=fetch, extra=extra_sources, writer=writer, legacy=legacy)
     raw, excluded = dataset.apply_exclusions(raw, dataset.load_exclusions())
     inks, report = dataset.calibrate_cached(raw, base_stats, cache)
     report["excluded"] = excluded
@@ -163,6 +164,9 @@ def main(argv=None):
     ap.add_argument("--init", default=None, help="continue from this checkpoint directory instead of the base")
     ap.add_argument("--cache", default="data_cache")
     ap.add_argument("--no-fetch", action="store_true", help="use the local data cache only")
+    ap.add_argument("--writer", default=MAIN_WRITER, help="whose recordings of the capture app to train on")
+    ap.add_argument("--no-legacy", action="store_true",
+                    help="leave out the older datasets (they all belong to the main writer)")
     ap.add_argument("--epochs", type=int, default=40)
     ap.add_argument("--composed", type=int, default=480, help="composed lines per epoch")
     ap.add_argument("--real-repeat", type=int, default=4, help="passes over the real lines per epoch")
@@ -196,7 +200,8 @@ def main(argv=None):
     mu, std = base_meta["mu"], base_meta["std"]
 
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_ACCESS_TOKEN")
-    inks, report = load_corpus_inks(args.cache, base_stats, token, fetch=not args.no_fetch)
+    inks, report = load_corpus_inks(args.cache, base_stats, token, fetch=not args.no_fetch,
+                                    writer=args.writer, legacy=not args.no_legacy)
     corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share)
     val_real, val_comp = corpus.validation()
     print("data:", json.dumps({**corpus.counts, "gap_xh": [round(g, 2) for g in corpus.gap],
@@ -205,7 +210,8 @@ def main(argv=None):
 
     meta = {"charset": charset.chars, "mu": mu, "std": std, "xh_model": report["xh_model"],
             "step_xh": report["step_xh"], "gap_xh": list(corpus.gap), "tall_ratio": report["tall_ratio"],
-            "base": os.path.basename(os.path.normpath(args.base)), "data": report["counts"]}
+            "base": os.path.basename(os.path.normpath(args.base)), "data": report["counts"],
+            "writer": args.writer}
 
     def save(name: str, extra: dict):
         Synthesizer(model, charset, mu, std, dict(meta)).save(os.path.join(args.out, name), extra)

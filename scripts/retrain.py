@@ -20,6 +20,8 @@ import tempfile
 
 from huggingface_hub import HfApi, hf_hub_download
 
+from hw.config import MAIN_WRITER
+
 DATASET = "handwriting-fable"
 MODEL = "handwriting-fable-model"
 
@@ -35,7 +37,8 @@ def api_and_repos():
 
 def state(api, dataset, model, token):
     info = api.dataset_info(dataset)
-    lines = sum(1 for s in info.siblings if s.rfilename.startswith("raw/v1/") and s.rfilename.endswith(".json"))
+    lines = sum(1 for s in info.siblings
+                if s.rfilename.startswith(f"raw/v1/{MAIN_WRITER}/") and s.rfilename.endswith(".json"))
     trained = {}
     try:
         with open(hf_hub_download(model, "trained_on.json", token=token), encoding="utf-8") as f:
