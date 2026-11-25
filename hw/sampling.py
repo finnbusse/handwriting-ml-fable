@@ -63,7 +63,7 @@ class Synthesizer:
 
     # -------------------------------------------------------------- sampling
     def write(self, texts: list[str], bias: float = 1.0, seed: int | None = None,
-              max_steps: int | None = None, eos_mode: str = "threshold",
+              max_steps: int | None = None, eos_mode: str = "sample",
               return_attention: bool = False):
         tokens, lens = self.encode(texts)
         gen = None

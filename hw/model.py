@@ -186,7 +186,7 @@ class SynthesisNetwork(nn.Module):
     # --------------------------------------------------------------- sampling
     @torch.no_grad()
     def sample(self, tokens: Tensor, text_len: Tensor, *, bias: float = 0.0,
-               max_steps: int = 1500, eos_mode: str = "threshold",
+               max_steps: int = 1500, eos_mode: str = "sample",
                prime: Tensor | None = None, prime_len: Tensor | None = None,
                generator: torch.Generator | None = None, return_attention: bool = False):
         """Batched ancestral sampling.
@@ -195,6 +195,13 @@ class SynthesisNetwork(nn.Module):
         hw.sampling.prepare_text; text_len counts them.  If `prime` (B,P,3) is
         given, those points are fed first (teacher forced) and the text must be
         the priming text followed by the text to write.
+
+        Pen lifts are drawn from the predicted probability (`eos_mode="sample"`,
+        as in Graves' paper).  Thresholding at 0.5 instead looks tidier in
+        theory but fails in practice: the network is rarely more than 50 % sure
+        of the exact step at which a stroke ends, so the pen would stay down
+        and the writing would run off into waves.
+
         Returns list of (T_i,3) tensors (normalized units) and, optionally, the
         attention maps (T_i,U_i).
         """
