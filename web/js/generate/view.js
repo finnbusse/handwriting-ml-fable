@@ -7,22 +7,26 @@
 //   text, "Schreiben", "Nochmal schreiben", Lesbarkeit (bias)  -> the network writes again
 //   Schriftgröße, Zeilenabstand -> the finished pieces are laid out again (page-writer.relayout),
 //                                  nothing is generated
-//   Tintenfarbe, window size    -> redraw only
+//   Stift, Strichstärke, Papier, Farben, Tinte, window size -> redraw only
+//
+// The look starts out as the current writer's capture sheet ("Stift & Papier", kv
+// `displayBy`), so the page looks like what they write on.  Once it is changed here,
+// Schreiben keeps its own (kv `generate`.look).
 import { createNormalizer } from '../engine/engine.js';
 import { createPageWriter } from './page-writer.js';
-import { drawStrokes, drawPartial, toSVG, toCanvas } from './render.js';
+import { drawWord, drawWords, drawPartial, drawSheet, toSVG, toCanvas, lookColors, normalizeLook, lookFromCapture, INKS, DEFAULT_LOOK } from './render.js';
 import { createEngine } from './engine-client.js';
 import { createModelStore } from './model-store.js';
+import { normalize as normalizeDisplay, WIDTHS as CAPTURE_WIDTHS } from '../capture/ink.js';
 
-const INKS = { blueblack: '#1b2a49', black: '#15171a', blue: '#2141b8' };
-const LINE_WIDTH = 0.16;           // pen width in x-heights (render.js default)
+const PAGE_TOP = 5, PAGE_MARGIN = 3;   // layout.js: first baseline and side margin, x-heights
 const MIN_PAGE_WIDTH = 18;         // x-heights
 const BASE_PPS = 260;              // writing animation: points per second when nothing is waiting
 const CATCHUP_S = 1.0;             // ... and never slower than "everything waiting within this many seconds"
 const MAX_PIXELS = 16e6;           // canvas budget (per canvas; there are two)
 const RECHECK_MS = 5 * 60 * 1000;  // look for a newer model at most this often
 
-const DEFAULTS = { text: '', bias: 0.4, size: 11, spacing: 6.5, ink: 'blueblack' };   // size: CSS px per x-height
+const DEFAULTS = { text: '', bias: 0.4, size: 11, spacing: 6.5 };   // size: CSS px per x-height
 
 const mb = (bytes) => (bytes / 1e6).toFixed(1).replace('.', ',');
 
@@ -49,18 +53,22 @@ export function createGenerateView(deps) {
     note: $('gen-note'), chars: $('gen-chars'), bad: $('gen-bad'),
     bias: $('gen-bias'), size: $('gen-size'), spacing: $('gen-spacing'), inks: $('gen-inks'),
     infoText: $('gi-text'), infoBar: $('gi-bar'), infoFill: $('gi-fill'),
-    stage: $('gen-stage'), paper: $('gen-paper'), canvas: $('gen-canvas'), empty: $('gen-empty'),
+    stage: $('gen-stage'), paper: $('gen-paper'), canvas: $('gen-canvas'), lines: $('gen-lines'), empty: $('gen-empty'),
     info: $('gen-info'), styleBtn: $('gen-style-btn'), style: $('gen-style'),
+    moreBtn: $('gen-more-btn'), more: $('gen-more'), inkRow: $('gen-ink-row'),
     save: $('gen-save'), saveMenu: $('gen-save-menu'),
-    png: $('gen-png'), svg: $('gen-svg'), copy: $('gen-copy'),
+    png: $('gen-png'), inkPng: $('gen-ink-png'), svg: $('gen-svg'), copy: $('gen-copy'),
   };
   const ctx = el.canvas.getContext('2d');
+  const gctx = el.lines.getContext('2d');               // the paper and its lines, under the ink
   const layer = document.createElement('canvas');      // everything already written (the animation draws on top of it)
   const lctx = layer.getContext('2d');
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
 
   const S = {
     settings: Object.assign({}, DEFAULTS),
+    look: Object.assign({}, DEFAULT_LOOK),
+    ownLook: false,                               // changed here at least once: no longer follows the capture sheet
     visible: false,
     // model
     engine: null, engineUser: null, sha: null, normalizer: null, writer: null, trainedOn: null,
@@ -71,7 +79,7 @@ export function createGenerateView(deps) {
     lastText: null, seed: null, pageWriter: null,
     page: null, bad: 0,
     // drawing
-    settled: 0, pos: 0, total: 0, done: 0, geo: null, raf: 0, last: 0, width: 0,
+    settled: 0, pos: 0, total: 0, done: 0, geo: null, raf: 0, last: 0, width: 0, sheetKey: '',
   };
 
   // ---------- model card / info line ----------
@@ -215,41 +223,65 @@ export function createGenerateView(deps) {
 
   // ---------- drawing ----------
 
-  const ink = () => INKS[S.settings.ink] || INKS.blueblack;
-  const drawOptions = () => ({ scale: S.geo.scale, color: ink(), lineWidth: LINE_WIDTH });
+  /** What every drawing call needs: the look, its colours and the current scale. */
+  const drawOptions = () => ({ scale: S.geo.scale, look: S.look, colors: lookColors(S.look) });
 
   /** The page as shown and exported: widened when an unsplit piece sticks out past the right edge. */
-function framed(page) {
-  let right = page.width;
-  for (const w of page.words) right = Math.max(right, w.x + w.width + 3);
-  return right > page.width ? Object.assign({}, page, { width: right }) : page;
-}
+  function framed(page) {
+    let right = page.width;
+    for (const w of page.words) right = Math.max(right, w.x + w.width + 3);
+    return right > page.width ? Object.assign({}, page, { width: right }) : page;
+  }
 
-/** Size the canvases to the page and the sheet; true when the bitmap size changed (= it is blank now). */
+  /** Device px per CSS px for a canvas of cssW x cssH, within the pixel budget. */
+  function ratioFor(cssW, cssH) {
+    const ratio = window.devicePixelRatio || 1;
+    const px = cssW * ratio * cssH * ratio;
+    return px > MAX_PIXELS ? ratio * Math.sqrt(MAX_PIXELS / px) : ratio;
+  }
+
+  /** Size the canvases to the page and the sheet; true when the ink bitmap size changed (= it is blank now).
+   *  Without a page the paper is still drawn, at the scale the next page will have. */
   function fit() {
     const page = S.page;
     const cssW = el.paper.clientWidth;
-    if (!page || !cssW) return false;
-    const cssScale = cssW / framed(page).width;
-    const cssH = Math.max(1, Math.ceil(page.height * cssScale));
-    let ratio = window.devicePixelRatio || 1;
-    let pw = Math.round(cssW * ratio), ph = Math.round(cssH * ratio);
-    if (pw * ph > MAX_PIXELS) {
-      ratio *= Math.sqrt(MAX_PIXELS / (pw * ph));
-      pw = Math.round(cssW * ratio); ph = Math.round(cssH * ratio);
-    }
+    if (!cssW) return false;
+    const cssScale = cssW / (page ? framed(page).width : pageWidth());
+    const cssH = page ? Math.max(1, Math.ceil(page.height * cssScale)) : 0;
+    const ratio = ratioFor(cssW, Math.max(cssH, 1));
+    const pw = Math.round(cssW * ratio), ph = Math.max(1, Math.round(cssH * ratio));   // never 0: getImageData must work
     const changed = el.canvas.width !== pw || el.canvas.height !== ph;
     if (changed) { el.canvas.width = pw; el.canvas.height = ph; layer.width = pw; layer.height = ph; }
     el.canvas.style.height = `${cssH}px`;
-    S.geo = { scale: cssScale * ratio, cssScale };
+    S.geo = { scale: cssScale * ratio, cssScale, ratio };
     S.width = cssW;
+    paintSheet();
     return changed;
   }
 
+  const sheetGeometry = (scale, lineWidth) => ({ scale, spacing: S.settings.spacing, top: PAGE_TOP, margin: PAGE_MARGIN, lineWidth });
+
+  /** The paper canvas covers the whole sheet (also below the last line); repainted only when something it shows changed. */
+  function paintSheet() {
+    if (!S.geo) return;
+    const cssW = el.paper.clientWidth, cssH = el.paper.clientHeight;
+    if (!cssW || !cssH) return;
+    const ratio = ratioFor(cssW, cssH);
+    const pw = Math.round(cssW * ratio), ph = Math.round(cssH * ratio);
+    const scale = S.geo.cssScale * ratio;
+    const key = [pw, ph, scale, S.look.paper, S.look.scheme, S.settings.spacing].join('|');
+    if (key === S.sheetKey) return;
+    S.sheetKey = key;
+    if (el.lines.width !== pw || el.lines.height !== ph) { el.lines.width = pw; el.lines.height = ph; }
+    el.lines.style.height = `${cssH}px`;
+    drawSheet(gctx, pw, ph, S.look, lookColors(S.look), sheetGeometry(scale, Math.max(1, Math.round(ratio))));
+  }
+
+  /** The settled words, drawn one by one exactly as the animation draws them. */
   function rebuildLayer() {
     if (!S.page || !S.geo) return;
     lctx.clearRect(0, 0, layer.width, layer.height);
-    drawStrokes(lctx, S.page.strokes.slice(0, S.settled), drawOptions());
+    drawWords(lctx, S.page.strokes.slice(0, S.settled), drawOptions());
   }
 
   function paint() {
@@ -265,7 +297,7 @@ function framed(page) {
     if (!page) return;
     if (S.visible && S.geo) {
       const rest = page.strokes.slice(S.settled);
-      if (rest.length) drawStrokes(lctx, rest, drawOptions());
+      if (rest.length) drawWords(lctx, rest, drawOptions());
     }
     S.settled = page.strokes.length; S.pos = 0; S.done = S.total;
     if (S.visible) paint();
@@ -294,7 +326,7 @@ function framed(page) {
       const w = page.strokes[S.settled];
       const left = w.length / 3 - S.pos;
       if (adv >= left) {
-        drawStrokes(lctx, [w], drawOptions());
+        drawWord(lctx, w, drawOptions());
         S.settled++; S.pos = 0; S.done += left; adv -= left;
       } else { S.pos += adv; S.done += adv; adv = 0; }
     }
@@ -316,13 +348,14 @@ function framed(page) {
   }
 
   function redrawAll() {
-    if (!S.visible || !S.page) return;
+    if (!S.visible) return;
     fit(); rebuildLayer(); paint();
   }
 
   /** Same pieces, other width / line height: no new writing. */
   function relayout() {
-    if (!S.page || !S.pageWriter || S.phase === 'writing' || !S.visible) return;
+    if (!S.visible) return;
+    if (!S.page || !S.pageWriter || S.phase === 'writing') { fit(); return; }
     const page = S.pageWriter.relayout({ width: pageWidth(), lineHeight: S.settings.spacing });
     if (!page) return;
     S.page = page;
@@ -348,7 +381,7 @@ function framed(page) {
     el.size.disabled = writing; el.spacing.disabled = writing;
     const canExport = !!S.page && !writing;
     el.save.disabled = !canExport;
-    el.png.disabled = !canExport; el.svg.disabled = !canExport; el.copy.disabled = !canExport;
+    el.png.disabled = !canExport; el.inkPng.disabled = !canExport; el.svg.disabled = !canExport; el.copy.disabled = !canExport;
     if (!canExport) closeMenu();
     el.empty.hidden = !!S.page || writing || !el.card.hidden;
   }
@@ -378,6 +411,12 @@ function framed(page) {
     const open = el.style.hidden;
     el.style.hidden = !open;
     el.styleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+
+  function toggleMore() {
+    const open = el.more.hidden;
+    el.more.hidden = !open;
+    el.moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
   }
 
   function badText(n) {
@@ -459,10 +498,17 @@ function framed(page) {
 
   // ---------- export ----------
 
-  function pngBlob() {
+  /** Export geometry: the lines as wide, relative to the page, as on screen. */
+  function exportOptions(scale, paper) {
+    const cssScale = (S.geo && S.geo.cssScale) || S.settings.size;
+    return { scale, look: S.look, paper, guideWidth: scale / cssScale, spacing: S.settings.spacing, top: PAGE_TOP, margin: PAGE_MARGIN };
+  }
+
+  /** paper: true = the sheet as shown (paper, lines, pen); false = transparent, ink only. */
+  function pngBlob(paper = true) {
     const page = framed(S.page);
     const scale = Math.max(12, Math.min(40, 2400 / page.width, 30000 / page.height));
-    const canvas = toCanvas(page, { scale, color: ink(), lineWidth: LINE_WIDTH, background: '#ffffff' });
+    const canvas = toCanvas(page, exportOptions(scale, paper));
     return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
   }
 
@@ -474,15 +520,15 @@ function framed(page) {
     setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   }
 
-  async function savePng() {
+  async function savePng(paper = true) {
     if (!S.page) return;
-    try { download(await pngBlob(), `handschrift-${stamp()}.png`); }
+    try { download(await pngBlob(paper), `handschrift-${stamp()}${paper ? '' : '-ohne-papier'}.png`); }
     catch (e) { console.error(e); toast('Das Bild konnte nicht erstellt werden.'); }
   }
 
   function saveSvg() {
     if (!S.page) return;
-    const svg = toSVG(framed(S.page), { scale: 12, color: ink(), lineWidth: LINE_WIDTH });
+    const svg = toSVG(framed(S.page), exportOptions(12, true));
     download(new Blob([svg], { type: 'image/svg+xml' }), `handschrift-${stamp()}.svg`);
   }
 
@@ -503,8 +549,10 @@ function framed(page) {
   function save() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      const { bias, size, spacing, ink: inkName } = S.settings;
-      store.kvSet('generate', { text: el.text.value, bias, size, spacing, ink: inkName }).catch(() => {});
+      const { bias, size, spacing } = S.settings;
+      const v = { text: el.text.value, bias, size, spacing };
+      if (S.ownLook) v.look = Object.assign({}, S.look);
+      store.kvSet('generate', v).catch(() => {});
     }, 300);
   }
 
@@ -512,7 +560,51 @@ function framed(page) {
     el.bias.value = S.settings.bias;
     el.size.value = S.settings.size;
     el.spacing.value = S.settings.spacing;
-    for (const b of el.inks.querySelectorAll('[data-ink]')) b.setAttribute('aria-checked', b.dataset.ink === S.settings.ink ? 'true' : 'false');
+    applyLook();
+  }
+
+  /** Buttons, swatches and the sheet's own colours follow the look. */
+  function applyLook() {
+    const l = S.look;
+    for (const b of el.style.querySelectorAll('.gen-choice')) {
+      const v = b.dataset.k === 'width' ? Number(b.dataset.v) : b.dataset.v;
+      b.setAttribute('aria-checked', l[b.dataset.k] === v ? 'true' : 'false');
+    }
+    for (const b of el.inks.querySelectorAll('[data-ink]')) {
+      const [color, name] = INKS[l.scheme][b.dataset.ink];
+      b.setAttribute('aria-checked', b.dataset.ink === l.ink ? 'true' : 'false');
+      b.setAttribute('aria-label', name); b.title = name;
+      b.firstElementChild.style.background = color;
+    }
+    el.inkRow.hidden = l.pen === 'bleistift';       // graphite has no ink to choose
+    el.paper.dataset.scheme = l.scheme;
+  }
+
+  /** Change one part of the look here: from now on Schreiben keeps its own. */
+  function setLook(key, value) {
+    const next = normalizeLook(Object.assign({}, S.look, { [key]: value }));
+    if (next[key] === S.look[key] && S.ownLook) return;
+    S.look = next; S.ownLook = true;
+    applyLook(); save();
+    S.sheetKey = '';
+    if (key === 'paper') paintSheet(); else redrawAll();
+  }
+
+  /** Until the look is changed here, it is the current writer's capture sheet (when they set one up). */
+  async function followCapture() {
+    if (S.ownLook) return;
+    let look = DEFAULT_LOOK;
+    try {
+      const wid = await store.kvGet('writer', null);
+      const by = wid ? await store.kvGet('displayBy', null) : null;
+      if (by && by[wid] && typeof by[wid] === 'object') look = lookFromCapture(normalizeDisplay(by[wid]), CAPTURE_WIDTHS);
+    } catch (_) { /* no capture look: Schreiben's own defaults */ }
+    if (S.ownLook) return;
+    const next = normalizeLook(look);
+    if (JSON.stringify(next) === JSON.stringify(S.look)) return;
+    S.look = next;
+    applyLook();
+    S.sheetKey = ''; redrawAll();
   }
 
   let relayoutFrame = 0;
@@ -528,6 +620,12 @@ function framed(page) {
     // Lesbarkeit changes how the network writes, so letting go of the slider writes the text again.
     el.bias.addEventListener('change', () => { if (S.lastText && S.phase === 'idle') run(S.lastText); });
     el.styleBtn.addEventListener('click', toggleStyle);
+    el.moreBtn.addEventListener('click', toggleMore);
+    el.style.addEventListener('click', (e) => {
+      const b = e.target.closest('.gen-choice');
+      if (!b) return;
+      setLook(b.dataset.k, b.dataset.k === 'width' ? Number(b.dataset.v) : b.dataset.v);
+    });
     el.save.addEventListener('click', toggleMenu);
     el.saveMenu.addEventListener('click', (e) => { if (e.target.closest('button')) closeMenu(); });
     document.addEventListener('pointerdown', (e) => { if (!e.target.closest('.gen-menu-wrap')) closeMenu(); });
@@ -537,10 +635,10 @@ function framed(page) {
     el.spacing.addEventListener('input', () => { S.settings.spacing = Number(el.spacing.value); save(); later(); });
     el.inks.addEventListener('click', (e) => {
       const b = e.target.closest('[data-ink]');
-      if (!b) return;
-      S.settings.ink = b.dataset.ink; applySettings(); save(); redrawAll();
+      if (b) setLook('ink', b.dataset.ink);
     });
-    el.png.addEventListener('click', savePng);
+    el.png.addEventListener('click', () => savePng(true));
+    el.inkPng.addEventListener('click', () => savePng(false));
     el.svg.addEventListener('click', saveSvg);
     el.copy.addEventListener('click', copyPng);
     el.copy.hidden = !(typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write);
@@ -551,7 +649,7 @@ function framed(page) {
     let lastW = 0;
     new ResizeObserver(() => {
       const w = el.paper.clientWidth;
-      if (w === lastW) return;
+      if (w === lastW) { if (S.visible) paintSheet(); return; }     // only taller or shorter: the paper, not the ink
       lastW = w;
       redrawAll();
     }).observe(el.paper);
@@ -570,21 +668,23 @@ function framed(page) {
           bias: num(saved.bias, 0, 1.2, DEFAULTS.bias),
           size: num(saved.size, 6, 30, DEFAULTS.size),
           spacing: num(saved.spacing, 5, 9, DEFAULTS.spacing),
-          ink: INKS[saved.ink] ? saved.ink : DEFAULTS.ink,
         };
+        if (saved.look && typeof saved.look === 'object') { S.look = normalizeLook(saved.look); S.ownLook = true; }
         el.text.value = S.settings.text;
       } else if (window.innerWidth < 600) S.settings.size = 9;
     } catch (_) { /* no stored settings: defaults */ }
     applySettings();
     wire();
     syncUi();
+    await followCapture();
   }
 
   function show() {
     S.visible = true;
     S.follow = true;
     autosize();
-    if (S.page) redrawAll();
+    redrawAll();
+    followCapture();
     const stale = S.stale || hf.userName() !== S.authUser || Date.now() - S.lastCheck > RECHECK_MS || el.card.hidden === false;
     if (stale && !S.syncing) refresh();
   }
@@ -595,6 +695,6 @@ function framed(page) {
     init, show, hide, refresh,
     info: () => ms.info(),
     /** For tests and the diagnostics page. */
-    debug: () => ({ phase: S.phase, page: S.page, seed: S.seed, sha: S.sha, settings: S.settings, text: S.lastText, bad: S.bad, settled: S.settled, total: S.total, done: S.done }),
+    debug: () => ({ phase: S.phase, page: S.page, seed: S.seed, sha: S.sha, settings: S.settings, look: Object.assign({}, S.look), ownLook: S.ownLook, runs: S.runId, scale: S.geo ? S.geo.scale : 0, text: S.lastText, bad: S.bad, settled: S.settled, total: S.total, done: S.done }),
   };
 }

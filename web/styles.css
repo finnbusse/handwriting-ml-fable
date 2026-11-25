@@ -360,10 +360,10 @@ input[role="switch"]:checked::after { transform: translateX(24px); }
 
 /* ---------- Schreiben ----------
    Two things on the screen: the sheet, and below it the line where the text is
-   typed.  The sheet is paper (sharp corners, light in both themes); everything
-   that is a tool is rounded and stays quiet. */
-:root { --gen-paper: #FFFFFF; --gen-paper-edge: rgba(28, 35, 48, .09); --gen-column: 880px; }
-@media (prefers-color-scheme: dark) { :root { --gen-paper: #EFEDE7; --gen-paper-edge: transparent; } }
+   typed.  The sheet is paper (sharp corners, the colours of the capture sheet,
+   whatever the app theme); everything that is a tool is rounded and stays quiet. */
+:root { --gen-paper-edge: rgba(28, 35, 48, .09); --gen-column: 880px; }
+@media (prefers-color-scheme: dark) { :root { --gen-paper-edge: transparent; } }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
@@ -376,7 +376,8 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
   margin: 0 -12px; padding: 4px 12px 18px;          /* room for the sheet's shadow */
 }
 .gen-paper {
-  /* whatever sits on the sheet is dark on light, in both themes */
+  /* what sits on the sheet follows the sheet's scheme ("Farben"), not the app theme */
+  --gen-paper: var(--paper-light-bg); --gen-hint: #8B93A0;
   --ink: #1C2330; --muted: #5E6775; --line: #DDE2E8; --sheet: #FFFFFF;
   --accent: #2847C4; --accent-ink: #FFFFFF; --accent-soft: #E7ECFA;
   color-scheme: light; color: var(--ink);
@@ -384,10 +385,19 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
   background: var(--gen-paper); border-radius: 3px;
   box-shadow: 0 0 0 1px var(--gen-paper-edge), 0 1px 2px rgba(20, 26, 38, .06), 0 14px 30px -14px rgba(20, 26, 38, .22);
 }
+.gen-paper[data-scheme="light_on_dark"] {
+  --gen-paper: var(--paper-dark-bg); --gen-hint: var(--paper-dark-muted);
+  --ink: #E6E9EE; --muted: var(--paper-dark-muted); --line: #343B47; --sheet: #232832;
+  --accent: #8EA4FF; --accent-ink: #0F1424; --accent-soft: #2A3352;
+  color-scheme: dark;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 1px 2px rgba(20, 26, 38, .08), 0 14px 30px -14px rgba(20, 26, 38, .3);
+}
 .gen-paper canvas { display: block; width: 100%; }
+.gen-paper #gen-canvas { position: relative; }                 /* the ink, over the paper's lines */
+.gen-paper .gen-lines { position: absolute; left: 0; top: 0; border-radius: inherit; }
 .gen-empty {
   position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px;
-  color: #8B93A0; pointer-events: none;
+  color: var(--gen-hint); pointer-events: none;
 }
 .gen-state { position: absolute; inset: 0; display: grid; place-items: center; padding: 28px; background: var(--gen-paper); border-radius: inherit; }
 .gen-state-in { display: grid; justify-items: center; gap: 16px; max-width: 420px; text-align: center; }
@@ -433,23 +443,60 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
 .gen-menu button:not(:disabled):hover, .gen-menu button:focus-visible { background: var(--accent-soft); outline: 0; }
 .gen-menu button:disabled { opacity: .4; cursor: default; }
 
-/* Stil: opens in place, above the text line, so the sheet stays in view while it changes */
-.gen-style { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; column-gap: 28px; padding: 0 4px 4px; }
-.gen-ctl { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; column-gap: 12px; font-size: 14px; color: var(--muted); }
-.gen-ctl input[type="range"] { appearance: none; width: 100%; min-width: 48px; height: 48px; margin: 0; background: transparent; cursor: pointer; }
-.gen-ctl input[type="range"]::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: var(--line); }
-.gen-ctl input[type="range"]::-moz-range-track { height: 3px; border-radius: 2px; background: var(--line); }
-.gen-ctl input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; margin-top: -7.5px; border-radius: 50%; background: var(--ink); border: 0; }
-.gen-ctl input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--ink); border: 0; }
-.gen-ctl input[type="range"]:disabled { opacity: .4; cursor: default; }
-.gen-ctl input[type="range"]:focus-visible { outline: 0; }
-.gen-ctl input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); }
-.gen-inks { display: flex; margin-right: -12px; }
+/* Stil: opens in place, above the text line, so the sheet stays in view while it changes.
+   Labels on the left, plain words to choose from; the choice in use is marked as quietly
+   as an open tool.  Two columns where there is room: the pen on the left, the sheet on the right. */
+.gen-style {
+  --gen-label: 104px;
+  max-height: min(46dvh, 420px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  padding: 2px 4px 6px;
+}
+.gen-style-main, .gen-style-more { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 32px; }
+.gen-style-main { grid-template-rows: repeat(3, auto); grid-auto-flow: column; }
+.gen-style-more { margin-top: 6px; }
+.gen-opt { display: grid; grid-template-columns: var(--gen-label) minmax(0, 1fr); align-items: center; min-height: 48px; min-width: 0; }
+.gen-opt[hidden] { display: none; }
+.gen-opt-l { font-size: 14px; color: var(--muted); }
+.gen-choices { display: flex; flex-wrap: wrap; margin-left: -10px; }
+.gen-choice {
+  appearance: none; border: 0; background: none; font: inherit; font-size: 15px; color: var(--muted);
+  position: relative; isolation: isolate; display: inline-grid; place-items: center;
+  min-width: 48px; height: 48px; padding: 0 10px; cursor: pointer; touch-action: manipulation; white-space: nowrap;
+}
+.gen-choice::before { content: ""; position: absolute; inset: 8px 0; border-radius: 9px; z-index: -1; }
+.gen-choice[aria-checked="true"] { color: var(--ink); }
+@media (hover: hover) { .gen-choice:hover { color: var(--ink); } .gen-choice:hover:not([aria-checked="true"])::before { background: color-mix(in srgb, var(--ink) 5%, transparent); } }
+.gen-choice[aria-checked="true"]::before { background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.gen-choice:focus-visible { outline: 0; }
+.gen-choice:focus-visible::before { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); }
+.gen-w { padding: 0; }
+.gen-w i { display: block; width: 22px; border-radius: 2px; background: currentColor; }
+.gen-more-btn {
+  appearance: none; border: 0; background: none; font: inherit; font-size: 14px; color: var(--muted);
+  grid-column: 1 / -1; justify-self: start; display: inline-flex; align-items: center; gap: 8px;
+  height: 48px; padding: 0 10px; margin-left: -10px; cursor: pointer; touch-action: manipulation; border-radius: 9px;
+}
+.gen-more-btn i { width: 7px; height: 7px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); transition: transform .15s; }
+.gen-more-btn[aria-expanded="true"] i { transform: translateY(1px) rotate(-135deg); }
+.gen-more-btn:hover, .gen-more-btn[aria-expanded="true"] { color: var(--ink); }
+.gen-more-btn:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -6px; }
+.gen-opt input[type="range"] { appearance: none; width: 100%; min-width: 48px; height: 48px; margin: 0; background: transparent; cursor: pointer; }
+.gen-opt input[type="range"]::-webkit-slider-runnable-track { height: 3px; border-radius: 2px; background: var(--line); }
+.gen-opt input[type="range"]::-moz-range-track { height: 3px; border-radius: 2px; background: var(--line); }
+.gen-opt input[type="range"]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; margin-top: -7.5px; border-radius: 50%; background: var(--ink); border: 0; }
+.gen-opt input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; border-radius: 50%; background: var(--ink); border: 0; }
+.gen-opt input[type="range"]:disabled { opacity: .4; cursor: default; }
+.gen-opt input[type="range"]:focus-visible { outline: 0; }
+.gen-opt input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 45%, transparent); }
+.gen-inks { display: flex; margin-left: -14px; }
 .gen-ink { appearance: none; border: 0; background: none; padding: 0; width: 48px; height: 48px; display: grid; place-items: center; cursor: pointer; touch-action: manipulation; border-radius: 12px; }
-.gen-ink i { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22); }
+.gen-ink i { width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent); }
 .gen-ink[aria-checked="true"] i { box-shadow: 0 0 0 2.5px var(--desk), 0 0 0 4.5px var(--ink); }
-@media (max-width: 860px) { .gen-style { grid-template-columns: repeat(2, minmax(0, 1fr)); } .gen-ctl-ink { grid-template-columns: auto auto; justify-content: start; } }
-@media (max-width: 520px) { .gen-style { grid-template-columns: minmax(0, 1fr); } .gen-ctl { grid-template-columns: 112px minmax(0, 1fr); } .gen-ctl-ink { grid-template-columns: 112px auto; } }
+.gen-ink:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -4px; }
+@media (max-width: 760px) {
+  .gen-style { --gen-label: 100px; max-height: min(38dvh, 340px); }
+  .gen-style-main, .gen-style-more { grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; }
+}
 
 /* the text line */
 .gen-composer {

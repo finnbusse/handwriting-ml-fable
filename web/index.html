@@ -183,6 +183,7 @@
       <!-- The sheet. It is always there; without a model it says why and what to do. -->
       <div class="gen-stage" id="gen-stage">
         <div class="gen-paper" id="gen-paper">
+          <canvas class="gen-lines" id="gen-lines" aria-hidden="true"></canvas>
           <canvas id="gen-canvas" aria-label="Geschriebener Text"></canvas>
           <p class="gen-empty" id="gen-empty">Hier erscheint deine Schrift.</p>
           <div class="gen-state" id="gen-model" role="status">
@@ -212,6 +213,7 @@
               <button class="gen-tool" id="gen-save" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="gen-save-menu" disabled><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg><span>Speichern</span></button>
               <div class="gen-menu" id="gen-save-menu" role="menu" hidden>
                 <button type="button" role="menuitem" id="gen-png" disabled>Als Bild</button>
+                <button type="button" role="menuitem" id="gen-ink-png" disabled>Ohne Papier</button>
                 <button type="button" role="menuitem" id="gen-svg" disabled>Als SVG</button>
                 <button type="button" role="menuitem" id="gen-copy" disabled hidden>Kopieren</button>
               </div>
@@ -219,15 +221,50 @@
           </div>
         </div>
 
+        <!-- Stil: the look of the sheet (the same options as when recording), then the finer controls -->
         <div class="gen-style" id="gen-style" hidden>
-          <label class="gen-ctl"><span>Lesbarkeit</span><input type="range" id="gen-bias" min="0" max="1.2" step="0.05" value="0.4"></label>
-          <label class="gen-ctl"><span>Größe</span><input type="range" id="gen-size" min="6" max="30" step="1" value="11"></label>
-          <label class="gen-ctl"><span>Zeilenabstand</span><input type="range" id="gen-spacing" min="5" max="9" step="0.25" value="6.5"></label>
-          <div class="gen-ctl gen-ctl-ink"><span id="gen-ink-l">Tinte</span>
-            <div class="gen-inks" id="gen-inks" role="radiogroup" aria-labelledby="gen-ink-l">
-              <button class="gen-ink" type="button" role="radio" aria-checked="true" data-ink="blueblack" aria-label="Blauschwarz" title="Blauschwarz"><i style="background:#1b2a49"></i></button>
-              <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="black" aria-label="Schwarz" title="Schwarz"><i style="background:#15171a"></i></button>
-              <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="blue" aria-label="Königsblau" title="Königsblau"><i style="background:#2141b8"></i></button>
+          <div class="gen-style-main">
+            <div class="gen-opt gen-opt-pen"><span class="gen-opt-l" id="gs-pen-l">Stift</span>
+              <div class="gen-choices" role="radiogroup" aria-labelledby="gs-pen-l">
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="pen" data-v="fineliner">Fineliner</button>
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="pen" data-v="fueller">Füller</button>
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="pen" data-v="bleistift">Bleistift</button>
+              </div>
+            </div>
+            <div class="gen-opt gen-opt-width"><span class="gen-opt-l" id="gs-width-l">Strichstärke</span>
+              <div class="gen-choices" role="radiogroup" aria-labelledby="gs-width-l">
+                <button class="gen-choice gen-w" type="button" role="radio" aria-checked="false" data-k="width" data-v="0.14" aria-label="Sehr fein" title="Sehr fein"><i style="height:1px"></i></button>
+                <button class="gen-choice gen-w" type="button" role="radio" aria-checked="false" data-k="width" data-v="0.19" aria-label="Fein" title="Fein"><i style="height:1.5px"></i></button>
+                <button class="gen-choice gen-w" type="button" role="radio" aria-checked="false" data-k="width" data-v="0.25" aria-label="Mittel" title="Mittel"><i style="height:2px"></i></button>
+                <button class="gen-choice gen-w" type="button" role="radio" aria-checked="false" data-k="width" data-v="0.32" aria-label="Kräftig" title="Kräftig"><i style="height:3px"></i></button>
+                <button class="gen-choice gen-w" type="button" role="radio" aria-checked="false" data-k="width" data-v="0.42" aria-label="Dick" title="Dick"><i style="height:4px"></i></button>
+              </div>
+            </div>
+            <label class="gen-opt"><span class="gen-opt-l">Größe</span><input type="range" id="gen-size" min="6" max="30" step="1" value="11"></label>
+            <div class="gen-opt gen-opt-paper"><span class="gen-opt-l" id="gs-paper-l">Papier</span>
+              <div class="gen-choices" role="radiogroup" aria-labelledby="gs-paper-l">
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="paper" data-v="blanko">Blanko</button>
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="paper" data-v="liniert">Liniert</button>
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="paper" data-v="kariert">Kariert</button>
+              </div>
+            </div>
+            <div class="gen-opt gen-opt-scheme"><span class="gen-opt-l" id="gs-scheme-l">Farben</span>
+              <div class="gen-choices" role="radiogroup" aria-labelledby="gs-scheme-l">
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="scheme" data-v="dark_on_light">Dunkel auf hell</button>
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="scheme" data-v="light_on_dark">Hell auf dunkel</button>
+              </div>
+            </div>
+            <div class="gen-opt gen-opt-more"><button class="gen-more-btn" id="gen-more-btn" type="button" aria-expanded="false" aria-controls="gen-more">Erweitert<i aria-hidden="true"></i></button></div>
+          </div>
+          <div class="gen-style-more" id="gen-more" hidden>
+            <label class="gen-opt"><span class="gen-opt-l">Lesbarkeit</span><input type="range" id="gen-bias" min="0" max="1.2" step="0.05" value="0.4"></label>
+            <label class="gen-opt"><span class="gen-opt-l">Zeilenabstand</span><input type="range" id="gen-spacing" min="5" max="9" step="0.25" value="6.5"></label>
+            <div class="gen-opt" id="gen-ink-row"><span class="gen-opt-l" id="gen-ink-l">Tinte</span>
+              <div class="gen-inks" id="gen-inks" role="radiogroup" aria-labelledby="gen-ink-l">
+                <button class="gen-ink" type="button" role="radio" aria-checked="true" data-ink="blueblack" aria-label="Blauschwarz" title="Blauschwarz"><i></i></button>
+                <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="black" aria-label="Schwarz" title="Schwarz"><i></i></button>
+                <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="blue" aria-label="Königsblau" title="Königsblau"><i></i></button>
+              </div>
             </div>
           </div>
         </div>

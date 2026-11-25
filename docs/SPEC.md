@@ -187,8 +187,19 @@ typed. The sheet is always there and fills the height; without a model it
 says why and what to do. Between the two sits one quiet row: what is going on
 (left) and three tools (right): **Nochmal** (same text, new random sample),
 **Stil** (opens in place, so the sheet stays in view while it changes) and
-**Speichern** (menu: image, SVG, copy). "Schreiben" turns into "Abbrechen"
+**Speichern**. "Schreiben" turns into "Abbrechen"
 while the pen is running. Ctrl/Cmd + Enter writes.
+
+**Stil** holds the look of the page, with the same words and the same
+drawing code as the capture sheet (`capture/ink.js`): Stift (Fineliner,
+Füller, Bleistift), Strichstärke (five steps, relative to the x-height),
+Größe, Papier (Blanko, Liniert, Kariert; the text baselines sit on the
+lines) and Farben (dark on light, light on dark); "Erweitert" adds
+Lesbarkeit, Zeilenabstand and Tinte. Generated strokes carry no pressure, so
+Füller and Bleistift take it from the pen's speed. Until the writer changes
+something here, the page looks like their capture sheet. None of these
+options runs the network again. Speichern exports what is shown (PNG, SVG,
+copy) or the ink alone on a transparent background ("Ohne Papier").
 
 Long text is wrapped into lines; each line is generated in word groups of at
 most ~27 characters that are placed on a common baseline with the writer's own

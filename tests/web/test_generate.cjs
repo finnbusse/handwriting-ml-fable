@@ -81,7 +81,9 @@ const setRange = (page, id, v) => page.evaluate(([i, val]) => { const e = docume
 /** The look sits behind "Stil", the export behind "Speichern". */
 const openStyle = async (page) => { if (!(await page.isVisible('#gen-style'))) await page.click('#gen-style-btn'); };
 const openSave = async (page) => { if (!(await page.isVisible('#gen-save-menu'))) await page.click('#gen-save'); };
-const pickInk = async (page, name) => { await openStyle(page); await page.click(`#gen-inks [data-ink="${name}"]`); };
+const openMore = async (page) => { await openStyle(page); if (!(await page.isVisible('#gen-more'))) await page.click('#gen-more-btn'); };
+const pickInk = async (page, name) => { await openMore(page); await page.click(`#gen-inks [data-ink="${name}"]`); };
+const pick = async (page, key, value) => { await openStyle(page); await page.click(`.gen-choice[data-k="${key}"][data-v="${value}"]`); await page.waitForTimeout(80); };
 const cachedSha = (page) => page.evaluate(async () => { const e = await window.__hw.store.kvGet('model', null); return e ? e.manifest.sha256 : null; });
 const infoText = (page) => page.textContent('#gi-text');
 
@@ -227,7 +229,7 @@ async function tabletRun(browser, server) {
   await pickInk(page, 'black');
   await page.waitForTimeout(600);
   const kv = await page.evaluate(() => window.__hw.store.kvGet('generate', null));
-  L.check('settings stored', kv && kv.text === 'Guten Morgen' && kv.bias === 0.9 && kv.size === 20 && kv.spacing === 7.5 && kv.ink === 'black' && !('page' in kv) && !('strokes' in kv), JSON.stringify(kv));
+  L.check('settings stored', kv && kv.text === 'Guten Morgen' && kv.bias === 0.9 && kv.size === 20 && kv.spacing === 7.5 && kv.look && kv.look.ink === 'black' && !('page' in kv) && !('strokes' in kv), JSON.stringify(kv));
 
   // ---- reload while Hugging Face is unreachable: the cached model writes ----
   repo.offline = true;
@@ -340,6 +342,186 @@ async function stateCards(browser, server) {
   }
 }
 
+// ---------- Stil: pen, stroke width, paper, colours, exports ----------
+
+/** Facts about the two sheet canvases: ink pixels (alpha > 40), their mean brightness, a hash; the paper's lines. */
+const sheet = (page) => page.evaluate(() => {
+  const c = document.getElementById('gen-canvas');
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let n = 0, lum = 0, h = 2166136261;
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] > 40) { n++; lum += (d[i] + d[i + 1] + d[i + 2]) / 3; }
+    h = Math.imul(h ^ (d[i] | (d[i + 1] << 8) | (d[i + 2] << 16) | (d[i + 3] << 24)), 16777619);
+  }
+  const g = document.getElementById('gen-lines');
+  const gd = g.getContext('2d').getImageData(0, 0, g.width, g.height).data;
+  const at = (x, y) => { const i = 4 * (y * g.width + x); return [gd[i], gd[i + 1], gd[i + 2]]; };
+  const bg = at(1, 1);
+  const differs = (p) => Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) > 12;
+  let rows = 0, cols = 0;
+  const rowYs = [];
+  const x0 = Math.floor(g.width * 0.37), y0 = Math.floor(g.height * 0.61);
+  for (let y = 0; y < g.height; y++) if (differs(at(x0, y))) { rows++; rowYs.push(y); }   // horizontal lines crossed going down
+  for (let x = 0; x < g.width; x++) if (differs(at(x, y0))) cols++;       // vertical lines crossed going right
+  const dbg = window.__hw.generate.debug();
+  const baselines = dbg.page && dbg.scale ? [...new Set(dbg.page.words.map((w) => Math.round(w.y * dbg.scale)))] : [];
+  return { n, lum: n ? lum / n : 0, hash: h >>> 0, paper: at(Math.floor(g.width / 2), Math.floor(g.height / 2)), bg, rows, cols, rowYs, baselines, runs: dbg.runs, seed: dbg.seed, phase: dbg.phase, look: dbg.look };
+});
+
+/** A PNG (Buffer) decoded in the page: size, corner pixel, share of opaque / transparent pixels. */
+const pngFacts = (page, buf) => page.evaluate(async (b64) => {
+  const blob = await (await fetch(`data:image/png;base64,${b64}`)).blob();
+  const bmp = await createImageBitmap(blob);
+  const c = Object.assign(document.createElement('canvas'), { width: bmp.width, height: bmp.height });
+  const x = c.getContext('2d'); x.drawImage(bmp, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height).data;
+  let opaque = 0, clear = 0, inked = 0;
+  for (let i = 3; i < d.length; i += 4) { if (d[i] === 255) opaque++; if (d[i] === 0) clear++; if (d[i] > 40) inked++; }
+  const px = d.length / 4;
+  return { w: c.width, h: c.height, corner: Array.from(d.slice(0, 4)), opaque: opaque / px, clear: clear / px, inked: inked / px };
+}, buf.toString('base64'));
+
+async function lookRun(browser, server) {
+  const repo = await modelRepo();
+  const A = await L.newApp(browser, server, { hash: '#/schreiben', signedIn: true, hf: repo.handler });
+  const { page, ctx, errors } = A;
+  const shot = (name) => L.shot(page, `gen-look-${name}`);
+  await ready(page);
+
+  // ---- first time: the look follows the writer's capture sheet ----
+  L.check('no capture look: Schreiben\'s own defaults (Fineliner, clearly heavier stroke, blank, dark on light)',
+    JSON.stringify((await sheet(page)).look) === JSON.stringify({ pen: 'fineliner', width: 0.32, paper: 'blanko', scheme: 'dark_on_light', ink: 'blueblack' }), JSON.stringify((await sheet(page)).look));
+  await page.evaluate(async () => {
+    const st = window.__hw.store;
+    await st.kvSet('writers', [{ id: 'anna', name: 'Anna' }]);
+    await st.kvSet('writer', 'anna');
+    await st.kvSet('displayBy', { anna: { pen: 'bleistift', width: 2, paper: 'kariert', scheme: 'light_on_dark' } });
+  });
+  await page.reload();
+  await page.waitForFunction(() => window.__hwReady).then(() => page.evaluate(() => window.__hwReady));
+  await ready(page);
+  await L.until(async () => (await sheet(page)).look.pen === 'bleistift', 5000, 50);
+  let s = await sheet(page);
+  L.check('first time: pen, width, paper and colours come from the capture sheet', JSON.stringify(s.look) === JSON.stringify({ pen: 'bleistift', width: 0.32, paper: 'kariert', scheme: 'light_on_dark', ink: 'blue' }) && !(await page.evaluate(() => window.__hw.generate.debug().ownLook)), JSON.stringify(s.look));
+  L.check('dark scheme: the sheet element and its paper are dark', s.paper.every((v) => v < 60) && await page.evaluate(() => getComputedStyle(document.getElementById('gen-paper')).backgroundColor) === 'rgb(27, 31, 38)', JSON.stringify(s.paper));
+  const hint = await page.evaluate(() => getComputedStyle(document.getElementById('gen-empty')).color);
+  L.check('dark scheme: the empty hint is light on the dark sheet', /rgb\((\d+)/.test(hint) && Number(hint.match(/\d+/)[0]) > 120, hint);
+  L.check('kariert: horizontal and vertical lines on the empty sheet', s.rows >= 4 && s.cols >= 8, JSON.stringify([s.rows, s.cols]));
+  await shot('01-empty-from-capture');
+
+  // ---- write; every option afterwards only redraws ----
+  await writeText(page, TEXT_LONG);
+  s = await sheet(page);
+  L.check('dark scheme: light ink on the dark sheet', s.n > 1500 && s.lum > 150, JSON.stringify([s.n, Math.round(s.lum)]));
+  await shot('02-written-from-capture');
+  const runs = s.runs, seed = s.seed;
+
+  // each pen draws, and they differ
+  const pens = {};
+  for (const p of ['fineliner', 'fueller', 'bleistift']) { await pick(page, 'pen', p); pens[p] = await sheet(page); }
+  L.check('every pen draws ink', Object.values(pens).every((x) => x.n > 1500), JSON.stringify(Object.values(pens).map((x) => x.n)));
+  L.check('the three pens look different', new Set(Object.values(pens).map((x) => x.hash)).size === 3);
+  await pick(page, 'pen', 'fineliner');
+  L.check('same pen again: exactly the same pixels', (await sheet(page)).hash === pens.fineliner.hash);
+
+  // stroke width: more ink, step by step
+  for (const p of ['fineliner', 'fueller']) {
+    await pick(page, 'pen', p);
+    const ns = [];
+    for (const w of [0.14, 0.19, 0.25, 0.32, 0.42]) { await pick(page, 'width', w); ns.push((await sheet(page)).n); }
+    L.check(`Strichstärke (${p}): each step inks more`, ns.every((v, i) => i === 0 || v > ns[i - 1] * 1.05), ns.join(' < '));
+  }
+  await pick(page, 'width', 0.32);
+
+  // paper
+  await pick(page, 'paper', 'blanko');
+  s = await sheet(page);
+  L.check('Blanko: no lines', s.rows === 0 && s.cols === 0, JSON.stringify([s.rows, s.cols]));
+  await pick(page, 'paper', 'liniert');
+  s = await sheet(page);
+  const base = s.baselines.map((y) => s.rowYs.some((r) => Math.abs(r - y) <= 1.5));
+  L.check('Liniert: horizontal lines only, one under every line of text', s.rows >= 3 && s.cols === 0 && base.length >= 2 && base.every(Boolean), JSON.stringify([s.rows, s.cols, base]));
+  await pick(page, 'paper', 'kariert');
+  s = await sheet(page);
+  L.check('Kariert: a grid', s.rows >= 6 && s.cols >= 10, JSON.stringify([s.rows, s.cols]));
+
+  // colours
+  await pick(page, 'scheme', 'dark_on_light');
+  s = await sheet(page);
+  L.check('dark on light: light paper, dark ink, the sheet element follows', s.paper.every((v) => v > 200) && s.lum < 110 && (await page.getAttribute('#gen-paper', 'data-scheme')) === 'dark_on_light', JSON.stringify([s.paper, Math.round(s.lum)]));
+  await pick(page, 'scheme', 'light_on_dark');
+  await openMore(page);
+  const inks = [];
+  for (const k of ['blueblack', 'black', 'blue']) { await page.click(`#gen-inks [data-ink="${k}"]`); await page.waitForTimeout(80); const x = await sheet(page); inks.push(Math.round(x.lum)); }
+  const inkNames = await page.$$eval('#gen-inks [data-ink]', (bs) => bs.map((b) => b.getAttribute('aria-label')));
+  L.check('dark sheet: every ink is light, with its own name', inks.every((v) => v > 150) && inkNames.join() === 'Taubenblau,Weiß,Hellblau', JSON.stringify([inks, inkNames]));
+  await pick(page, 'pen', 'bleistift');
+  L.check('Bleistift: no ink to choose', await page.isHidden('#gen-ink-row'));
+  await pick(page, 'pen', 'fineliner');
+  await setRange(page, 'gen-size', 14); await page.waitForTimeout(250);
+  await setRange(page, 'gen-spacing', 7); await page.waitForTimeout(250);
+  s = await sheet(page);
+  L.check('none of the options started the network again', s.runs === runs && s.seed === seed && s.phase === 'idle', JSON.stringify([runs, s.runs]));
+  await shot('03-options');
+
+  // ---- the animation ends in exactly the pixels of a full redraw ----
+  await pick(page, 'pen', 'fueller');
+  await pick(page, 'paper', 'liniert');
+  await page.click('#gen-write');
+  await page.waitForSelector('#gen-busy:not([hidden])');
+  let partial = false;
+  await L.until(async () => { const d = await page.evaluate(() => { const g = window.__hw.generate.debug(); return [g.settled, g.page ? g.page.strokes.length : 0, g.phase]; }); if (d[2] === 'writing' && d[0] < d[1]) partial = true; return d[2] === 'idle' && d[1] > 0 && d[0] === d[1]; }, 90000, 30);
+  const animated = await sheet(page);
+  await pick(page, 'pen', 'bleistift');
+  await pick(page, 'pen', 'fueller');
+  const redrawn = await sheet(page);
+  L.check('animation (Füller) ends in exactly the pixels of a full redraw', partial && animated.n > 1500 && animated.hash === redrawn.hash, JSON.stringify([partial, animated.n, redrawn.n]));
+  await shot('04-fueller-liniert');
+
+  // ---- export ----
+  const dl = async (sel) => { await openSave(page); const [d] = await Promise.all([page.waitForEvent('download'), page.click(sel)]); return { name: d.suggestedFilename(), data: fs.readFileSync(await d.path()) }; };
+  const withPaper = await dl('#gen-png');
+  const pf = await pngFacts(page, withPaper.data);
+  L.check('"Als Bild": opaque, on the dark paper, with ink', pf.opaque === 1 && pf.corner[0] < 60 && pf.corner[3] === 255 && pf.w >= 1500, JSON.stringify(pf));
+  const bare = await dl('#gen-ink-png');
+  const bf = await pngFacts(page, bare.data);
+  L.check('"Ohne Papier": transparent background, only the ink', /-ohne-papier\.png$/.test(bare.name) && bf.corner[3] === 0 && bf.clear > 0.8 && bf.inked > 0.005 && bf.w === pf.w && bf.h === pf.h, JSON.stringify([bare.name, bf]));
+  await pick(page, 'pen', 'bleistift');
+  const pencilBare = await pngFacts(page, (await dl('#gen-ink-png')).data);
+  L.check('"Ohne Papier" with Bleistift: transparent too (the paper is taken out of the grain)', pencilBare.corner[3] === 0 && pencilBare.clear > 0.8 && pencilBare.inked > 0.003, JSON.stringify(pencilBare));
+  const svgP = (await dl('#gen-svg')).data.toString('utf8');
+  L.check('SVG (Bleistift): paper, lines and grain as vectors and a filter', svgP.includes('<rect width="100%" height="100%" fill="#1B1F26"/>') && /<path d="M0 [\d.]+H/.test(svgP) && svgP.includes('feTurbulence') && !svgP.includes('NaN'), svgP.slice(0, 300));
+  await pick(page, 'pen', 'fineliner');
+  const svgF = (await dl('#gen-svg')).data.toString('utf8');
+  L.check('SVG (Fineliner): one stroke width, the chosen ink', /<g fill="none" stroke="#C9D4FF" stroke-width="3\.84"/.test(svgF), svgF.slice(svgF.indexOf('<g'), svgF.indexOf('<g') + 120));
+  await pick(page, 'pen', 'fueller');
+  const svgU = (await dl('#gen-svg')).data.toString('utf8');
+  L.check('SVG (Füller): several stroke widths', new Set(svgU.match(/stroke-width="[\d.]+"/g)).size >= 4, String(new Set(svgU.match(/stroke-width="[\d.]+"/g)).size));
+
+  // ---- Schreiben keeps its own look from now on ----
+  await page.waitForTimeout(500);
+  const own = (await sheet(page)).look;
+  await page.evaluate(() => window.__hw.store.kvSet('displayBy', { anna: { pen: 'fineliner', width: 0.75, paper: 'linie', scheme: 'dark_on_light' } }));
+  await page.reload();
+  await page.waitForFunction(() => window.__hwReady).then(() => page.evaluate(() => window.__hwReady));
+  await ready(page);
+  await page.waitForTimeout(300);
+  const back = await sheet(page);
+  const checked = await page.$$eval('#gen-style [aria-checked="true"]', (bs) => bs.map((b) => b.dataset.v || b.dataset.ink).join());
+  L.check('reload: the look chosen here survives, the capture sheet no longer changes it', JSON.stringify(back.look) === JSON.stringify(own) && checked === 'fueller,0.32,liniert,light_on_dark,blue', JSON.stringify([own, back.look, checked]));
+  // a model state on the dark sheet stays readable
+  repo.offline = true;
+  await page.evaluate(() => window.__hw.store.kvSet('model', null));
+  await page.reload();
+  await page.waitForFunction(() => window.__hwReady).then(() => page.evaluate(() => window.__hwReady));
+  await page.waitForSelector('#gen-model[data-kind="failed"]', { timeout: 20000 });
+  const card = await page.evaluate(() => [getComputedStyle(document.getElementById('gm-text')).color, getComputedStyle(document.getElementById('gen-model')).backgroundColor]);
+  L.check('dark sheet: a model state reads light on dark', card[0] === 'rgb(230, 233, 238)' && card[1] === 'rgb(27, 31, 38)', JSON.stringify(card));
+  await shot('05-state-on-dark');
+  L.check('look: no page errors', errors.filter((e) => !/Failed to load resource|ERR_/.test(e)).length === 0, errors.join(' | '));
+  await ctx.close();
+}
+
 async function phoneAndDark(browser, server) {
   for (const [tag, viewport, dsf, scheme] of [['phone', { width: 412, height: 915 }, 2, 'light'], ['tablet-dark', { width: 1280, height: 800 }, 1, 'dark']]) {
     const repo = await modelRepo({ binDelay: tag === 'phone' ? 700 : 0 });
@@ -354,6 +536,13 @@ async function phoneAndDark(browser, server) {
     L.check(`${tag}: long text fills several lines`, s.lines >= 2 && (await ink(page)).n > 1500, JSON.stringify([s.lines, s.width]));
     const noScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1);
     L.check(`${tag}: no horizontal scrolling`, noScroll);
+    await openMore(page);
+    await page.waitForTimeout(150);
+    const sheetLeft = await page.evaluate(() => { const r = document.getElementById('gen-stage').getBoundingClientRect(); return Math.round(r.height); });
+    L.check(`${tag}: Stil and Erweitert open, the sheet stays in view`, sheetLeft >= (tag === 'phone' ? 300 : 200), `${sheetLeft} px of sheet`);
+    const styleBox = await page.evaluate(() => { const e = document.getElementById('gen-style'); return [e.clientHeight, e.scrollHeight]; });
+    if (tag === 'phone') L.check('phone: the open Stil bar is limited in height and scrolls inside', styleBox[0] <= 0.4 * 915 && styleBox[1] > styleBox[0], JSON.stringify(styleBox));
+    await shot('03-style-open');
     const small = await page.evaluate(() => [...document.querySelectorAll('#v-schreiben button, #v-schreiben a.btn, #v-schreiben input[type=range]')].filter((e) => e.offsetParent && !e.hidden).map((e) => { const r = e.getBoundingClientRect(); return [e.id || e.className, Math.round(r.width), Math.round(r.height)]; }).filter(([, w, h]) => h < 47.5 || w < 47.5));
     L.check(`${tag}: touch targets at least 48 px`, small.length === 0, JSON.stringify(small));
     await shot('03-done');
@@ -369,9 +558,9 @@ async function phoneAndDark(browser, server) {
   const server = await L.start();
   const browser = await L.launch();
   try {
-    await tabletRun(browser, server);
-    await stateCards(browser, server);
-    await phoneAndDark(browser, server);
+    // GEN_ONLY=lookRun,phoneAndDark runs only those parts (while working on one of them).
+    const only = (process.env.GEN_ONLY || '').split(',').filter(Boolean);
+    for (const part of [tabletRun, stateCards, lookRun, phoneAndDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
   } catch (e) {
     console.error(e); L.check('test ran without exception', false, String(e));
   } finally {

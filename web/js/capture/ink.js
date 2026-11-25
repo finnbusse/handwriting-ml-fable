@@ -18,7 +18,7 @@ const BASELINE_FRAC = 0.64;     // baseline position inside the band (unchanged 
 const GUIDE_INSET = 32;         // baseline starts/ends this far inside the band
 const EDGE = 6;                 // no paper line closer than this to the sheet edge
 const TAU_MS = 9;               // pressure smoothing (Füller width, Bleistift tone)
-const TONES = 8;                // Bleistift: pressure levels, one grain pattern each
+export const TONES = 8;         // Bleistift: pressure levels, one grain pattern each
 const GRAIN = 64;               // grain tile, device px
 
 /** Any stored or half-valid object -> a complete, valid set of options. */
@@ -180,6 +180,28 @@ function makeGrain(c, colors, devScale) {
 
 const clamp01 = (v) => (v > 0 ? (v < 1 ? v : 1) : 0);
 
+// The pressure rules, shared with the Schreiben screen (its SVG export needs them without a canvas).
+
+/** Smoothed pressure after sample i, given the smoothed value `pe` after sample i-1. */
+export function smoothPressure(pe, s, i) {
+  const p = clamp01(s.p[i]);
+  if (i === 0) return p;
+  const dt = s.t[i] - s.t[i - 1];
+  return pe + (p - pe) * (1 - Math.exp(-(dt > 0 ? dt : 0) / TAU_MS));
+}
+
+/** Füller: thin on light pressure, fuller on firm pressure; nominal width at pressure 0.5. */
+export function fuellerWidth(width, pe) {
+  const k = 0.4 + 1.2 * pe;
+  return width * (k < 1.6 ? k : 1.6);
+}
+
+/** Bleistift: the tone level (0 .. TONES-1) for a smoothed pressure. */
+export function pencilLevel(pe) {
+  const k = Math.round(pe * 1.25 * (TONES - 1));    // pencil pressure seldom reaches 1
+  return k > TONES - 1 ? TONES - 1 : k;
+}
+
 /**
  * A renderer for one 2D context. configure() before drawing (cheap when nothing changed);
  * draw(stroke, from) draws the samples from index `from` on, as the recorder delivers them.
@@ -201,26 +223,11 @@ export function createInk(c) {
   }
 
   /** Fold sample i into the smoothed pressure. */
-  function advance(s, i) {
-    const p = clamp01(s.p[i]);
-    if (i === 0) { st.pe = p; return; }
-    const dt = s.t[i] - s.t[i - 1];
-    st.pe += (p - st.pe) * (1 - Math.exp(-(dt > 0 ? dt : 0) / TAU_MS));
-  }
+  function advance(s, i) { st.pe = smoothPressure(st.pe, s, i); }
 
-  function lineWidthNow() {
-    if (pen !== 'fueller') return width;
-    // Thin on light pressure, fuller on firm pressure; nominal width at pressure 0.5.
-    const k = 0.4 + 1.2 * st.pe;
-    return width * (k < 1.6 ? k : 1.6);
-  }
+  const lineWidthNow = () => (pen === 'fueller' ? fuellerWidth(width, st.pe) : width);
 
-  function styleNow() {
-    if (pen !== 'bleistift') return colors.ink;
-    let k = Math.round(st.pe * 1.25 * (TONES - 1));    // pencil pressure seldom reaches 1
-    if (k > TONES - 1) k = TONES - 1;
-    return grain[k];
-  }
+  const styleNow = () => (pen === 'bleistift' ? grain[pencilLevel(st.pe)] : colors.ink);
 
   function draw(s, from) {
     if (!colors) return;
