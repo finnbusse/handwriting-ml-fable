@@ -1,0 +1,965 @@
+{
+"set": "de-core@1",
+"prompts": [
+{
+"id": "de-core-0001",
+"text": "Am 23.07. um 18:30 sind es 38 Grad.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0002",
+"text": "Bäume, Häuser, Felder und ein See",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0003",
+"text": "Futter fürs Aquarium, Quark, Joghurt",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0004",
+"text": "Ich bin um 6:14 wieder zu Hause.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0005",
+"text": "Hast du jemals Judo probiert?",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0006",
+"text": "Der Zug kommt um 7:45 an.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0007",
+"text": "Viel Glück von uns, vergiss uns nicht!",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0008",
+"text": "Das Wasser quillt quer über den Boden.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0009",
+"text": "Quark, Nüsse, Süßes und Brot kaufen",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0010",
+"text": "Die Übung dauert 20 Minuten.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0011",
+"text": "Xylophon spielen macht Spaß!",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0012",
+"text": "Mathe: Seite 58, Aufgabe 6 bis 9",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0013",
+"text": "Just wait here, I'll be back soon.",
+"lang": "en",
+"block": 1
+},
+{
+"id": "de-core-0014",
+"text": "Vorsicht, die Straße ist glatt!",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0015",
+"text": "\"Das war ein langer Tag\", sagte sie.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0016",
+"text": "Yoga beginnt um 18 Uhr (Raum 12).",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0017",
+"text": "Ärgere dich nicht, das wird schon.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0018",
+"text": "Öffnungszeiten: Mo-Fr 9-17 Uhr",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0019",
+"text": "Möglichst vorsichtig fahren, bitte.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0020",
+"text": "Löffel und Töpfe sind im Schrank.",
+"lang": "de",
+"block": 1
+},
+{
+"id": "de-core-0021",
+"text": "Bequem sitzen und quatschen, wunderbar!",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0022",
+"text": "Der Computer in Raum 2 ist kaputt.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0023",
+"text": "Wollen wir später Pizza essen?",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0024",
+"text": "Das Sofa ist bequem, aber zu groß.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0025",
+"text": "Übermorgen schreiben wir einen Test.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0026",
+"text": "Wir können es später versuchen.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0027",
+"text": "Opa kommt am Sonntag (gegen 15 Uhr).",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0028",
+"text": "Chemie fällt heute in Raum 67 aus!",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0029",
+"text": "Der Hund heißt Max und ist sehr brav.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0030",
+"text": "Wir haben 5 Äpfel und 3 Birnen.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0031",
+"text": "Gute Nacht, bis morgen um 9 Uhr!",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0032",
+"text": "Hörst du? Die Vögel können schon singen.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0033",
+"text": "Ehrlichkeit und Freundlichkeit zählen.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0034",
+"text": "It is quite cold outside today.",
+"lang": "en",
+"block": 2
+},
+{
+"id": "de-core-0035",
+"text": "Frösche quaken am Teich.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0036",
+"text": "Öl, Zucker, Mehl und Hefe kaufen",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0037",
+"text": "Extra Käse auf die Pizza, bitte!",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0038",
+"text": "Im Juni joggen wir jeden Morgen.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0039",
+"text": "Ob Tee oder Kaffee, mir ist's egal.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0040",
+"text": "Lies bitte den Text (Seite 40) laut.",
+"lang": "de",
+"block": 2
+},
+{
+"id": "de-core-0041",
+"text": "Morgen früh um 6:15 aufstehen",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0042",
+"text": "Der Bus 36 fährt um 7:48 ab.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0043",
+"text": "Zahnarzt am Montag um 8:45 Uhr",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0044",
+"text": "Das Taxi wartet schon vor der Tür.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0045",
+"text": "Quittung bitte in die Praxis bringen",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0046",
+"text": "Mein Handy hat nur noch 8 % Akku!",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0047",
+"text": "Taxi um 8:30, Rückfahrt um 19:45.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0048",
+"text": "Hexen gibt es nur im Märchen.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0049",
+"text": "Der junge Hund jault leise.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0050",
+"text": "Die Rechnung über 49,90 € bezahlen",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0051",
+"text": "Das Zimmer ist 3 x 7 Meter groß.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0052",
+"text": "Das Spiel läuft schon lange.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0053",
+"text": "Erst Hausaufgaben; dann Fußball.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0054",
+"text": "Wir sehen uns am 24.12. bei Oma.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0055",
+"text": "Heute 20 % Rabatt auf alle Äpfel!",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0056",
+"text": "Kaffee & Kuchen im Garten, 15 Uhr",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0057",
+"text": "Rechnen: 17 + 25 = 42",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0058",
+"text": "Just hurry, the taxi is quite near!",
+"lang": "en",
+"block": 3
+},
+{
+"id": "de-core-0059",
+"text": "Mo/Mi/Fr: Chor um 16 Uhr",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0060",
+"text": "Das Maximum sind 40 Plätze.",
+"lang": "de",
+"block": 3
+},
+{
+"id": "de-core-0061",
+"text": "Viele Grüße, das war ein schöner Spaß.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0062",
+"text": "Ja, ich war jeden Tag joggen, wirklich.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0063",
+"text": "Ruhe bitte, der Bruder übt Xylophon.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0064",
+"text": "Es ist kalt, nimm die Mütze mit.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0065",
+"text": "Gleis 9/10, nicht vergessen!",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0066",
+"text": "Sicherheit und Gesundheit gehen vor.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0067",
+"text": "Ruf an, wenn jemand Zeit hat.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0068",
+"text": "Der Kollege bringt Schokolade mit.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0069",
+"text": "Die Müdigkeit ist jetzt wie weggeblasen.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0070",
+"text": "Beim Bäcker kostet ein Brot 3,60 €.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0071",
+"text": "Das Essen war einfach exquisit.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0072",
+"text": "Schick es an info@beispiel.de bitte.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0073",
+"text": "Der Mixer ist zu laut, ich höre nichts.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0074",
+"text": "It was a very busy day, honestly.",
+"lang": "en",
+"block": 4
+},
+{
+"id": "de-core-0075",
+"text": "Brot & Butter; dann noch Käse",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0076",
+"text": "Ich träume oft von meinem Urlaub.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0077",
+"text": "Haus 78, Tür 9, dritter Stock",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0078",
+"text": "Schreib uns: team@beispiel.de",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0079",
+"text": "Das Xylophon steht im Musikraum.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0080",
+"text": "Auf Seite 66 steht die Lösung.",
+"lang": "de",
+"block": 4
+},
+{
+"id": "de-core-0081",
+"text": "Merke: 3 + 4 = 7 und 9 - 4 = 5",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0082",
+"text": "Heute Regen; morgen wieder Sonne.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0083",
+"text": "Im Aquarium schwimmen 9 Fische.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0084",
+"text": "Öffne bitte das Fenster, es ist heiß.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0085",
+"text": "Der Raum ist fast quadratisch.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0086",
+"text": "Überraschung! Wir haben dich lieb.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0087",
+"text": "Pünktlichkeit und Höflichkeit zählen.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0088",
+"text": "Mail an kontakt@beispiel.de",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0089",
+"text": "Gesamt: 126 € + 19 % Steuer",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0090",
+"text": "Yoga tut mir richtig gut.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0091",
+"text": "Tisch & Stühle am Sonntag abholen",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0092",
+"text": "Freiheit und Wahrheit sind wichtig.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0093",
+"text": "Jetzt jubeln alle, jeder ist dabei!",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0094",
+"text": "Die Mäuse haben den Käse gefunden.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0095",
+"text": "Bei Gelegenheit rufe ich dich an.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0096",
+"text": "Never forget your keys, okay?",
+"lang": "en",
+"block": 5
+},
+{
+"id": "de-core-0097",
+"text": "Das Buch hat 387 Seiten.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0098",
+"text": "Weiß jemand, wo der Fußball ist?",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0099",
+"text": "Yoga fällt heute leider aus.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0100",
+"text": "Bitte nicht vergessen, vorher anrufen.",
+"lang": "de",
+"block": 5
+},
+{
+"id": "de-core-0101",
+"text": "Aufgabe #3 morgen noch fertig machen",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0102",
+"text": "Wichtig: *Abgabe* ist am Montag!",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0103",
+"text": "Datei: urlaub_fotos_2026 sichern",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0104",
+"text": "[ ] Milch und Eier kaufen",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0105",
+"text": "[x] Wäsche gewaschen und aufgehängt",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0106",
+"text": "#Wochenende: endlich ausschlafen!",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0107",
+"text": "Preis*: 9,99 € (nur heute)",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0108",
+"text": "Meeting moved to Monday at 10:30.",
+"lang": "en",
+"block": 6
+},
+{
+"id": "de-core-0109",
+"text": "Kapitel [3], Seite 45 lesen",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0110",
+"text": "Tag #2 der Wanderung: 18 km",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0111",
+"text": "Fußnote [1] siehe Seite 12",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0112",
+"text": "Teilnehmer*innen bitte anmelden",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0113",
+"text": "Ordner: schule_2026_klasse8",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0114",
+"text": "See you on Friday at 6 pm!",
+"lang": "en",
+"block": 6
+},
+{
+"id": "de-core-0115",
+"text": "Das Paket kommt zwischen 9 und 12 Uhr.",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0116",
+"text": "Ich habe den Schirm im Zug vergessen.",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0117",
+"text": "Heute Abend gibt es Nudeln mit Soße.",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0118",
+"text": "Kannst du mir kurz helfen?",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0119",
+"text": "Der Kuchen braucht 45 Minuten im Ofen.",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0120",
+"text": "Meine Tante wohnt in einem kleinen Dorf.",
+"lang": "de",
+"block": 6
+},
+{
+"id": "de-core-0121",
+"text": "Brauchst du noch etwas aus dem Laden?",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0122",
+"text": "That movie was really exciting!",
+"lang": "en",
+"block": 7
+},
+{
+"id": "de-core-0123",
+"text": "Bitte leise sein, das Baby schläft!",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0124",
+"text": "Can you send me the address, please?",
+"lang": "en",
+"block": 7
+},
+{
+"id": "de-core-0125",
+"text": "Mama ruft an, ich rufe gleich zurück.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0126",
+"text": "Wir treffen uns vor der Bibliothek.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0127",
+"text": "Im Sommer fahren wir ans Meer.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0128",
+"text": "Der Termin ist von 10:00 bis 11:30 Uhr.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0129",
+"text": "Ach, das habe ich völlig vergessen!",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0130",
+"text": "Sonntag wird es sonnig und warm.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0131",
+"text": "Hat jemand meinen blauen Stift gesehen?",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0132",
+"text": "Das macht zusammen 7,50 € bitte.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0133",
+"text": "Der Wecker klingelt jeden Morgen um 6.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0134",
+"text": "Nicht jeder Weg ist ein leichter Weg.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0135",
+"text": "Frohe Ostern und schöne Feiertage!",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0136",
+"text": "Haben wir noch genug Zucker und Butter?",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0137",
+"text": "We are leaving at half past nine.",
+"lang": "en",
+"block": 7
+},
+{
+"id": "de-core-0138",
+"text": "Ich lese gerade ein spannendes Buch.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0139",
+"text": "Die Katze schläft auf dem warmen Sofa.",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0140",
+"text": "Rufst du bitte den Handwerker an?",
+"lang": "de",
+"block": 7
+},
+{
+"id": "de-core-0141",
+"text": "Das Ergebnis lautet 128 plus 64 = 192.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0142",
+"text": "Im Keller steht noch eine Kiste Äpfel.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0143",
+"text": "Wann hast du am Samstag Zeit?",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0144",
+"text": "Das Fest findet am 17.07. statt.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0145",
+"text": "Adresse: Gartenweg 12, Neustadt",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0146",
+"text": "Thanks a lot, that was very kind!",
+"lang": "en",
+"block": 8
+},
+{
+"id": "de-core-0147",
+"text": "Wer zuletzt lacht, lacht am besten.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0148",
+"text": "Zuerst die Arbeit, dann das Vergnügen.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0149",
+"text": "Zum Geburtstag wünsche ich dir Glück!",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0150",
+"text": "Don't forget to lock the door!",
+"lang": "en",
+"block": 8
+},
+{
+"id": "de-core-0151",
+"text": "Der Bus fährt alle 20 Minuten.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0152",
+"text": "Bitte schließ die Tür und das Fenster.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0153",
+"text": "Kein Problem, das schaffen wir schon!",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0154",
+"text": "Im Schrank liegen frische Handtücher.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0155",
+"text": "Frag doch mal bei den Nachbarn nach.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0156",
+"text": "Where did you put my notebook?",
+"lang": "en",
+"block": 8
+},
+{
+"id": "de-core-0157",
+"text": "Der Zug hat 15 Minuten Verspätung.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0158",
+"text": "Gute Besserung und viele Grüße!",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0159",
+"text": "Am Ende wird alles gut, versprochen.",
+"lang": "de",
+"block": 8
+},
+{
+"id": "de-core-0160",
+"text": "Wie schön, dass du gekommen bist!",
+"lang": "de",
+"block": 8
+}
+]
+}

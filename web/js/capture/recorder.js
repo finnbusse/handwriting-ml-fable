@@ -1,0 +1,161 @@
+// Raw pointer capture (SPEC 2.2/2.3). No rendering, no policy beyond pen-only.
+// Records RAW samples only; the caller draws via the onSamples callback.
+// Coordinates: CSS px relative to the canvas' top-left at pointerdown (clientX - rect.left).
+// Time: ms relative to the first pen-down of the line (event.timeStamp domain),
+// strictly increasing over the WHOLE line (not only within a stroke).
+// The pointerup/pointercancel sample is kept outside the arrays (stroke.up).
+// Predicted events are never read.
+
+export function capabilities() {
+  const PE = typeof PointerEvent !== 'undefined' ? PointerEvent.prototype : {};
+  return {
+    secureContext: !!window.isSecureContext,
+    pointerrawupdate: 'onpointerrawupdate' in window,
+    getCoalescedEvents: 'getCoalescedEvents' in PE,
+    altitudeAngle: 'altitudeAngle' in PE,
+  };
+}
+
+export function createRecorder(canvas, opts = {}) {
+  let penOnly = opts.penOnly !== false;
+  const onSamples = opts.onSamples || (() => {});
+  const onStrokeStart = opts.onStrokeStart || (() => {});
+  const onStrokeEnd = opts.onStrokeEnd || (() => {});
+  const onIgnored = opts.onIgnored || (() => {});
+  const caps = capabilities();
+
+  let timeBase = null;     // event.timeStamp of the first pen-down of this line
+  let firstRect = null;    // canvas client rect at first pen-down
+  let strokes = [];
+  let cur = null;
+  let rect = null;
+  let lastT = -Infinity;   // last stored (rounded) t, over the whole line
+  let rawSamples = 0;      // samples that arrived first through pointerrawupdate
+  let types = {};
+  let anomalies;
+  const freshAnomalies = () => ({ cancelled: 0, touch_ignored: 0, non_monotonic: 0, button_strokes: 0, multi_pointer: 0 });
+  anomalies = freshAnomalies();
+  let paused = false;
+
+  const r4 = (v) => Math.round(v * 1e4) / 1e4;
+  const r2 = (v) => Math.round(v * 1e2) / 1e2;
+
+  function push(e, viaRaw) {
+    const t = r2(e.timeStamp - timeBase);
+    if (!(t > lastT)) {               // de-dup rawupdate vs pointermove; drop stale samples
+      if (t < lastT) anomalies.non_monotonic++;
+      return false;
+    }
+    lastT = t;
+    cur.x.push(r4(e.clientX - rect.left));
+    cur.y.push(r4(e.clientY - rect.top));
+    cur.t.push(t);
+    cur.p.push(r4(e.pressure));         // 0 is a legal value: never `|| default`
+    cur.tiltX.push(e.tiltX);            // 0 is a legal value
+    cur.tiltY.push(e.tiltY);
+    if (e.buttons & ~1) cur._btn = true;
+    if (viaRaw) rawSamples++;
+    return true;
+  }
+
+  function accepts(e) {
+    return e.pointerType === 'pen' || (!penOnly && (e.pointerType === 'touch' || e.pointerType === 'mouse'));
+  }
+
+  function down(e) {
+    if (e.target !== canvas) return;
+    e.preventDefault();
+    if (paused) return;
+    if (!accepts(e)) { anomalies.touch_ignored++; onIgnored(e); return; }
+    if (cur) { anomalies.multi_pointer++; return; }
+    rect = canvas.getBoundingClientRect();   // once per stroke; layout must not move during a line
+    if (timeBase === null) {
+      timeBase = e.timeStamp;
+      firstRect = [rect.left, rect.top, rect.width, rect.height];
+    }
+    cur = { pointerId: e.pointerId, pointerType: e.pointerType, buttons: e.buttons,
+            x: [], y: [], t: [], p: [], tiltX: [], tiltY: [], end: null, up: null, _btn: false };
+    if (e.button !== 0 || (e.buttons & ~1)) cur._btn = true;
+    try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+    push(e, false);
+    onStrokeStart(cur);
+    onSamples(cur, 0);
+  }
+
+  function makeMove(viaRaw) {
+    return (e) => {
+      if (!cur || e.pointerId !== cur.pointerId) return;
+      const from = cur.x.length;
+      const list = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+      if (list.length) { for (const ce of list) push(ce, viaRaw); } else push(e, viaRaw);
+      if (cur.x.length > from) onSamples(cur, from);
+    };
+  }
+
+  function makeEnd(kind) {
+    return (e) => {
+      if (!cur || e.pointerId !== cur.pointerId) return;
+      // Coalesced samples that arrived only with the up event (not the up position itself).
+      if (kind === 'up' && e.getCoalescedEvents) {
+        const from = cur.x.length;
+        for (const ce of e.getCoalescedEvents()) {
+          if (ce.timeStamp < e.timeStamp) push(ce, false);
+        }
+        if (cur.x.length > from) onSamples(cur, from);
+      }
+      cur.end = kind;
+      cur.up = { t: r2(e.timeStamp - timeBase), x: r4(e.clientX - rect.left), y: r4(e.clientY - rect.top) };
+      if (kind === 'cancel') anomalies.cancelled++;
+      if (cur._btn) anomalies.button_strokes++;
+      const s = cur; cur = null;
+      types[s.pointerType] = (types[s.pointerType] || 0) + 1;
+      delete s.pointerId;
+      s.button = s._btn; delete s._btn;
+      strokes.push(s);
+      onStrokeEnd(s);
+    };
+  }
+
+  const rawH = makeMove(true), moveH = makeMove(false);
+  const upH = makeEnd('up'), cancelH = makeEnd('cancel');
+  const ctx = (e) => e.preventDefault();
+  canvas.addEventListener('pointerdown', down);
+  if (caps.pointerrawupdate) canvas.addEventListener('pointerrawupdate', rawH);
+  canvas.addEventListener('pointermove', moveH);
+  canvas.addEventListener('pointerup', upH);
+  canvas.addEventListener('pointercancel', cancelH);
+  canvas.addEventListener('lostpointercapture', cancelH);
+  canvas.addEventListener('contextmenu', ctx);
+
+  return {
+    caps, get anomalies() { return anomalies; },
+    get strokes() { return strokes; },
+    get timeBase() { return timeBase; },
+    get firstRect() { return firstRect; },
+    get active() { return !!cur; },
+    get rawSamples() { return rawSamples; },
+    get pointerTypes() { return Object.assign({}, types); },
+    set penOnly(v) { penOnly = !!v; },
+    get penOnly() { return penOnly; },
+    set paused(v) { paused = !!v; if (paused) cur = null; },
+    undo() {
+      const s = strokes.pop();
+      // With no stroke left the line starts over, so t = 0 is again the first pen-down.
+      if (!strokes.length) { timeBase = null; firstRect = null; lastT = -Infinity; rawSamples = 0; types = {}; }
+      return s;
+    },
+    reset() {
+      strokes = []; cur = null; timeBase = null; firstRect = null; lastT = -Infinity;
+      rawSamples = 0; types = {}; anomalies = freshAnomalies();
+    },
+    destroy() {
+      canvas.removeEventListener('pointerdown', down);
+      canvas.removeEventListener('pointerrawupdate', rawH);
+      canvas.removeEventListener('pointermove', moveH);
+      canvas.removeEventListener('pointerup', upH);
+      canvas.removeEventListener('pointercancel', cancelH);
+      canvas.removeEventListener('lostpointercapture', cancelH);
+      canvas.removeEventListener('contextmenu', ctx);
+    },
+  };
+}

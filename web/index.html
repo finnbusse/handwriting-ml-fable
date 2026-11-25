@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Handschrift</title>
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F3F5F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14171C" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+<script src="config.js"></script>
+<script type="module" src="js/main.js"></script>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+    <symbol id="i-clear" viewBox="0 0 24 24"><path d="M5 7h14"/><path d="M10 7V5h4v2"/><path d="M7 7l1 12h8l1-12"/></symbol>
+    <symbol id="i-skip" viewBox="0 0 24 24"><path d="M5 6l7 6-7 6"/><path d="M13 6l7 6-7 6"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+    <symbol id="i-again" viewBox="0 0 24 24"><path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19 4v4h-4"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></symbol>
+    <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.1 10.5 3.75 3.75 0 0 0 7 18z"/><path d="M12 15v-5M9.8 12.2 12 10l2.2 2.2"/></symbol>
+    <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20l1.2-4.4L15.8 5a2 2 0 0 1 2.8 0l.4.4a2 2 0 0 1 0 2.8L8.4 18.8 4 20z"/><path d="M14 6.8l3.2 3.2"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11"/><path d="M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 7.6v.2"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  </defs>
+</svg>
+
+<header class="bar" id="bar">
+  <nav class="tabs" aria-label="Bereiche">
+    <a href="#/erfassen" data-route="erfassen">Erfassen</a>
+    <a href="#/schreiben" data-route="schreiben">Schreiben</a>
+  </nav>
+  <div class="bar-right">
+    <a class="waiting" id="waiting" href="#/einstellungen" hidden>
+      <svg class="ic"><use href="#i-cloud"/></svg><span id="waiting-text"></span>
+    </a>
+    <a class="iconbtn" href="#/einstellungen" data-route="einstellungen" aria-label="Einstellungen" title="Einstellungen">
+      <svg class="ic"><use href="#i-gear"/></svg>
+    </a>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- First run -->
+  <section class="view view-start" id="v-start" hidden>
+    <div class="start-inner">
+      <h1 class="start-title">Deine Handschrift, Zeile für Zeile</h1>
+      <p class="lead">Du schreibst kurze Sätze ab. Daraus lernt ein Programm, wie deine Schrift aussieht.</p>
+      <ol class="steps">
+        <li><span class="step-n">1</span><div><strong>Stift nehmen</strong><span>Geschrieben wird nur mit dem Stift. Finger und Handballen stören nicht.</span></div></li>
+        <li><span class="step-n">2</span><div><strong>Die Zeile so schreiben wie immer</strong><span>Nicht schöner, nicht langsamer. Einfach auf die Linie.</span></div></li>
+        <li><span class="step-n">3</span><div><strong>„Fertig“ tippen</strong><span>Du siehst die Zeile noch einmal und bestätigst sie.</span></div></li>
+      </ol>
+      <div class="start-actions">
+        <button class="btn primary" id="start-go" type="button">Los geht’s</button>
+        <button class="btn quiet" id="start-signin" type="button">Anmelden</button>
+      </div>
+      <p class="fine" id="start-signin-note">Anmelden geht auch später. Bis dahin bleiben deine Zeilen auf diesem Gerät gespeichert.</p>
+    </div>
+  </section>
+
+  <!-- Capture -->
+  <section class="view view-capture" id="v-erfassen" hidden>
+    <div class="cap" id="cap" data-state="loading">
+
+      <div class="cap-write">
+        <div class="cap-head">
+          <p class="progress"><span id="cap-progress">&nbsp;</span><span class="total" id="cap-total"></span></p>
+          <p class="prompt" id="cap-prompt" aria-live="polite">&nbsp;</p>
+        </div>
+        <div class="cap-tools" role="toolbar" aria-label="Zeile">
+          <button class="btn tool" id="cap-undo" type="button" aria-label="Rückgängig"><svg class="ic"><use href="#i-undo"/></svg><span>Rückgängig</span></button>
+          <button class="btn tool" id="cap-clear" type="button" aria-label="Löschen"><svg class="ic"><use href="#i-clear"/></svg><span>Löschen</span></button>
+          <button class="btn tool" id="cap-skip" type="button" aria-label="Überspringen"><svg class="ic"><use href="#i-skip"/></svg><span>Überspringen</span></button>
+          <span class="spacer"></span>
+          <button class="btn primary" id="cap-done" type="button"><svg class="ic"><use href="#i-check"/></svg><span>Fertig</span></button>
+        </div>
+        <div class="sheet" id="cap-sheet">
+          <canvas id="cap-canvas"></canvas>
+          <p class="sheet-hint" id="cap-hint">Schreib mit dem Stift auf die Linie.</p>
+        </div>
+        <p class="turn-hint">Dreh das Gerät quer, dann passt die Zeile besser.</p>
+      </div>
+
+      <div class="cap-panel cap-confirm" role="region" aria-labelledby="confirm-title">
+        <h2 id="confirm-title">Genau so geschrieben?</h2>
+        <div class="compare">
+          <p class="compare-label">Vorlage</p>
+          <p class="compare-text" id="confirm-prompt"></p>
+          <p class="compare-label">Deine Zeile</p>
+          <div class="compare-ink"><canvas id="confirm-canvas"></canvas></div>
+        </div>
+        <ul class="qa" id="confirm-qa"></ul>
+        <div class="actions">
+          <button class="btn" id="confirm-redo" type="button"><svg class="ic"><use href="#i-again"/></svg><span>Nochmal</span></button>
+          <button class="btn primary" id="confirm-ok" type="button"><svg class="ic"><use href="#i-check"/></svg><span id="confirm-ok-label">Ja, weiter</span></button>
+        </div>
+      </div>
+
+      <div class="cap-panel cap-pause" role="alertdialog" aria-labelledby="pause-title">
+        <h2 id="pause-title">Die Ansicht hat sich verändert</h2>
+        <p>Damit die Zeile sauber bleibt, schreib sie bitte noch einmal.</p>
+        <div class="actions"><button class="btn primary" id="pause-ok" type="button"><svg class="ic"><use href="#i-pen"/></svg><span>Zeile neu schreiben</span></button></div>
+      </div>
+
+      <div class="cap-panel cap-block">
+        <h2 id="block-title">Block geschafft</h2>
+        <p id="block-text"></p>
+        <div class="actions">
+          <button class="btn" id="block-pause" type="button">Pause machen</button>
+          <button class="btn primary" id="block-next" type="button"><span>Nächster Block</span></button>
+        </div>
+      </div>
+
+      <div class="cap-panel cap-resting">
+        <h2>Gute Pause</h2>
+        <p>Du kannst jederzeit weitermachen, auch auf einem anderen Gerät.</p>
+        <div class="actions"><button class="btn primary" id="rest-go" type="button"><svg class="ic"><use href="#i-pen"/></svg><span>Weiterschreiben</span></button></div>
+      </div>
+
+      <div class="cap-panel cap-all">
+        <h2>Alle Zeilen geschrieben</h2>
+        <p id="all-text">Danke! Mehr gibt es im Moment nicht zu schreiben.</p>
+      </div>
+
+      <div class="cap-panel cap-loading"><p class="muted">Einen Moment …</p></div>
+    </div>
+  </section>
+
+  <!-- Generate (phase 2) -->
+  <section class="view view-generate" id="v-schreiben" hidden>
+    <div class="placeholder">
+      <svg class="ic big" aria-hidden="true"><use href="#i-pen"/></svg>
+      <h1>Das Modell lernt gerade deine Schrift</h1>
+      <p>Sobald es fertig ist, tippst du hier einen Text und bekommst ihn in deiner Handschrift zurück.</p>
+      <p class="muted">Bis dahin hilft jede Zeile, die du erfasst.</p>
+      <a class="btn primary" href="#/erfassen"><svg class="ic"><use href="#i-pen"/></svg><span>Zeilen schreiben</span></a>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section class="view view-settings" id="v-einstellungen" hidden>
+    <div class="settings">
+      <h1>Einstellungen</h1>
+
+      <section class="group" aria-labelledby="g-account">
+        <h2 id="g-account">Konto</h2>
+        <div class="row" id="acc-out">
+          <p>Nicht angemeldet. Deine Zeilen bleiben auf diesem Gerät, bis du dich anmeldest.</p>
+          <div class="row-actions">
+            <button class="btn primary" id="acc-oauth" type="button" hidden>Mit Hugging Face anmelden</button>
+            <button class="btn" id="acc-token" type="button">Token einfügen</button>
+          </div>
+        </div>
+        <div class="row" id="acc-in" hidden>
+          <p>Angemeldet als <strong id="acc-name"></strong></p>
+          <div class="row-actions"><button class="btn" id="acc-signout" type="button">Abmelden</button></div>
+        </div>
+      </section>
+
+      <section class="group" aria-labelledby="g-upload">
+        <h2 id="g-upload">Hochladen</h2>
+        <div class="row">
+          <p id="up-status">Alles hochgeladen.</p>
+          <div class="row-actions"><button class="btn" id="up-now" type="button"><svg class="ic"><use href="#i-cloud"/></svg><span>Jetzt hochladen</span></button></div>
+        </div>
+        <dl class="kv">
+          <dt>Zeilen landen in</dt><dd id="repo-dataset"></dd>
+          <dt>Modell kommt aus</dt><dd id="repo-model"></dd>
+        </dl>
+      </section>
+
+      <section class="group" aria-labelledby="g-safety">
+        <h2 id="g-safety">Sicherung</h2>
+        <div class="row">
+          <p id="backup-status">Alle Zeilen, die auf diesem Gerät gespeichert sind, als eine Datei.</p>
+          <div class="row-actions"><button class="btn" id="backup" type="button"><svg class="ic"><use href="#i-down"/></svg><span>Sicherung herunterladen</span></button></div>
+        </div>
+      </section>
+
+      <section class="group" aria-labelledby="g-test">
+        <h2 id="g-test">Zum Testen</h2>
+        <label class="switch-row">
+          <span><strong>Finger/Maus erlauben (nur zum Testen)</strong><span class="muted">Solche Zeilen werden markiert und nicht fürs Lernen verwendet.</span></span>
+          <input type="checkbox" role="switch" id="allow-finger">
+        </label>
+      </section>
+
+      <section class="group" aria-labelledby="g-diag">
+        <h2 id="g-diag">Technische Werte</h2>
+        <p class="muted">Falls etwas nicht stimmt, lies diese Werte bitte vor.</p>
+        <dl class="kv diag" id="diag"></dl>
+      </section>
+    </div>
+  </section>
+</main>
+
+<dialog class="dlg" id="dlg-token" aria-labelledby="tok-title">
+  <form method="dialog" id="tok-form">
+    <h2 id="tok-title">Token einfügen</h2>
+    <p>Ein Token ist ein Zugangsschlüssel, den du auf huggingface.co unter Settings → Access Tokens erstellst; er erlaubt dieser App, deine Zeilen in dein Konto hochzuladen.</p>
+    <label class="field"><span>Token</span>
+      <input id="tok-input" name="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="hf_…"></label>
+    <p class="err" id="tok-err" role="alert" hidden></p>
+    <div class="actions">
+      <button class="btn" value="cancel" type="button" id="tok-cancel">Abbrechen</button>
+      <button class="btn primary" type="submit" id="tok-ok">Anmelden</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog class="dlg" id="dlg-repo" aria-labelledby="repo-title">
+  <h2 id="repo-title">Ablage für deine Zeilen anlegen?</h2>
+  <p>In deinem Hugging-Face-Konto gibt es noch keinen Ort für deine Zeilen. Die App legt ihn privat an, nur du siehst ihn.</p>
+  <p class="err" id="repo-err" role="alert" hidden></p>
+  <div class="actions">
+    <button class="btn" type="button" id="repo-later">Später</button>
+    <button class="btn primary" type="button" id="repo-create">Anlegen</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
