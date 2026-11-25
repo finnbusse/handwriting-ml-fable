@@ -100,6 +100,27 @@ when 5 lines are waiting, when the session ends, when the app starts, when the
 browser comes back online). If the dataset repo does not exist the app offers
 to create it (`POST /api/repos/create`, `{"type":"dataset","name":"handwriting-fable","private":true}`).
 
+**Meine Zeilen** (`#/zeilen`, `js/library.js`; reached from "N Zeilen geschrieben" on the
+capture screen and from Einstellungen) lists the current writer's lines: a listing of
+`raw/v1/<writer>` merged with the lines waiting on the device, newest first, in portions of
+30 with lazily loaded images (the preview PNG, else drawn from the record). Every request
+carries the token (the dataset may be private). Two actions, each one commit that touches
+only that line's session:
+
+- *Text korrigieren*: `text` changes, `prompt.text` stays, `text_edit {at, original, count}`
+  is set; the raw JSON is overwritten at its path and that one row of the session's
+  `metadata.jsonl` is replaced (other rows stay byte for byte). A line still waiting is
+  only changed on the device.
+- *Löschen* (after a confirmation): `deletedFile` for the raw JSON and the preview PNG
+  (those a listing of the session shows), and `metadata.jsonl` without the row (deleted
+  when it was the last row). On the device the line becomes a tombstone (state `deleted`):
+  never uploaded again, not missing, waiting or safe, not written (its prompt comes back),
+  not in the backup. Needs the network; a failure changes nothing.
+
+Both run between upload/preview commits (`outbox.exclusive`); uploads re-read their lines
+inside that lock and previews built before it are rebuilt. A failed listing keeps the
+last complete one on screen. Only this confirmed delete ever sends a `deletedFile`.
+
 ### 2.2 Recording format: `hwline/v1`
 
 Schema: `docs/schema/hwline_v1.schema.json` (+ example). One JSON object per

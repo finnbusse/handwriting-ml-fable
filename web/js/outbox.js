@@ -3,7 +3,12 @@
 // Per line (store.js): queued -> sent (the commit answered 2xx) -> verified (the file was
 // SEEN in a complete listing of raw/v1). Only 'verified' counts as safe. A complete
 // listing without the file puts a sent/verified line back to queued, so it goes up
-// again. A failed or partial listing changes nothing. Nothing is ever deleted.
+// again. A failed or partial listing changes nothing. Nothing is ever deleted here.
+//
+// "Meine Zeilen" (library.js) corrects or deletes single lines through exclusive(): it
+// runs between two commits of this queue, never alongside one. A deleted line is a
+// tombstone in store.js ('deleted'): no state here (sent, verified, queued) includes it,
+// so it is never uploaded again, never re-queued and never gets a preview again.
 //
 // The Dataset Viewer preview (preview.js) goes up in a second, separate commit after
 // the raw lines. It is best effort: a failure there never touches the line states,
@@ -20,6 +25,7 @@ let retryTimer = null;
 let backoffS = 0;
 let notBefore = 0;
 let lastError = null;   // {kind, status, at}
+let sentInFlush = 0;    // lines a commit of the running flush() really sent
 const listeners = new Set();
 
 // verification
@@ -62,6 +68,22 @@ function locked(fn) {
   return p;
 }
 
+/** Bumped by every exclusive() section: a preview built before it may be out of date. */
+let epoch = 0;
+class Stale extends Error {}
+
+/**
+ * Run fn (a correction or deletion of lines, with its own commit) while no upload or
+ * preview commit runs. Uploads re-read their lines inside the lock and previews built
+ * before it are thrown away and built again, so neither can undo what fn did.
+ */
+export function exclusive(fn) {
+  return locked(async () => {
+    epoch++;
+    try { return await fn(); } finally { epoch++; emit('state'); }
+  });
+}
+
 function scheduleRetry(seconds) {
   clearTimeout(retryTimer);
   notBefore = Date.now() + seconds * 1000;
@@ -80,9 +102,16 @@ const deterministic = (e) => e.kind === 'other' && e.status >= 400 && e.status <
  */
 async function upload(repo, batch) {
   const n = batch.length;
-  const files = batch.map((e) => ({ path: e.path, text: JSON.stringify(e.record) }));
   try {
-    await locked(() => hf.commit(repo, `Erfassung: ${n} ${n === 1 ? 'Zeile' : 'Zeilen'}`, files));
+    // Re-read inside the lock: a line deleted (or corrected) in "Meine Zeilen" while this
+    // batch waited for the lock must not go up (or not with its old text).
+    batch = await locked(async () => {
+      const live = await store.stillQueued(batch.map((e) => e.id));
+      if (!live.length) return live;
+      const files = live.map((e) => ({ path: e.path, text: JSON.stringify(e.record) }));
+      await hf.commit(repo, `Erfassung: ${live.length} ${live.length === 1 ? 'Zeile' : 'Zeilen'}`, files);
+      return live;
+    });
   } catch (e) {
     if (!deterministic(e)) return e;
     if (n === 1) {
@@ -93,6 +122,8 @@ async function upload(repo, batch) {
     const half = Math.ceil(n / 2);
     return (await upload(repo, batch.slice(0, half))) || (await upload(repo, batch.slice(half)));
   }
+  if (!batch.length) return null;   // nothing left to send: not an upload
+  sentInFlush += batch.length;
   await store.markSent(batch.map((e) => e.id), hf.userName());
   emit('uploaded', { ids: batch.map((e) => e.id), promptIds: batch.map((e) => e.prompt_id),
     done: batch.map((e) => ({ writer: e.record.writer_id, promptId: e.prompt_id })) });
@@ -112,7 +143,7 @@ export async function flush(reason = 'manual') {
   if (!hf.getAuth()) { emit('state'); return; }
   if (reason === 'line' && (await store.countQueued()) < CFG.flushAt) { emit('state'); return; }
   running = true; again = false; emit('state');
-  let uploadedAny = false;
+  sentInFlush = 0;
   try {
     for (;;) {
       const queued = await store.queuedLines();
@@ -120,7 +151,7 @@ export async function flush(reason = 'manual') {
       const repo = hf.datasetRepoId();
       if (!repo) break;
       const e = await upload(repo, queued.slice(0, CFG.maxPerCommit));
-      if (!e) { uploadedAny = true; lastError = null; backoffS = 0; notBefore = 0; clearTimeout(retryTimer); continue; }
+      if (!e) { lastError = null; backoffS = 0; notBefore = 0; clearTimeout(retryTimer); continue; }
       let kind = e.kind || 'other';
       // A 401 can mean "no such repo for you"; only a failing whoami means the sign-in is bad.
       if (kind === 'auth') kind = await hf.classify401(e);
@@ -138,6 +169,7 @@ export async function flush(reason = 'manual') {
     }
   } finally {
     running = false;
+    const uploadedAny = sentInFlush > 0;
     if (uploadedAny && !lastError && (await store.countQueued().catch(() => 1)) === 0) emit('all-uploaded');
     emit('state');
     if (again) { again = false; setTimeout(() => flush('session-end'), 0); }
@@ -285,6 +317,7 @@ async function previewUpload(repo, batch, user) {
   const n = batch.length;
   const half = Math.ceil(n / 2);
   let built;
+  const builtAt = epoch;
   try {
     built = await preview.buildFiles(batch, sessionEntriesFor(new Set(batch.map((e) => e.id)), user));
   } catch (err) {
@@ -297,12 +330,14 @@ async function previewUpload(repo, batch, user) {
   if (!ids.length) return null;
   try {
     await locked(async () => {
+      if (epoch !== builtAt) throw new Stale();   // a line was corrected or deleted meanwhile
       const ac = new AbortController();
       const timer = setTimeout(() => ac.abort(), previewTimeoutMs);
       try { await hf.commit(repo, `Vorschau: ${ids.length} ${ids.length === 1 ? 'Zeile' : 'Zeilen'}`, built.files, { signal: ac.signal }); }
       finally { clearTimeout(timer); }
     });
   } catch (e) {
+    if (e instanceof Stale) return null;      // nothing marked: runPreviews builds it again
     if (!deterministic(e)) return e;          // 5xx, 401, network, rate: later
     if (n === 1) { previewSkip.add(batch[0].id); return null; }
     return (await previewUpload(repo, batch.slice(0, half), user)) || (await previewUpload(repo, batch.slice(half), user));

@@ -10,6 +10,7 @@ import { createCaptureView } from './capture/view.js';
 import { createGenerateView } from './generate/view.js';
 import { normalize as normalizeDisplay } from './capture/ink.js';
 import { createLookControls } from './capture/look.js';
+import { createLibraryView } from './library.js';
 
 const CFG = self.HW_CONFIG;
 const $ = (id) => document.getElementById(id);
@@ -197,7 +198,8 @@ function renderUploadStatus(s, t) {
 async function loadLocalDone() {
   const all = await store.allLines();
   const w = app.writer;
-  app.localDone = new Set(w ? all.filter((e) => e.record.writer_id === w.id).map((e) => e.prompt_id) : []);
+  // A deleted line (tombstone) does not count as written: its prompt comes back.
+  app.localDone = new Set(w ? all.filter((e) => store.isLive(e) && e.record.writer_id === w.id).map((e) => e.prompt_id) : []);
 }
 
 /** Remote progress belongs to one account: a sign-out or a different account starts it empty. */
@@ -360,9 +362,9 @@ async function renderDiagnostics() {
       return e ? `${e.kind}${e.status ? ` (HTTP ${e.status})` : ''}, ${new Date(e.at).toLocaleTimeString('de-DE')}` : 'keiner';
     })()],
     ['Zeilen nach Zustand', (() => {
-      const c = { queued: 0, sent: 0, verified: 0, rejected: 0 };
+      const c = { queued: 0, sent: 0, verified: 0, rejected: 0, deleted: 0 };
       for (const e of all) if (e.state in c) c[e.state]++;
-      return `${c.verified} geprüft, ${c.sent} gesendet, ${c.queued} wartend, ${c.rejected} abgelehnt`;
+      return `${c.verified} geprüft, ${c.sent} gesendet, ${c.queued} wartend, ${c.rejected} abgelehnt, ${c.deleted} gelöscht`;
     })()],
     ['Vorschau-Bilder', (() => {
       const up = all.filter((e) => e.state === 'sent' || e.state === 'verified');
@@ -477,15 +479,17 @@ function wireRepoDialog() {
 
 // ---------- routing ----------
 
-const ROUTES = ['start', 'erfassen', 'schreiben', 'einstellungen'];
+const ROUTES = ['start', 'erfassen', 'schreiben', 'einstellungen', 'zeilen'];
 
 async function route() {
   let r = (location.hash.match(/^#\/([a-z]+)/) || [])[1];
   if (!ROUTES.includes(r)) r = (await store.kvGet('firstRunDone', false).catch(() => true)) ? 'erfassen' : 'start';
-  if (r === 'erfassen' && !app.writer) r = 'start';       // no recording without a writer
+  if ((r === 'erfassen' || r === 'zeilen') && !app.writer) r = 'start';   // no recording (and no own lines) without a writer
   if (r !== (location.hash.match(/^#\/([a-z]+)/) || [])[1]) { history.replaceState(null, '', `#/${r}`); }
   if (app.route === 'erfassen' && r !== 'erfassen') app.capture.hide();
   if (app.route === 'schreiben' && r !== 'schreiben') app.generate.hide();
+  if (app.route === 'zeilen' && r !== 'zeilen') app.library.hide();
+  const from = app.route;
   app.route = r;
   document.body.dataset.route = r;
   for (const id of ROUTES) $(`v-${id}`).hidden = id !== r;
@@ -495,6 +499,7 @@ async function route() {
   if (r === 'erfassen') app.capture.show();
   if (r === 'schreiben') app.generate.show();
   if (r === 'einstellungen') renderSettings();
+  if (r === 'zeilen') app.library.show(from);
   if (r === 'start') { renderAccount(); $('start-writer').value = app.writer ? app.writer.name : ''; $('start-err').hidden = true; }
 }
 
@@ -564,6 +569,24 @@ async function boot() {
       if (app.skipped.delete(record.prompt.id)) await saveSkipped();
       updateWaiting();
       if (app.persisted !== true) app.persisted = await store.requestPersist();
+    },
+  });
+
+  // "Meine Zeilen": a deleted line no longer counts as written, so its prompt comes back.
+  app.library = createLibraryView({
+    root: $('v-zeilen'), toast, writer: () => app.writer,
+    changed: async (type, d) => {
+      if (type === 'deleted') {
+        if (!d.stillWritten) {
+          if (app.remoteAll[d.writer]) app.remoteAll[d.writer].delete(d.promptId);
+          if (app.writer && app.writer.id === d.writer) app.remoteDone.delete(d.promptId);
+          saveRemoteDone();
+        }
+        await loadLocalDone();
+        if (app.capture) app.capture.refresh();
+        outbox.verify('library');      // the listing has the last word on the progress
+      }
+      updateWaiting();
     },
   });
 
@@ -648,5 +671,5 @@ async function boot() {
   outbox.startup();      // upload what waits, missing previews, and one listing: check + progress
 }
 
-window.__hw = { app, store, hf, outbox, saveDisplay, safetyTexts, updateStatus: updateWaiting, get capture() { return app.capture; }, get generate() { return app.generate; } };
+window.__hw = { app, store, hf, outbox, get library() { return app.library; }, saveDisplay, safetyTexts, updateStatus: updateWaiting, get capture() { return app.capture; }, get generate() { return app.generate; } };
 window.__hwReady = boot().then(() => true, (e) => { console.error(e); return false; });

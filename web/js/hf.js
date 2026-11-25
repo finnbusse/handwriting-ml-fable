@@ -178,12 +178,16 @@ export async function oauthHandleRedirect() {
 // ---------- repos and files ----------
 
 /** One NDJSON commit. files: [{path, text}] or [{path, base64}] (binary, e.g. a PNG: the
- *  plain commit endpoint takes it as an ordinary file entry, no LFS step needed). */
-export async function commit(repoId, summary, files, { repoType = 'dataset', revision = 'main', signal } = {}) {
+ *  plain commit endpoint takes it as an ordinary file entry, no LFS step needed), or
+ *  [{path, delete: true}] (a deletedFile line). A deletion is only sent when the caller
+ *  says so with allowDelete: the only caller is an explicit, confirmed delete. */
+export async function commit(repoId, summary, files, { repoType = 'dataset', revision = 'main', signal, allowDelete = false } = {}) {
+  if (!allowDelete && files.some((f) => f.delete)) throw new HfError('other', 0, 'deletion not allowed here');
   const lines = [{ key: 'header', value: { summary } }]
-    .concat(files.map((f) => ({ key: 'file', value: f.base64 !== undefined
-      ? { path: f.path, content: f.base64, encoding: 'base64' }
-      : { path: f.path, content: f.text, encoding: 'utf-8' } })));
+    .concat(files.map((f) => (f.delete ? { key: 'deletedFile', value: { path: f.path } }
+      : { key: 'file', value: f.base64 !== undefined
+        ? { path: f.path, content: f.base64, encoding: 'base64' }
+        : { path: f.path, content: f.text, encoding: 'utf-8' } })));
   const body = lines.map((l) => JSON.stringify(l)).join('\n');
   const res = await request(`/api/${repoType}s/${repoId}/commit/${revision}`, {
     method: 'POST', body, headers: { 'Content-Type': 'application/x-ndjson' }, signal,

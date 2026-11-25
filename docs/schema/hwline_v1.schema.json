@@ -17,7 +17,11 @@
     "prompt": {"type": "object", "required": ["id", "text"], "properties": {
       "id": {"type": "string"}, "set": {"type": "string", "description": "prompt-set name@version"},
       "text": {"type": "string", "description": "exactly the string shown (NFC)"}, "lang": {"type": "string"}}},
-    "text": {"type": "string", "description": "what was actually written (NFC). Equals prompt.text unless the writer corrected the transcription."},
+    "text": {"type": "string", "description": "what was actually written (NFC). Equals prompt.text unless the writer corrected the transcription (then text_edit is set)."},
+    "text_edit": {"type": "object", "required": ["at", "original"], "description": "set when the writer corrected text afterwards in the app (\"Meine Zeilen\"); prompt.text is never changed", "properties": {
+      "at": {"type": "string", "description": "ISO-8601 UTC wall clock of the latest correction"},
+      "original": {"type": "string", "description": "text as it was when the line was recorded"},
+      "count": {"type": "integer", "minimum": 1, "description": "how often the text was corrected"}}},
     "status": {"enum": ["accepted", "flagged"], "description": "skipped/redone attempts are never uploaded as samples"},
     "attempt": {"type": "integer", "minimum": 1},
     "edits": {"type": "object", "properties": {"undo": {"type": "integer"}, "clear": {"type": "integer"}}},

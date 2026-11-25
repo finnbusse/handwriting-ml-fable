@@ -177,3 +177,27 @@ export async function buildFiles(batch, sessionEntries) {
   }
   return { files, skipped };
 }
+
+/**
+ * A session's metadata.jsonl with the row of one line replaced (record given) or left
+ * out (record null). Every other row stays byte for byte as it was, so rows written by
+ * another device or by rebuild_preview.py are kept. Returns {text, changed}; changed is
+ * false when the file has no row for that line (then it need not be committed).
+ */
+export function editMetadata(text, fileName, record) {
+  const lines = String(text || '').split('\n');
+  const out = [];
+  let changed = false;
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    let row = null;
+    try { row = JSON.parse(line); } catch (_) { row = null; }
+    if (row && row.file_name === fileName) {
+      changed = true;
+      if (record) out.push(rowJson(metaRow(record)));
+      continue;
+    }
+    out.push(line);
+  }
+  return { text: out.map((l) => l + '\n').join(''), changed };
+}

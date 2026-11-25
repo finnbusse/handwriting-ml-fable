@@ -99,6 +99,24 @@ export function buildRecord(ctx) {
   };
 }
 
+/**
+ * The record with its text corrected afterwards ("Meine Zeilen"): text is what was really
+ * written. prompt.text (what was shown) is never touched. text_edit says when the text
+ * was last corrected, what it was when the line was recorded, and how often it changed.
+ * Returns a new object; the strokes and everything else are the same.
+ */
+export function withText(record, text, at = new Date().toISOString()) {
+  const t = nfc(text);
+  const prev = record.text_edit;
+  const out = Object.assign({}, record, { text: t });
+  out.text_edit = {
+    at,
+    original: prev && typeof prev.original === 'string' ? prev.original : String(record.text),
+    count: (prev && Number.isInteger(prev.count) ? prev.count : 0) + 1,
+  };
+  return out;
+}
+
 /** Structural check of the fields the schema requires. Returns a list of errors. */
 export function validate(r) {
   const err = [];
@@ -128,6 +146,12 @@ export function validate(r) {
     opt('pen', (v) => ['fineliner', 'fueller', 'bleistift'].includes(v));
     opt('paper', (v) => ['linie', 'liniert', 'kariert'].includes(v));
     opt('scheme', (v) => ['dark_on_light', 'light_on_dark'].includes(v));
+  }
+  if (r.text_edit !== undefined) {
+    // Set by "Meine Zeilen" when the writer corrected the text afterwards.
+    const te = r.text_edit;
+    need(isObj(te) && typeof te.at === 'string' && te.at && typeof te.original === 'string'
+         && (te.count === undefined || (Number.isInteger(te.count) && te.count >= 1)), 'text_edit');
   }
   need(isObj(r.screen), 'screen');
   need(isObj(r.device) && typeof r.device.ua === 'string', 'device');

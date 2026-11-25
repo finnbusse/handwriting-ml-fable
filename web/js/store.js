@@ -7,6 +7,11 @@
 //   sent     -> the commit request answered 2xx; not yet seen in a listing
 //   verified -> the file was SEEN in a listing of the dataset: only now is the line "safe"
 //   rejected -> the server refused the content; kept on the device and in the backup
+//   deleted  -> a tombstone: the writer deleted the line in "Meine Zeilen" and the dataset
+//               commit that removed it answered 2xx. The record stays on the device, but the
+//               line is never uploaded again, is not missing, waiting or safe, does not
+//               count as written (its prompt comes back) and is left out of the backup.
+//               No function below ever moves a line out of this state.
 // sent/verified go back to queued when a complete listing does not have the file.
 // Independent of that, entry.preview_at marks the Dataset Viewer preview as written
 // (null = still to do); the preview never changes the state above.
@@ -14,6 +19,9 @@
 const DB_NAME = 'handschrift';
 const DB_VERSION = 2;
 export const UPLOADED = ['sent', 'verified'];
+export const DELETED = 'deleted';
+/** A line that still counts (as written, in counts and in the backup): anything but a tombstone. */
+export const isLive = (e) => !!e && e.state !== DELETED;
 let dbPromise = null;
 
 function open() {
@@ -185,12 +193,14 @@ export function markPreviewed(ids, { skip = false } = {}) {
   });
 }
 
-/** Number of lines per state: {queued, sent, verified, rejected, total}. */
+/** Number of lines per state: {queued, sent, verified, rejected, deleted, total}.
+ *  total leaves the deleted lines (tombstones) out. */
 export function counts() {
   return tx('lines', 'readonly', async (s) => {
     const idx = s.index('state');
-    const out = { total: await req2p(s.count()) };
-    for (const st of ['queued', 'sent', 'verified', 'rejected']) out[st] = await req2p(idx.count(st));
+    const out = {};
+    for (const st of ['queued', 'sent', 'verified', 'rejected', DELETED]) out[st] = await req2p(idx.count(st));
+    out.total = (await req2p(s.count())) - out[DELETED];
     return out;
   });
 }
@@ -205,7 +215,7 @@ export async function oldestQueuedAt() {
 export function markRejected(id, why) {
   return tx('lines', 'readwrite', async (s) => {
     const e = await req2p(s.get(id));
-    if (e) { e.state = 'rejected'; e.rejected = Object.assign({ at: new Date().toISOString() }, why); s.put(e); }
+    if (e && e.state === 'queued') { e.state = 'rejected'; e.rejected = Object.assign({ at: new Date().toISOString() }, why); s.put(e); }
   });
 }
 
@@ -227,9 +237,60 @@ export function kvSet(key, value) {
   return tx('kv', 'readwrite', (s) => { s.put(value, key); });
 }
 
-/** All local lines as JSON Lines text (one hwline/v1 record per line). */
+// ---------- "Meine Zeilen": correct the text, delete ----------
+
+export function getLine(id) {
+  return tx('lines', 'readonly', (s) => req2p(s.get(id))).then((e) => e || null);
+}
+
+/** The entries of these ids that are still queued (re-read right before an upload commit). */
+export function stillQueued(ids) {
+  return tx('lines', 'readonly', async (s) => {
+    const out = [];
+    for (const id of ids) {
+      const e = await req2p(s.get(id));
+      if (e && e.state === 'queued') out.push(e);
+    }
+    return out;
+  });
+}
+
+/** Replace the record of a line (its text was corrected). The state is kept as it is
+ *  (a verified line stays verified: the same path was overwritten); a tombstone is left alone. */
+export function updateRecord(id, record) {
+  return tx('lines', 'readwrite', async (s) => {
+    const e = await req2p(s.get(id));
+    if (!isLive(e) || record.id !== id) return false;
+    e.record = record;
+    s.put(e);
+    return true;
+  });
+}
+
+/** The line was removed from the dataset: keep the record, mark it as a tombstone. */
+export function markDeleted(id, info = {}) {
+  const now = new Date().toISOString();
+  return tx('lines', 'readwrite', async (s) => {
+    const e = await req2p(s.get(id));
+    if (!e) return false;
+    if (e.state !== DELETED) {
+      e.deleted = Object.assign({ at: now, from_state: e.state }, info);
+      e.state = DELETED;
+      s.put(e);
+    }
+    return true;
+  });
+}
+
+/** Local lines (not deleted) of one writer. */
+export async function linesOf(writerId) {
+  return (await allLines()).filter((e) => isLive(e) && e.writer_id === writerId);
+}
+
+/** All local lines as JSON Lines text (one hwline/v1 record per line). Deleted lines are
+ *  left out: the writer removed them so that they are not trained on. */
 export async function backupJsonl() {
-  const all = await allLines();
+  const all = (await allLines()).filter(isLive);
   all.sort((a, b) => (a.created_at < b.created_at ? -1 : 1));
   return all.map((e) => JSON.stringify(e.record)).join('\n') + (all.length ? '\n' : '');
 }

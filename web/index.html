@@ -11,6 +11,7 @@
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="library.css">
 <script src="config.js"></script>
 <script type="module" src="js/main.js"></script>
 </head>
@@ -94,7 +95,7 @@
 
       <div class="cap-write">
         <div class="cap-head">
-          <p class="progress"><span class="who-now" id="cap-writer"></span><span id="cap-progress">&nbsp;</span><span class="total" id="cap-total"></span></p>
+          <p class="progress"><span class="who-now" id="cap-writer"></span><span id="cap-progress">&nbsp;</span><a class="total" id="cap-total" href="#/zeilen" title="Meine Zeilen ansehen und bearbeiten"></a></p>
           <div class="pbar" aria-hidden="true"><span id="cap-bar"></span></div>
           <p class="prompt" id="cap-prompt" aria-live="polite">&nbsp;</p>
         </div>
@@ -282,6 +283,9 @@
     </div>
   </section>
 
+  <!-- Meine Zeilen: filled by js/library.js -->
+  <section class="view view-lines" id="v-zeilen" hidden></section>
+
   <!-- Settings -->
   <section class="view view-settings" id="v-einstellungen" hidden>
     <div class="settings">
@@ -301,6 +305,14 @@
             <button class="btn primary" id="wr-ok" type="submit">Hinzufügen</button>
           </div>
         </form>
+      </section>
+
+      <section class="group" aria-labelledby="g-lines">
+        <h2 id="g-lines">Meine Zeilen</h2>
+        <div class="row">
+          <p>Alles, was du geschrieben hast. Hier kannst du den Text einer Zeile korrigieren oder eine Zeile löschen.</p>
+          <div class="row-actions"><a class="btn" id="open-lines" href="#/zeilen"><span>Meine Zeilen</span></a></div>
+        </div>
       </section>
 
       <section class="group" aria-labelledby="g-look">
