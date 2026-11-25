@@ -48,6 +48,12 @@ async function run(browser, server, tag, viewport, dsf, colorScheme) {
   await page.waitForTimeout(100);
   await shoot(page, '03-capture-ink');
   await L.settle(page);
+  await page.click('#cap-clear');
+  await page.waitForTimeout(100);
+  await shoot(page, '03b-cleared-toast');
+  await L.settle(page);
+  await page.click('#cap-undo');
+  await L.settle(page);
   await page.click('#cap-done');
   await page.waitForSelector('#cap[data-state="confirm"]');
   await page.waitForTimeout(150);

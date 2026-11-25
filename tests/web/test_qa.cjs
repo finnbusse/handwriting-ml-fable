@@ -21,7 +21,9 @@ async function unit() {
   L.check('unit: out_of_bounds', qa.check({ text: 'a', strokes: [st(-3, 100)], canvas: [1000, 300] }).includes('out_of_bounds'));
   L.check('unit: pointercancel', qa.check({ text: 'a', strokes: [Object.assign(st(10, 100), { end: 'cancel' })], canvas: [1000, 300] }).includes('pointercancel'));
   L.check('unit: button_pressed', qa.check({ text: 'a', strokes: [Object.assign(st(10, 100), { buttons: 3 })], canvas: [1000, 300] }).includes('button_pressed'));
-  L.check('unit: low_rate below 100 Hz', qa.check({ text: 'a', strokes: [st(10, 100, 8, 2, 16.7)], canvas: [1000, 300] }).includes('low_rate'));
+  L.check('unit: low_rate at 60 Hz', qa.check({ text: 'a', strokes: [st(10, 100, 8, 2, 16.7)], canvas: [1000, 300] }).includes('low_rate'));
+  L.check('unit: low_rate at 120 Hz (frame-rate pointermove, the old defect)', qa.check({ text: 'a', strokes: [st(10, 100, 8, 2, 8.3)], canvas: [1000, 300] }).includes('low_rate'));
+  L.check('unit: no low_rate at 480 Hz', !qa.check({ text: 'a', strokes: [st(10, 100, 8, 2, 2.1)], canvas: [1000, 300] }).includes('low_rate'));
   L.check('unit: layout_changed', qa.check({ text: 'a', strokes: [st(10, 100)], canvas: [1000, 300], layoutChanged: true }).includes('layout_changed'));
   L.check('unit: every flag has a German hint', ['stroke_count_low', 'stroke_count_high', 'stray_stroke', 'out_of_bounds', 'pointercancel', 'button_pressed', 'low_rate', 'layout_changed'].every((f) => qa.HINTS[f]));
   const id = '3f0c9d1e-6c1b-4b0e-9a57-2d0a3c1f7e11';
@@ -83,6 +85,17 @@ async function writeLine(page, cdp, nStrokes, stray) {
     L.check('seq counts up within the session', recs.map((r) => r.seq).join() === '0,1,2' && new Set(recs.map((r) => r.session_id)).size === 1);
     L.check('prompts recorded in order', recs[0].prompt.text === t1 && recs[1].prompt.text === t2 && recs[2].prompt.text === t3);
     L.check('no page errors', errors.length === 0, errors.join(' | '));
+
+    // Without coalesced events the pen arrives at frame rate: the capture screen refuses to record.
+    const ctx2 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    await ctx2.addInitScript(() => { delete PointerEvent.prototype.getCoalescedEvents; });
+    const page2 = await ctx2.newPage();
+    await page2.goto(server.url + '#/erfassen');
+    await page2.waitForFunction(() => window.__hwReady);
+    await page2.waitForSelector('#cap[data-state="nocaps"]', { timeout: 5000 }).catch(() => {});
+    L.check('missing getCoalescedEvents: capture screen blocks with a hint', (await page2.getAttribute('#cap', 'data-state')) === 'nocaps'
+      && (await page2.isVisible('#nocaps-text')) && (await page2.textContent('#nocaps-text')).includes('Chrome'));
+    await ctx2.close();
   } catch (e) {
     console.error(e); L.check('test ran without exception', false, String(e));
   } finally {

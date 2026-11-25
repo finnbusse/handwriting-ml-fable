@@ -267,3 +267,4 @@ input[role="switch"]:checked::after { transform: translateX(24px); }
 }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.up-where, #up-rejected { margin-top: 14px; font-size: 15px; }
