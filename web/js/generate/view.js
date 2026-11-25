@@ -185,8 +185,8 @@ export function createGenerateView(deps) {
         let r;
         try {
           r = await ms.sync({
-            onStage: (stage) => {
-              if (stage === 'downloading') { if (had) S.info = { kind: 'updating', loaded: 0, total: 0 }; else showCard('downloading', {}); }
+            onStage: (stage, o = {}) => {
+              if (stage === 'downloading') { if (had) S.info = { kind: 'updating', loaded: 0, total: o.total }; else showCard('downloading', { loaded: 0, total: o.total }); }
               else if (had) S.info = { kind: 'verifying' }; else showCard('verifying');
               if (had) renderInfo();
             },
@@ -213,12 +213,19 @@ export function createGenerateView(deps) {
   const ink = () => INKS[S.settings.ink] || INKS.blueblack;
   const drawOptions = () => ({ scale: S.geo.scale, color: ink(), lineWidth: LINE_WIDTH });
 
-  /** Size the canvases to the page and the sheet; true when the bitmap size changed (= it is blank now). */
+  /** The page as shown and exported: widened when an unsplit piece sticks out past the right edge. */
+function framed(page) {
+  let right = page.width;
+  for (const w of page.words) right = Math.max(right, w.x + w.width + 3);
+  return right > page.width ? Object.assign({}, page, { width: right }) : page;
+}
+
+/** Size the canvases to the page and the sheet; true when the bitmap size changed (= it is blank now). */
   function fit() {
     const page = S.page;
     const cssW = el.paper.clientWidth;
     if (!page || !cssW) return false;
-    const cssScale = cssW / page.width;
+    const cssScale = cssW / framed(page).width;
     const cssH = Math.max(1, Math.ceil(page.height * cssScale));
     let ratio = window.devicePixelRatio || 1;
     let pw = Math.round(cssW * ratio), ph = Math.round(cssH * ratio);
@@ -416,7 +423,7 @@ export function createGenerateView(deps) {
   // ---------- export ----------
 
   function pngBlob() {
-    const page = S.page;
+    const page = framed(S.page);
     const scale = Math.max(12, Math.min(40, 2400 / page.width, 30000 / page.height));
     const canvas = toCanvas(page, { scale, color: ink(), lineWidth: LINE_WIDTH, background: '#ffffff' });
     return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), 'image/png'));
@@ -438,7 +445,7 @@ export function createGenerateView(deps) {
 
   function saveSvg() {
     if (!S.page) return;
-    const svg = toSVG(S.page, { scale: 12, color: ink(), lineWidth: LINE_WIDTH });
+    const svg = toSVG(framed(S.page), { scale: 12, color: ink(), lineWidth: LINE_WIDTH });
     download(new Blob([svg], { type: 'image/svg+xml' }), `handschrift-${stamp()}.svg`);
   }
 

@@ -47,7 +47,7 @@ async function newApp(browser, server, opts = {}) {
     if (opts.hf) {
       const r = await opts.hf(entry);
       if (r === 'abort') return route.abort('internetdisconnected');
-      if (r) return route.fulfill({ status: r.status, headers: Object.assign({ 'content-type': 'application/json' }, cors, r.headers || {}), body: r.body === undefined ? '{}' : (typeof r.body === 'string' ? r.body : JSON.stringify(r.body)) });
+      if (r) return route.fulfill({ status: r.status, headers: Object.assign({ 'content-type': 'application/json' }, cors, r.headers || {}), body: r.body === undefined ? '{}' : (typeof r.body === 'string' || Buffer.isBuffer(r.body) ? r.body : JSON.stringify(r.body)) });
     }
     return route.abort('connectionrefused');
   });

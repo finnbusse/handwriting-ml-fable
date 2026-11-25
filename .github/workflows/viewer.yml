@@ -1,0 +1,30 @@
+name: Übersicht im Dataset aktualisieren
+
+# Erzeugt aus den Rohaufnahmen die Tabelle für den Dataset Viewer auf Hugging Face
+# (Vorschaubild, Text, Schreiber). Läuft stündlich und tut nichts, wenn keine
+# neuen Zeilen dazugekommen sind.
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "41 * * * *"
+
+concurrency:
+  group: viewer
+  cancel-in-progress: false
+
+jobs:
+  viewer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      HF_TOKEN: ${{ secrets.HF_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python scripts/update_viewer.py

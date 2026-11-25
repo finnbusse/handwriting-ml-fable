@@ -150,7 +150,7 @@ export function createModelStore({ store = defaultStore, hf = defaultHf, fileTim
    * Look at the account's model repo and, if its model differs from the cached one,
    * download it, verify it and replace the cache.
    * Resolves { entry: {user, manifest, buffer}, trainedOn, changed } or throws ModelError.
-   * onStage('downloading' | 'verifying'), onProgress(loadedBytes, totalBytes).
+   * onStage('downloading', {total} | 'verifying'), onProgress(loadedBytes, totalBytes).
    */
   async function sync({ onStage, onProgress, signal } = {}) {
     const user = hf.userName();
@@ -168,7 +168,7 @@ export function createModelStore({ store = defaultStore, hf = defaultHf, fileTim
       }
       return { entry: mine, trainedOn, changed: false };
     }
-    if (onStage) onStage('downloading');
+    if (onStage) onStage('downloading', { total: manifest.bytes });
     const buffer = await downloadBin(repo, manifest, onProgress, signal);
     if (onStage) onStage('verifying');
     if ((await sha256Hex(buffer)) !== sha) throw new ModelError('checksum', 'sha256 differs from model.json');

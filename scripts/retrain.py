@@ -4,14 +4,15 @@ Colab notebook, and fine to run by hand.
     python scripts/retrain.py check     # is there anything new?  (exit code 0, prints needed=true/false)
     python scripts/retrain.py run       # train, compare, publish
 
-"New" means: the dataset `<user>/handwriting-fable` has a commit the published
-model has not been trained on (`trained_on.json` in the model repo records the
-dataset revision).  Training continues from the published checkpoint, uses ALL
+"New" means: the set of line files of the main writer in `<user>/handwriting-fable`
+differs from what the published model was trained on (`trained_on.json` in the
+model repo records a hash of that list).  Training continues from the published checkpoint, uses ALL
 recordings (old and new) and stops by itself when the held-out lines stop
 improving.  Needs HF_TOKEN.
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import subprocess
@@ -37,16 +38,17 @@ def api_and_repos():
 
 def state(api, dataset, model, token):
     info = api.dataset_info(dataset)
-    lines = sum(1 for s in info.siblings
-                if s.rfilename.startswith(f"raw/v1/{MAIN_WRITER}/") and s.rfilename.endswith(".json"))
+    files = sorted(s.rfilename for s in info.siblings
+                   if s.rfilename.startswith(f"raw/v1/{MAIN_WRITER}/") and s.rfilename.endswith(".json"))
+    digest = hashlib.sha256("\n".join(files).encode()).hexdigest()
     trained = {}
     try:
         with open(hf_hub_download(model, "trained_on.json", token=token), encoding="utf-8") as f:
             trained = json.load(f)
     except Exception:
         pass
-    return {"dataset_sha": info.sha, "lines": lines, "trained_sha": trained.get("dataset_sha"),
-            "trained_lines": trained.get("lines", 0)}
+    return {"dataset_sha": info.sha, "lines": len(files), "lines_sha256": digest,
+            "trained_lines_sha256": trained.get("lines_sha256"), "trained_lines": trained.get("lines", 0)}
 
 
 def out(key, value):
@@ -66,10 +68,12 @@ def summary(text):
 def check(args):
     api, dataset, model, token = api_and_repos()
     st = state(api, dataset, model, token)
-    needed = args.force or (st["dataset_sha"] != st["trained_sha"] and st["lines"] > 0)
+    new = st["lines"] - st["trained_lines"]
+    needed = args.force or (st["lines_sha256"] != st["trained_lines_sha256"] and new >= args.min_new)
     out("needed", "true" if needed else "false")
     summary(f"Aufnahmen im Dataset: {st['lines']} Zeilen, davon beim letzten Training bekannt: {st['trained_lines']}. "
-            + ("Es wird neu trainiert." if needed else "Nichts Neues, kein Training nötig."))
+            + ("Es wird neu trainiert." if needed else
+               f"Noch kein Training: Es lohnt sich erst ab {args.min_new} neuen Zeilen (oder von Hand mit 'force')."))
 
 
 def run(args):
@@ -98,6 +102,7 @@ def run(args):
     subprocess.run([py, "scripts/compare.py", best, "--out", image, "--threads", str(os.cpu_count() or 2)],
                    check=True, env=env)
     marker = {"dataset": dataset, "dataset_sha": st["dataset_sha"], "lines": st["lines"],
+              "lines_sha256": st["lines_sha256"],
               "date": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")}
     with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8") as f:
         json.dump(marker, f)
@@ -114,6 +119,7 @@ def main():
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("check")
     c.add_argument("--force", action="store_true")
+    c.add_argument("--min-new", type=int, default=20, help="retrain only when at least this many new lines exist")
     r = sub.add_parser("run")
     r.add_argument("--out", default="runs/retrain")
     r.add_argument("--epochs", type=int, default=24)

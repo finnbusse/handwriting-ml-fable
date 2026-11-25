@@ -105,6 +105,7 @@ body[data-inline] .tabs { opacity: .35; pointer-events: none; }
   .w-long { display: none; } .w-short { display: inline; } .tabs a { padding: 0 12px; }
   .waiting { width: 8.2em; justify-content: flex-end; padding: 0 8px; }
 }
+@media (max-width: 440px) { .bar { gap: 4px; } }   /* the bar must not be wider than a 412 px phone */
 .framed-note { margin: 0 var(--gutter) 12px; padding: 10px 14px; border-radius: 12px; background: var(--accent-soft); font-size: 15px; }
 
 main { flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -359,3 +360,7 @@ input[type="range"]:disabled { opacity: .4; cursor: default; }
   .paper { min-height: 200px; }
   .gen-export .btn { flex: 1 1 100%; }
 }
+.gen-go .btn { white-space: nowrap; padding: 0 14px; gap: 8px; }
+.gen-go .btn.primary { padding: 0 20px; }
+.ink { padding: 0 12px 0 10px; gap: 8px; font-size: 15px; }
+@media (min-width: 900px) { .gen-work { grid-template-columns: minmax(320px, 410px) minmax(0, 1fr); } }
