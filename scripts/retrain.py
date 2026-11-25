@@ -21,7 +21,8 @@ import tempfile
 
 from huggingface_hub import HfApi, hf_hub_download
 
-from hw.config import MAIN_WRITER
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the repo root, for "hw"
+from hw.config import MAIN_WRITER  # noqa: E402
 
 DATASET = "handwriting-fable"
 MODEL = "handwriting-fable-model"
