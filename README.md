@@ -54,16 +54,20 @@ Das Training braucht keine Grafikkarte; auf vier CPU-Kernen dauert ein Lauf
 etwa eine Stunde. Für den Zugriff auf die privaten Repos muss `HF_TOKEN`
 gesetzt sein.
 
-## Nachtrainieren mit neuen Zeilen
+## Übersicht aktualisieren und nachtrainieren
 
-Die GitHub-Aktion **Modell neu trainieren** (`.github/workflows/retrain.yml`)
-läuft einmal täglich. Sie trainiert nur, wenn im Dataset `handwriting-fable`
-neue Zeilen liegen, und legt das Ergebnis im Modell-Repo ab; die Web-App lädt
-es beim nächsten Öffnen. Über *Actions → Modell neu trainieren → Run workflow*
-lässt sie sich auch sofort starten.
+Beides hängt an einem Knopf: im GitHub-Repo unter *Actions → Übersicht
+aktualisieren und neu trainieren → Run workflow*. Der Lauf
 
-Einmalig nötig: im GitHub-Repo unter *Settings → Secrets and variables →
-Actions* ein Secret `HF_TOKEN` anlegen (Hugging-Face-Token mit Schreibrecht).
+1. erzeugt aus den Rohaufnahmen die Tabelle für den Dataset Viewer von
+   `handwriting-fable` (Vorschaubild, Text, Schreiber, Datum),
+2. trainiert das Modell neu, wenn mindestens 20 neue Zeilen dazugekommen sind
+   (mit dem Haken *force* auch bei weniger), und legt es im Modell-Repo ab; die
+   Web-App lädt es beim nächsten Öffnen.
+
+Es gibt keinen Zeitplan, der Lauf startet nur von Hand. Nötig ist das
+Repository-Secret `HF_TOKEN` (Hugging-Face-Token mit Schreibrecht). Als
+Ausweichweg gibt es `notebooks/nachtrainieren.ipynb` für Google Colab.
 
 ## Herkunft und Lizenzen
 

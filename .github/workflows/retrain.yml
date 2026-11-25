@@ -1,19 +1,18 @@
-name: Modell neu trainieren
+name: Übersicht aktualisieren und neu trainieren
 
-# Läuft jeden Tag einmal und trainiert nur dann, wenn im Dataset neue Zeilen
-# liegen. Über "Run workflow" lässt es sich auch von Hand starten.
-# Einmalig nötig: unter Settings > Secrets and variables > Actions ein Secret
-# namens HF_TOKEN anlegen (Hugging-Face-Token mit Schreibrecht).
+# Läuft nur, wenn es von Hand gestartet wird (Actions > dieser Eintrag > Run workflow).
+# 1. aktualisiert die Tabelle für den Dataset Viewer auf Hugging Face,
+# 2. trainiert das Modell neu, wenn mindestens 20 neue Zeilen dazugekommen sind
+#    (oder "force" angehakt ist), und legt es im Modell-Repo ab.
+# Braucht das Repository-Secret HF_TOKEN (Hugging-Face-Token mit Schreibrecht).
 
 on:
   workflow_dispatch:
     inputs:
       force:
-        description: Auch ohne neue Aufnahmen trainieren
+        description: Auch mit weniger als 20 neuen Zeilen trainieren
         type: boolean
         default: false
-  schedule:
-    - cron: "23 3 * * *"
 
 concurrency:
   group: retrain
@@ -36,7 +35,9 @@ jobs:
         run: |
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
-      - name: Gibt es neue Aufnahmen?
+      - name: Übersicht im Dataset aktualisieren
+        run: python scripts/update_viewer.py
+      - name: Gibt es genug neue Aufnahmen?
         id: check
         run: python scripts/retrain.py check ${{ inputs.force && '--force' || '' }}
       - name: Trainieren, vergleichen, veröffentlichen
