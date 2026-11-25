@@ -55,9 +55,11 @@ PUNCT = ".,!?:;-()\"'/%+=&@€"
 T_BIGRAM, T_TRIGRAM, T_UMLAUT = 12, 5, 25
 T_CAPITAL, T_DIGIT, T_PUNCT, T_UMLAUT_CHAR = 30, 60, 20, 80
 MIN_POOL_OCC = 3
+CHAR_WEIGHT = 40        # a rare character is worth this many n-gram units (capitals, digits, signs)
+UMLAUT_CHAR_WEIGHT = 3  # lowercase ä ö ü ß as single characters
 NEAR_DUP = 0.6          # shared-word fraction above which two lines are near-duplicates
 EN_EVERY = 12           # one English line per 12 new lines
-UM_ASSUME = 3           # umlaut/ß characters a later slot of the block can still add
+UM_ASSUME = 2           # umlaut/ß characters a later slot of the block can still add
 
 _WORD = re.compile(r"[A-Za-zÄÖÜäöüß]+")
 _TOKEN = re.compile(r"[a-zäöüß0-9]+")
@@ -198,7 +200,10 @@ def main() -> int:
     uid = {u: i for i, u in enumerate(sorted(targets))}
     inv_t = [0.0] * len(uid)
     for u, i in uid.items():
-        inv_t[i] = 1.0 / targets[u]
+        w = 1.0
+        if u[0] == "c":
+            w = UMLAUT_CHAR_WEIGHT if u[1] in UMLAUT_LOWER else CHAR_WEIGHT
+        inv_t[i] = w / targets[u]
     have = Counter()
     for t in keep_texts:
         have.update(unit_counts(t))
@@ -276,6 +281,10 @@ def main() -> int:
             need_dig = max(0, 2 - b_dig)
             need_qe = max(0, 2 - b_qe)
 
+            # umlaut/ß characters the later German slots of this block can still add
+            future_cap = UM_ASSUME * sum(1 for j in range(slot + 1, BLOCK)
+                                         if (i + j - slot) % EN_EVERY != EN_EVERY - 1)
+
             def make(use_qe, use_dig, use_um):
                 def allowed(k):
                     if is_en[k] != want_en:
@@ -284,7 +293,7 @@ def main() -> int:
                         return False
                     if use_qe and need_qe and need_qe >= r - 2 and not qe[k]:
                         return False
-                    if use_um and um[k] < need_um - (r - 1) * UM_ASSUME:
+                    if use_um and um[k] < need_um - future_cap:
                         return False
                     return True
                 return allowed

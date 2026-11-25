@@ -1563,7 +1563,6 @@ Der Tunnel ist zwei Kilometer lang.
 Der Fluss teilt die Stadt in zwei Teile.
 Das Straßenschild ist abgeknickt.
 Die Haltestelle heißt Rathausplatz.
-Straße, Platz, Allee, Gasse und Weg
 Wir fahren über die Autobahn A9.
 Ich gehe heute zu Fuß zur Arbeit.
 Hier bin ich als Kind oft gewesen.
@@ -1793,7 +1792,6 @@ Packliste: Jacke, Schuhe, Zahnbürste
 To-do: Wäsche waschen, Müll rausbringen
 Notiz: Mittwoch Elternabend, 19 Uhr
 Rezept: 200 g Mehl + 100 g Zucker
-Tel.: 0351 / 123 45 67
 Raum 3.14, zweiter Stock, links
 Aufgabe 1 + 2 + 3 = fertig
 Zimmer 12 (Erdgeschoss), Gebäude B
@@ -1835,7 +1833,6 @@ Anreise: Freitag (ab 14 Uhr)
 Bitte mitbringen: Stift & Block
 Raumnummer: 4/12 (dritter Stock)
 Telefonnummer: 0171 / 234 56 78
-Name: Müller & Söhne
 Kosten: ca. 40 € pro Person
 Maße: 120 x 80 x 75 cm
 Gewicht: 2,5 kg (netto)
@@ -1861,7 +1858,6 @@ Zugnummer 1234, Gleis 6, Wagen 8
 Mein Code: 4711 (nicht weitersagen)
 Spielstand: 3:1 (Halbzeit)
 Die Ziffern 0-9 schreibe ich gern.
-Zahlen: 12, 34, 56, 78 und 90
 Uhrzeit: 08:15, 12:30, 17:45
 Postleitzahl: 01067 Dresden
 Heutiges Datum: 02.03.2026
@@ -1952,7 +1948,6 @@ Gebranntes Kind scheut das Feuer.
 Allzu viel ist ungesund.
 Die Wahrheit kommt ans Licht.
 Der Mensch wächst mit seinen Aufgaben.
-Qualität kommt vor Quantität.
 Ruhe bewahren und weitermachen!
 Geld allein macht nicht glücklich.
 Wer fragt, der führt.
@@ -2002,7 +1997,6 @@ Der Lehrer sagte: "Bitte ruhig sein!"
 Sie las: "Geöffnet von 9 bis 17 Uhr".
 Auf der Tür stand "Bitte klingeln".
 "Nicht so schnell!", rief der Vater.
-Das Lied heißt "Über den Wolken".
 "Tschüss, bis morgen!", rief das Kind.
 Die Frage "Warum?" hört man oft.
 Bitte schreibe "Ja" oder "Nein" auf.
@@ -2233,7 +2227,6 @@ Das weiße Kleid hängt im Schrank.
 Das Maß ist voll, jetzt reicht es!
 Einen schönen Gruß an deine Eltern!
 Wir schließen um 18 Uhr die Tür ab.
-Draußen scheint die Sonne, drinnen kühl.
 Das Spiel hat riesigen Spaß gemacht.
 Der Bach fließt langsam durchs Tal.
 Der Hund beißt nicht, er spielt nur.
@@ -2261,9 +2254,7 @@ Fußgänger haben an der Ampel Vorrang.
 Meine Großmutter backt gern Kuchen.
 Mein Großvater erzählt gern Geschichten.
 Die Großstadt ist laut und bunt.
-Zum Frühstück gibt es Weißbrot, Honig.
 Die weißen Wolken ziehen langsam vorbei.
-Vom Schweiß war das Hemd ganz nass.
 Das Floß treibt auf dem See.
 Es ist heißer als gestern.
 Der Fußboden ist frisch gewischt.
@@ -2337,9 +2328,7 @@ Ein Quäntchen Glück gehört dazu.
 Xylophon und Trommel stehen bereit.
 Xanten liegt am Rhein.
 Das Hemd gibt es in Größe XL.
-Gruppe X trifft sich um 10 Uhr.
 Am Tag X ist alles bereit.
-Frage X lässt sich leicht lösen.
 Das Xylophon hat 12 Klangstäbe.
 Yoga am Morgen tut gut.
 Das Ypsilon ist ein seltener Buchstabe.
@@ -2361,7 +2350,6 @@ Das Cello klingt tief und warm.
 Chili macht das Essen scharf.
 Der Chef ist heute nicht im Haus.
 Die Creme duftet nach Mandeln.
-Mein Cousin wohnt in Cottbus.
 Ein Cent ist die kleinste Münze.
 Beim Camping schlafen wir im Zelt.
 Der Cappuccino ist heiß und süß.
@@ -2434,7 +2422,6 @@ Kaffee, Kuchen, Kekse und Kakao
 Die Kinder bauen eine Sandburg.
 Lena, Tim, Anna und Paul sind da.
 Papa, Mama und Schwester sind daheim.
-Peter, Paul und Maria spielen Fußball.
 Sonne, Mond und Sterne am Himmel
 Ich war in Jena, Weimar und Erfurt.
 Wir fahren über Gera nach Zwickau.
@@ -2536,7 +2523,7 @@ Das Konto: 540,30 € im Plus
 Eintritt 4,50 €, für Kinder 2,50 €.
 Fahrkarte für 7 Tage: 32,40 €
 Zwei Stunden und 35 Minuten Fahrt
-Der Hund wiegt 28 kg und ist 5 Jahre.
+Der Hund wiegt 28 kg, ist 5 Jahre alt.
 Im Regal stehen 63 Bücher.
 Meine Oma wird 85 Jahre alt.
 Das Haus wurde 1936 gebaut.
@@ -2581,3 +2568,491 @@ en|The film lasts 97 minutes.
 en|Take bus 46 to the station at 6:30.
 en|There are 24 students in my class.
 en|Page 79, exercises 3 to 8.
+Löse die Gleichung: X + 4 = 9
+Wenn X = 3 ist, dann ist Y = 6.
+Aufgabe: X + 5 = 12, also X = 7
+2 mal X ist 14, also ist X = 7.
+Y = 2 + X, und X ist gleich 4.
+Zeichne die Achsen X und Y ein.
+Punkt A liegt bei X = 4 und Y = 2.
+Rechne: 3 x X = 21, also X = 7
+Für X = 5 ergibt sich Y = 11.
+Die X-Achse liegt waagerecht.
+Setze für X die Zahl 8 ein.
+Wie groß ist Y, wenn X = 10 ist?
+X + Y = 15 und X - Y = 3
+Das Xylophon hat zwölf Stäbe.
+Ich lerne Xylophon spielen.
+Xenon ist ein Edelgas.
+Xanten liegt am Niederrhein.
+Die Hose gibt es in L, XL und XXL.
+Hast du Größe XL oder lieber M?
+Yogamatte, Handtuch, Wasser mitbringen
+Die Yoga-Stunde beginnt um 18:00 Uhr.
+Yoga hilft mir beim Entspannen.
+Die Yacht gleitet über den See.
+Die Yucca-Palme braucht Licht.
+Y = 2 x X + 1 ist eine Gerade.
+Yoga macht mich ruhig und stark.
+Yoghurt mit Honig, bitte!
+Der Yeti ist nur ein Märchen.
+Das Quartier liegt direkt am Fluss.
+Das Quadrat hat vier gleiche Seiten.
+Die Qualle schwebt im Wasser.
+Der Quirl liegt in der Schublade.
+Der Quader hat 12 Kanten.
+Quelle: Heft Seite 12, Aufgabe 3
+Der Qualm zieht aus dem Schornstein.
+Qualität statt Quantität, bitte!
+Die Quote liegt bei 60 %.
+Ein Quäntchen Salz kommt noch dazu.
+Das Quartal endet im Juni.
+Mit Quitten kochen wir Gelee.
+Die Quittung ist im Briefkasten.
+Quatsch machen ist erlaubt!
+Der Quizabend beginnt um 20 Uhr.
+Die Querflöte klingt sehr weich.
+Quer durch den Wald, dann links
+Quedlinburg hat viel Fachwerk.
+Der Quadratmeter kostet 12 €.
+Quellwasser schmeckt am besten.
+Die Quaste hängt am Vorhang.
+Quark mit Leinöl und Pellkartoffeln
+Ein Quader aus Holz liegt im Garten.
+Das Quartett spielt heute Abend.
+Der Chor singt jeden Mittwoch.
+Chemie am Donnerstag in der 3. Stunde
+Mein Computer hat 16 Gigabyte.
+Der Clown balanciert auf einem Ball.
+Die Chance ist 50 zu 50.
+Das Cello steht neben dem Klavier.
+Chili con Carne mit Reis
+Die Creme ist gut für die Hände.
+Meine Cousine wohnt in Chemnitz.
+Camping am See mit Freunden
+Ein Cappuccino und ein Croissant, bitte.
+Die Chips sind im Küchenschrank.
+Cottbus liegt an der Spree.
+Das Comic liegt auf dem Sofa.
+Der Code lautet 4 7 1 1.
+Der Club trifft sich am Freitag.
+Das Curry ist mir zu scharf.
+Champignons in Rahmsoße schmecken gut.
+Der Chef lobt das ganze Team.
+Die Couch ist sehr bequem.
+Charakter zeigt sich im Alltag.
+Ein Container steht vor dem Haus.
+Die Chronik des Dorfes ist alt.
+Ja, gern, das mache ich!
+Jacke an, es ist kalt draußen.
+Jeder darf mitmachen.
+Jetzt aber schnell, wir sind spät dran!
+Jemand muss die Tür öffnen.
+Juni, Juli und August sind Ferienmonate.
+Januar, Februar und März sind kalt.
+Jedes Jahr fahren wir ans Meer.
+Junge Hunde brauchen viel Bewegung.
+Jubel brach im Stadion aus.
+Jeans, Pullover und Jacke einpacken
+Judo und Jiu-Jitsu sind Kampfsportarten.
+Jahrmarkt am Samstag auf dem Platz
+Jugendliche treffen sich im Park.
+Journalisten fragen nach den Plänen.
+Jongleure zeigen ihre Kunststücke.
+Jede Woche gehe ich einmal schwimmen.
+Jeden Tag ein bisschen besser werden
+Jonglieren lernt man mit Übung.
+Das Jahr hat 12 Monate, 52 Wochen.
+Jahrelang haben wir dort gewohnt.
+Jetzt ist es 7:10 Uhr, wir müssen los.
+Jule hat heute Geburtstag.
+Jörg wohnt im Nachbarhaus.
+Ärzte raten zu viel Bewegung.
+Ärger gibt es nur bei schlechtem Wetter.
+Ämter haben nur vormittags geöffnet.
+Eine Änderung im Plan ist nötig.
+Äpfel, Birnen und Pflaumen im Korb
+Ärmel hochkrempeln und anpacken!
+Ältere Menschen brauchen oft mehr Ruhe.
+Äußerlich wirkt er sehr ruhig.
+Ägypten hat eine alte Geschichte.
+Älter werden ist nicht schlimm.
+Äste und Zweige liegen im Gras.
+Ähnlich wie gestern wird es heute.
+Äpfel schmecken im Herbst am besten.
+Ärztliche Hilfe gibt es rund um die Uhr.
+Öl, Essig und Senf für die Soße
+Ölfarbe trocknet nur langsam.
+Österreich, die Schweiz und Deutschland
+Öffentliche Verkehrsmittel sind günstig.
+Ökologie ist heute ein wichtiges Fach.
+Öfen werden im Winter geheizt.
+Öffne bitte das Fenster einen Spalt.
+Ölgemälde hängen im Museum.
+Örtliche Vereine freuen sich über Hilfe.
+Öffnungszeiten: Mo-Fr 8-18 Uhr
+Ökostrom kommt aus Wind und Sonne.
+Ödland wird wieder grün.
+Überraschung! Alles Gute zum Geburtstag!
+Übermorgen fahren wir in die Berge.
+Überstunden sind diese Woche nötig.
+Übersicht: Alle Termine auf einen Blick
+Übernachtung mit Frühstück: 59 €
+Überweisung bitte bis Freitag erledigen.
+Überlege dir die Antwort in Ruhe.
+Übergang über die Straße: Vorsicht!
+Überschrift in der ersten Zeile
+Übersetzer arbeiten oft von zu Hause.
+Übermut tut selten gut.
+Übrig sind noch drei Stück Kuchen.
+Üben, üben und noch einmal üben
+Übers Wochenende bleiben wir daheim.
+Überall liegen Blätter im Garten.
+Übel ist mir nicht, nur müde.
+Überraschend schnell war alles fertig.
+Übermorgen ist Montag, der 5.
+en|Yoga class starts at six.
+en|The xylophone is in the music room.
+en|Quiz night is on Friday at 8.
+en|Can I have a cappuccino, please?
+en|Jack and Jill live in Jena.
+en|Choose your colour and size.
+Erst essen; dann wird gespielt.
+Heute Regen; morgen wieder Sonne.
+Ich komme gern; allerdings erst um 8.
+Der Zug ist schnell; der Bus billig.
+Zuerst Suppe; danach gibt es Kuchen.
+Er mag Tee; sie trinkt lieber Kaffee.
+Die Sonne scheint; es ist warm.
+Lesen, schreiben, rechnen; so lernt man.
+Nicht jetzt; vielleicht später.
+Erst Hausaufgaben; dann Fernsehen.
+Mo: Chor; Di: Sport; Fr: frei
+Das Wetter ist mies; wir bleiben drin.
+Tom & Anna fahren zusammen in Urlaub.
+Salz & Pfeffer stehen auf dem Tisch.
+Müller & Söhne, Gartenbau seit 1952
+Bed & Breakfast in Weimar buchen
+Kaffee & Kuchen um 15 Uhr
+Tisch & Stuhl: 40 € zusammen
+Fragen & Antworten zum Thema
+Ruhe & Erholung am See
+Wind & Wetter machen uns nichts aus.
+Eis & Schnee im Dezember
+Lesen & Schreiben lernen wir zuerst.
+Obst & Gemüse aus der Region
+Mail an uns: info@beispiel.de
+Mail an: familie@beispiel.de, danke!
+Anmeldung: kurs@beispiel.de
+Frag nach unter: anna.m@beispiel.de
+E-Mail: lukas@beispiel.de (vormittags)
+Büro: buero@beispiel.de, 0361 / 77 66
+Schreib an: kontakt@beispiel.de
+Schreib mir: lea@beispiel.net
+Meine Mail ist: hannah@beispiel.de
+Bitte per Mail: sport@beispiel.de
+Kontakt: bibliothek@beispiel.de
+Tickets: tickets@beispiel.de
+Fragen? Mail: info@chor-beispiel.de
+Treffen: gruppe@beispiel.de
+Mail: ben@beispiel.de oder Anruf
+Rückfragen an: lehrer@beispiel.de
+20 % Rabatt auf Schuhe und Taschen
+Nur noch 15 % Akku auf dem Handy.
+Die Steuer beträgt 19 % auf den Preis.
+7 % Mehrwertsteuer sind enthalten.
+100 % Baumwolle, bei 30 Grad waschen
+Die Hälfte sind 50 %, ein Viertel 25 %.
+Zinsen: 1,5 % pro Jahr
+Luftfeuchtigkeit: 65 %
+Ich habe 80 % der Aufgaben gelöst.
+Die Preise steigen um 3 % im Januar.
+98 % sind geschafft, nur 2 % fehlen.
+Nur 40 % der Kinder kamen zur Feier.
+Das Getränk hat 0 % Alkohol.
+Trinke 2 + 1 Liter Wasser am Tag.
+Kaffee + Kuchen = 6,50 €
+Plus und Minus: 5 + 3 - 2 = 6
+Rechne: 3 + 4 + 5 = 12
+10 + 10 = 20, und 20 + 20 = 40
+Ergebnis: 25 + 17 = 42
+7 + 8 = 15 und 15 + 5 = 20
+Mathe: 12 + 9 = 21
+Rechne: 100 + 50 + 25 = 175
+Brot + Butter + Käse = Abendessen
+2 + 2 = 4, und 3 x 3 = 9
+Gleis 3/4: Zug nach Leipzig
+Mo/Di/Mi: Chor; Do/Fr: Sport
+Und/oder: Beides ist erlaubt.
+Haus 12/B, zweiter Eingang
+Zimmer 4/17, Zugang über den Hof
+Er/sie/es sind Pronomen.
+1/2 Liter Milch und 1/4 Pfund Butter
+Seite 3/4 ist noch frei.
+Eis/Kuchen/Torte: Ihr habt die Wahl.
+Bus/Bahn: Fahrkarten im Verbund 28 €
+Mietzahlung 480 € / Monat
+Preis: 2,50 € / Stück
+Tempo 30 km/h in der Zone
+Hin/Rück: Fahrt 14,50 €
+Kinder/Erwachsene: 3 € / 6 €
+Tel. 0341 / 22 33 44
+Aufgabe 5/6 für morgen
+Mo-Fr 9-18 Uhr, Sa 10-14 Uhr
+Zeile 5-12 laut vorlesen
+E-Mail, T-Shirt und U-Bahn
+Rot-Grün-Blau sind die Grundfarben.
+Auf Wiedersehen - bis zum nächsten Mal!
+Montag-Freitag: geöffnet
+Die Fahrt Jena-Leipzig dauert 1 Stunde.
+Mutter-Kind-Gruppe, jeden Dienstag
+Hals-Nasen-Ohren-Arzt am Markt
+Das Spiel Rot-Weiß endete 2:2.
+Ein Zwei-Zimmer-Apartment mit Balkon
+Bitte Vor- und Nachnamen eintragen.
+Ein- und Ausgang sind getrennt.
+Dreh- und Angelpunkt der Stadt
+Ein Drei-Gänge-Menü für zwei Personen
+Wir sehen uns im Mai - oder im Juni.
+Einkaufs-, Putz- und Wäschetag
+Die 3-Zimmer-Wohnung ist 68 qm groß.
+Bring Brot, Käse & Wasser (2 Flaschen).
+Gibt's heute noch Kuchen?
+Wo ist's am schönsten? Natürlich daheim.
+Wie schmeckt's dir?
+Nur 'ne Minute, bitte!
+Ich hab's gleich fertig.
+Komm, wir geh'n zusammen.
+So 'n Wetter, schrecklich!
+Gib's mir, ich trag's nach Hause.
+Wie geht's den Kindern?
+Für 'nen Kaffee ist immer Zeit.
+Das macht's mir leicht.
+Wie war's im Urlaub?
+Heut' Abend gibt's Pizza.
+Ach, das war's dann wohl!
+en|Don't worry, it's not far.
+en|I'll bring bread & butter.
+en|Isn't it a nice day today?
+en|You're right, that's a good plan.
+en|They're coming at 7, aren't they?
+en|Mom's cake is the best!
+en|The shop's open 9-5, Mon-Sat.
+en|My e-mail is anna@example.com
+Der Läufer läuft täglich zehn Kilometer.
+Die Hühner picken Körner im Hof.
+Die grüne Wiese ist voller Blumen.
+Münzen klimpern in meiner Tasche.
+Das Lächeln der Kinder ist ansteckend.
+Draußen ist es kälter als drinnen.
+Drüben am Ufer liegt ein Boot.
+Die Fähre fährt von drüben ab.
+Der Fächer kühlt mein Gesicht.
+Ich nähte gestern einen Knopf an.
+Opa mähte am Samstag den Rasen.
+Das Außenthermometer zeigt 3 Grad an.
+Auf der Außenseite ist der Stoff rau.
+Fröhlich singen die Kinder im Chor.
+Frösche und Fische leben im Teich.
+Schnürsenkel zubinden, dann geht's los!
+Die Zähne sind weiß und gesund.
+Ein kühler Wind weht vom Meer her.
+Das Hühnerei ist noch warm.
+Die Dünen leuchten in der Abendsonne.
+Fälle wie dieser sind selten.
+Die Bühne ist bereit für das Konzert.
+Yoga am Strand bei Sonnenaufgang
+Yoga-Übungen für den Rücken
+Meine Yoga-Lehrerin ist sehr freundlich.
+Yoga, Laufen und Schwimmen sind gesund.
+Der Yak-Käse ist würzig und fest.
+Yoga um 7:30 Uhr, danach Frühstück.
+Yoga-Kurse gibt es montags und freitags.
+Die Yacht liegt seit Mai im Hafen.
+Für Y gilt: Y = 3 + X
+Quatsch beiseite, jetzt wird gelernt.
+Die Quittung für 24,90 € liegt bei.
+Quer durch die Stadt zum Quartier
+Der Quader ist 4 cm hoch.
+Der Qualm hing in der Luft.
+Xylophon-Unterricht: freitags um 15 Uhr
+Das Xylophon ist ein Schlaginstrument.
+Ältere Nachbarn grüßen freundlich.
+Äußerst freundlich war das Personal.
+Ändere bitte den Termin auf Dienstag.
+Äpfel pflücken im September
+Ähnliche Aufgaben lösten wir schon.
+Ärgere dich nicht über das Wetter.
+Öl, Mehl, Zucker und Eier einkaufen
+Österreich hat Berge und viele Seen.
+Öffentliche Bibliotheken sind kostenlos.
+Ökologisch einkaufen ist mir wichtig.
+Öfter mal ein Buch lesen!
+Östlich der Stadt liegt ein See.
+Örtliche Bäcker liefern Brötchen.
+Öffnungszeiten: 10-16 Uhr (Mo-Sa)
+Übungen für jeden Tag, ganz leicht
+Über die Brücke und dann links
+Überfüllte Busse sind morgens normal.
+Übertreibe es nicht mit dem Training.
+Überprüfe bitte noch einmal die Zahlen.
+Überhaupt keine Sorge, es wird gut.
+Übernachten kann man im Gästezimmer.
+Überlege, was du brauchst.
+Übers Wochenende regnet es viel.
+Übrigens habe ich Karten fürs Konzert.
+Üblicherweise essen wir um 18 Uhr.
+Übermäßiger Zucker ist ungesund.
+Erst die Suppe; dann der Nachtisch.
+Heute Pizza; morgen Salat; dann Braten
+Er kommt später; sie ist schon da.
+Es regnet; trotzdem gehen wir los.
+Eis essen; Sonne genießen; Pause machen
+Der Anfang war schwer; das Ende leicht.
+Ich lese gern; er spielt lieber Fußball.
+Das ist schön; das gefällt mir sehr.
+Heute Training; morgen Ruhetag
+Gestern Regen; heute Sonnenschein
+Mal sehen; vielleicht klappt es morgen.
+Mail an: lisa@beispiel.de bitte
+Kontakt: leitung@beispiel.de
+Schreib an: ben.k@beispiel.de
+Mail: frage@beispiel.de bitte
+Fragen an: marie@beispiel.de
+Kaffee + Milch + Zucker = mein Frühstück
+Zwei Stunden + 10 Minuten Pause
+Tee + Keks = ein schöner Nachmittag
+5 + 6 = 11, 6 + 7 = 13
+Training + Spiel = ein langer Tag
+9 + 9 = 18 und 18 + 18 = 36
+Rechne: 14 + 28 = 42
+Frühstück + Mittagessen + Abendessen
+Haus 3/5, Hofeingang links
+Gleis 7/8: der Zug nach Bonn
+Ein 1/4 Liter Milch, bitte.
+Vor/nach dem Essen: 2 Tabletten
+Schüler/innen melden sich bitte vorn.
+Du/Sie: Welche Anrede passt hier?
+Eltern/Kinder: Eintritt frei
+Sohn/Tochter: bitte hier eintragen
+Salz & Zucker & Mehl: alles aufgefüllt
+Obst & Gemüse im Angebot
+Schule & Beruf: Tipps für die Zukunft
+Spiel & Spaß am Samstag
+Tee & Gebäck gibt es gratis.
+Sonne & Wind: gutes Drachenwetter
+Papier & Stift liegen auf dem Tisch.
+30 % mehr Platz im neuen Büro
+Bei 60 % Akku kann ich noch arbeiten.
+Rabatt: 10 %, 20 % oder 30 %
+Nur 5 % haben die Aufgabe falsch.
+Heute gibt es 25 % Rabatt auf Mützen.
+en|Quiz and yoga on my day off.
+en|Please call me; I'll answer later.
+en|Tea & biscuits at four o'clock
+en|Yes, you may use my yellow pen.
+en|The yacht leaves at 9:00 sharp.
+Die Quittung steckt noch im Portemonnaie.
+Quark mit Erdbeeren schmeckt im Sommer.
+Aus dieser Quelle trinken die Wanderer.
+Quittengelee auf frischem Brot
+Am Quartalsende ist viel zu tun.
+Der Quizabend im Vereinsheim war lustig.
+Quer über den Hof liegt ein Brett.
+Ein Quadratmeter Rasen kostet 2 €.
+Die Quarkspeise ist schon aufgegessen.
+Qualitätsprodukte haben ihren Preis.
+Quitten duften herrlich im Herbst.
+Die Qualität des Stoffes ist sehr gut.
+Mein Xylophon steht im Wohnzimmer.
+Xylophon spielen macht mir Freude.
+Die XL-Pizza reicht für vier Personen.
+Hast du das T-Shirt auch in XXL da?
+Xylophonstunde am Mittwoch um 16 Uhr
+Yoga macht den Kopf frei.
+Nach dem Yoga trinke ich Tee.
+Beim Yoga atme ich ruhig und tief.
+Meine Yogamatte ist knallgelb.
+Im Yoga-Kurs sind wir zu zehnt.
+Yoghurt, Müsli und Obst zum Frühstück
+Yoga im Park beginnt um 9 Uhr.
+Die Yacht fährt morgen früh aus.
+Yoga jeden Mittwoch um 18 Uhr
+Am Yachthafen gibt es frischen Fisch.
+Yoga ist gut für den Rücken.
+Der Chor probt in der Aula.
+Chemie schreiben wir am Freitag.
+Der Computerraum ist ab 8 Uhr offen.
+Die Cafeteria hat heute Pizza.
+Chili und Paprika machen es scharf.
+Mein Cousin spielt Cello im Orchester.
+Camping am Fluss ist ein Abenteuer.
+Das Cello braucht neue Saiten.
+Die Chance auf Regen liegt bei 30 %.
+Der Chef hat Kuchen mitgebracht.
+Ärger mit dem Drucker, schon wieder!
+Die Ärztin hat mir Tee empfohlen.
+Äpfel gibt es heute im Angebot.
+Ältere Geschwister helfen den Kleinen.
+Äußere Einflüsse stören mich nicht.
+Der Ärmel ist an der Naht aufgegangen.
+Ändere bitte das Passwort.
+Ärztliche Sprechstunde: 8 bis 11 Uhr
+Ölwechsel am Freitag um 8 Uhr
+Ökostrom ist günstiger geworden.
+Öle für den Salat: Olive und Raps
+Öfter mal früh ins Bett gehen!
+Ökologisches Gemüse vom Markt
+Östlich von hier liegt ein Wald.
+Ölsardinen aus der Dose
+Übermorgen habe ich frei.
+Über die Wiese fliegen Schmetterlinge.
+Überall duftet es nach Kaffee.
+Üble Laune verfliegt beim Spazieren.
+Übernachten im Zelt ist toll.
+Übung 4 ist leicht, Übung 5 schwer.
+Überweisung am 1. Juli erledigt
+Überrasche deine Freunde mit Kuchen!
+Überlege in Ruhe, wir haben Zeit.
+Übergib bitte den Brief an Opa.
+Die Außentür klemmt schon wieder.
+Meine Füße sind müde vom Laufen.
+Die Kühe stehen am Zaun.
+Die Mühe hat sich wirklich gelohnt.
+Der Kühlschrank brummt leise.
+Die Fäden hängen lose am Ärmel.
+Die Fähre kommt in zehn Minuten.
+Das Lächeln der Verkäuferin war nett.
+Fröhliche Musik klingt durchs Haus.
+Der Schnürsenkel ist wieder offen.
+Meine Hüte liegen im Schrank.
+Die Münzen zähle ich später.
+Jeden Sonntag besuchen wir Oma.
+Ja, das passt mir gut.
+Juli und August sind meine Lieblingsmonate.
+Jetzt gibt es Kaffee und Kuchen!
+Jemand hat meinen Schirm mitgenommen.
+Jacke, Mütze und Handschuhe liegen bereit.
+Der Jahrmarkt ist vom 3. bis 6. Mai.
+en|Mum's tea is always too hot.
+en|Yoga helps me relax after work.
+en|The quiz was quite quick today.
+en|We went to Xanten last summer.
+Heute Nudeln; morgen gibt es Reis.
+Zuerst lesen; danach schreiben wir.
+Die Sonne scheint; der Wind ist kalt.
+Wir kaufen ein; ihr deckt den Tisch.
+Erst die Arbeit; dann das Vergnügen.
+Mal Regen; mal Sonne; mal beides
+Mama & Papa kommen morgen früh an.
+Brötchen & Käse & Tee zum Frühstück
+Spiel & Sport für alle Kinder
+Fisch & Chips gibt es am Hafen.
+Katze & Hund verstehen sich gut.
+Mail an: familie.k@beispiel.de
+Fragen an: gruppe.b@beispiel.de
+Mail: sophie@beispiel.de bis Montag
+Heute 15/16 Uhr: Probe im Saal
+Gleis 11/12, Wagen 3, Platz 40
+Bei 0/1 gibt es kein Ergebnis.
+Eis 2,50 € / Kugel
