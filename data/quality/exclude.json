@@ -1,0 +1,1131 @@
+{
+ "_about": "Recordings that must not be used for training. 'sources' drops whole datasets; 'ids' drops single recordings. Grades come from a visual audit (two independent passes over all 1,713 candidate words, 2026-11-25): unusable = at least one pass saw a scrawl, a label mismatch or stray strokes; hasty = both passes found it rushed; borderline = one pass found it rushed.",
+ "sources": {
+  "handwriting-test": "early test recordings; the writer calls them careless",
+  "handwriting-test-v2": "early test recordings; the writer calls them careless"
+ },
+ "ids": {
+  "e773fc8d-0eaa-4cc4-89e9-96451e32f07e": {
+   "text": "Sicherheitskräfte",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "unusually tiny, cramped writing; letters hard to pick out; very small and rushed, ä and ft ending cramped"
+  },
+  "ca9900f3-7cee-44d1-b4d6-3195835deb2a": {
+   "text": "zulässige",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "hasty, ä/ss/ig letters run together"
+  },
+  "a8c260bc-6d17-4730-99f6-2c169a3c8c30": {
+   "text": "Weiterbildung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "hasty and slurred, the 'ldung' ending is a wave; small and slurred, d/u/ng blend into waves"
+  },
+  "04ad82bc-5167-48b3-bcc6-f8391de71657": {
+   "text": "Bewältigung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "rushed, 'ältigung' letters slurred together; slurred ending, ä/l/t/ig/ung are ambiguous"
+  },
+  "94f1a205-ac2c-472a-bb07-8e46efc3dd31": {
+   "text": "Steuerreform",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "slurred, 'eu' reads like 'en', 'rr' and 'orm' run together; hasty, e/u/rr and rm ending slurred"
+  },
+  "57ba54de-c738-4ad4-a644-c3cfcaeebebb": {
+   "text": "Prinz",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "the 'z' is only a flat dash and 'n' is a loose wave; i/n/z collapse into a wave, z is just a stroke"
+  },
+  "bf14d88c-0096-4261-8ff4-32f90d38cdb2": {
+   "text": "Persönlichkeiten",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and rushed, 'lichkeiten' squeezed; small and rushed, lichkeiten slurred"
+  },
+  "774ae948-97ee-487b-94c0-55314fee38ed": {
+   "text": "Tagesordnung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "hasty, 'dnung' slurred into waves; hasty ending, dnung blends together"
+  },
+  "3dc0c4fa-ccab-485a-8ae2-c136514c54c9": {
+   "text": "ging",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "'i' and 'n' are loose and ambiguous, with a stray dot far above; still readable"
+  },
+  "bfeb86d1-f873-4883-8fba-4724ed1cb0f8": {
+   "text": "eingeschlafen",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "tiny, cramped writing, 'schla' hard to pick out"
+  },
+  "83e3a952-12d6-4046-823d-6e8b012729f6": {
+   "text": "Büros",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "letters widely scattered, 'r' tiny and the umlaut dots far off; deformed 'o' and 's'; o and s tiny and widely spaced, uneven"
+  },
+  "7c880305-5c5b-43d5-ae8e-eb9e75f6e872": {
+   "text": "Wissenschaftler",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and hasty, the middle letters are crammed; tiny writing, ending ftler rushed"
+  },
+  "56e74bd4-9999-45bd-86c0-c4654f6a6b48": {
+   "text": "künftige",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "ftig letters slurred and ambiguous"
+  },
+  "e21628b4-6c49-4250-936a-602fa07f322c": {
+   "text": "Verzögerung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "rushed, 'gerung' slurred into a wave; slurred ending, ung/g hasty"
+  },
+  "7068dae9-a2f4-4462-a727-d8a8ab87257f": {
+   "text": "Beruhigungsmittel",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "tiny, cramped writing, the middle is hard to read; unusually tiny writing, cramped, still readable"
+  },
+  "fcd59634-56ff-4d8f-902f-43693540c242": {
+   "text": "Unterhaltung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "hasty, 'rhaltung' letters crash together; rushed ending, ltung runs together"
+  },
+  "74e15461-e78f-414f-a2fe-2703625af63b": {
+   "text": "Verlängerung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "rushed, 'gerung' slurred into waves; hasty, slurred; umlaut and ng-ung ending run together"
+  },
+  "e9b9bfb8-6a7a-4cb2-97cc-ae0c4af449fc": {
+   "text": "Ablehnung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "'hnung' melts into a wave; legible but hasty; h-n-u-n-g slurred into waves"
+  },
+  "2587fdc8-ecc5-41b5-915d-579f99c426d8": {
+   "text": "Prozentpunkte",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "unusually tiny and rushed; unusually tiny, cramped writing"
+  },
+  "628ef101-4211-4961-9073-ce1375c8b069": {
+   "text": "Präsident",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "hasty, 'sident' slurred and the umlaut is ambiguous; small and hasty, d-e-n-t slurred"
+  },
+  "f5f9e61e-3cd3-4499-95e6-db3120824dfd": {
+   "text": "Landwirte",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "ending reads like 'k', te not clearly formed"
+  },
+  "d90392c9-1059-4559-835e-d9a32645a491": {
+   "text": "Gymnasium",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "'mnasium' is a slurred wave, individual letters ambiguous; ending -nasium slurred into waves"
+  },
+  "c9351b3f-67c6-491e-b151-414135394ea8": {
+   "text": "zum Beispiel",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and cramped, 'Beispiel' squeezed; small, cramped, Beispiel hasty"
+  },
+  "10588d2a-2825-4f98-9904-d0cc9fbcbed7": {
+   "text": "Ergänzung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "hasty, 'änzung' slurred and the umlaut is ambiguous; hasty, umlaut and -nzung slurred"
+  },
+  "f0d68bc4-4389-453d-b202-040284c88077": {
+   "text": "gibt's",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "apostrophe and 's' float far from the word, uneven spacing; still readable"
+  },
+  "c32b0ca7-aba0-4dd2-9b4e-542d6da76c90": {
+   "text": "Gymnasium",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "microscopic writing in a mostly empty cell, plus a stray dot at the bottom; microscopic writing, illegible at normal scale, stray dot below"
+  },
+  "318588d2-1f45-4938-bffb-4bc114b53a67": {
+   "text": "Weißrussland",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "hasty, the 'ß' is a deformed 'B'-like shape and 'sland' is slurred"
+  },
+  "bae2be4d-ab11-4a64-98b9-cd1e93d39801": {
+   "text": "Verabschiedung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "rushed, 'schiedung' slurred into waves"
+  },
+  "166108bf-9ce5-476f-bef5-7c9777a8a636": {
+   "text": "Nachholbedarf",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "small and cramped, 'holbedarf' letters tiny"
+  },
+  "f41ad393-d664-4200-b156-d8c9abc7cb9f": {
+   "text": "Bestimmung",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "hasty, 'timmung' slurred, 'B' and 'e' deformed; hasty, letters in -immung merge"
+  },
+  "fe50e172-aa80-407c-b56a-220fc6926001": {
+   "text": "beschädigt",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "slurred ä-d-i, hasty"
+  },
+  "01341973-d89c-412b-8e02-84586ab70fa7": {
+   "text": "Vorschlag",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "gap inside word, l and a split awkwardly"
+  },
+  "2ec2de97-83e6-4924-a934-08361cdd7a48": {
+   "text": "Feuerwehrmänner",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "unusually tiny and compressed, letters hard to separate; very small and cramped"
+  },
+  "5ac63133-0aaf-46c0-bf0b-e55a6f70b2c3": {
+   "text": "abgeschlossen",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "small, hasty"
+  },
+  "58fd95cb-75cb-4d1e-8086-1771cdb29797": {
+   "text": "zusammengefasst",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "unusually tiny, cramped writing; letters in 'zusammen' hard to separate; tiny, cramped, letters hard to separate"
+  },
+  "2a99829f-2c0f-445c-9bd9-ae9a9e17d5cd": {
+   "text": "Praktika",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "k-i-k sequence collapses into 'hh'-like strokes; ambiguous letters"
+  },
+  "774d3405-d4b2-4980-8ae7-85b858f10915": {
+   "text": "Genehmigung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "hasty, -migung slurred"
+  },
+  "8c462a4a-3bc2-4afc-b65d-a2952aaebb3f": {
+   "text": "optimal",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "microscopic writing in an otherwise empty cell plus a stray dot below; microscopic writing, unusable, stray dot below"
+  },
+  "09e8f708-74bc-4e86-be26-ae5474aa2a50": {
+   "text": "Schwangerschaft",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "small and hasty"
+  },
+  "9be7c103-3a93-4007-bc55-02a5a8101f30": {
+   "text": "berücksichtigt",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and cramped, ü dots/'chs' letters run together; small, ü and -sichtigt slurred"
+  },
+  "c389d292-5f48-453c-b85e-ce9772a76056": {
+   "text": "Ermittlungsverfahren",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "very small, tightly packed; 'mittlungs' letters blur; very small, cramped"
+  },
+  "47f69cf3-f756-414f-af4e-5e58e944128d": {
+   "text": "Übernahme",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "microscopic writing in empty cell, stray dot far below; microscopic writing, unusable, stray dot below"
+  },
+  "9ed80144-68e0-423a-8220-4ecc088bce5b": {
+   "text": "jeder",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "stray dot at top left; d looks like 'cl'; stray dot at left, wobbly j"
+  },
+  "9f8ba8e2-a04f-44dd-a0df-9a1cf9a3cdd4": {
+   "text": "nutzt",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "n and u shapes nearly identical (looks like 'uuhzt'), final z/t crashing; u-t-z merged, z reads as crossed t"
+  },
+  "3f2ba6f9-4201-4c0c-b332-259f3c97b6d7": {
+   "text": "bürgerlichen",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "microscopic writing in empty cell, unusable scale; microscopic writing, unusable"
+  },
+  "5464f931-69a4-4f04-b2bc-52f73efe8776": {
+   "text": "Einsatz",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "ending 'atz' reads like 'ah'; letters a/t/z merged; s-a-t-z slurred, ending ambiguous"
+  },
+  "b43ca939-71b6-435d-8aa5-9783b9a00b23": {
+   "text": "Krankenhäusern",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and cramped, umlaut and 'äusern' letters blurred; small and hasty, äu slurred"
+  },
+  "d66c2715-889f-4f6b-a1cf-edfcb54a9ee4": {
+   "text": "Untersuchungshaft",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small, narrow writing; 'chungsh' letters crowded; small, cramped"
+  },
+  "1172843e-a6f0-437a-bbd3-fbc7bb16a61c": {
+   "text": "Ermittlungsverfahren",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and tight, 'mittlungs' blurred; very small, cramped"
+  },
+  "05f05a9b-9920-4b60-a554-c7e2cab17e98": {
+   "text": "Kreativität",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "'reativ' hasty: a/t/i/v ambiguous, i-dot/ä umlaut weak"
+  },
+  "403fac76-457e-43d6-87fa-789085e5021a": {
+   "text": "unheimlich",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "hasty, letters u-n-h-e-i-m-l-i-c-h run together into a wave, but still readable"
+  },
+  "5e27c95d-ae8f-420e-a414-880e222d42bb": {
+   "text": "Serbien",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "tiny writing in nearly empty cell with stray dot at right; tiny word in a large empty cell plus a stray dot at the right that does not belong to the word"
+  },
+  "ccc7f550-3f5d-4b43-88d5-71b87923a5aa": {
+   "text": "zeitgenössischen",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "small and compressed, ö/ss/sch letters run together"
+  },
+  "b225e2d4-2c78-444c-ba47-1a61f0a1bf58": {
+   "text": "schwimmen",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "slurred m-m-e-n ending, a bit rushed and wobbly"
+  },
+  "ed9e9abf-64c8-4edc-a7bc-43b815be1ee1": {
+   "text": "Teufelskreis",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "ending 'kreis' hasty, r/e/i/s reduced to dots and ticks; rushed and small ending, 'kreis' letters crammed with a stray dot-like stroke; close to the BAD example but still readable"
+  },
+  "3de47b57-d5e3-4974-ab85-b43758e6a369": {
+   "text": "Begrüßung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "ß and ung hastily written, ß looks like P; readable"
+  },
+  "871be134-3cbb-4115-8386-037b497edb4f": {
+   "text": "größeren",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "ß drawn like a P, ö dots ambiguous, hasty ending"
+  },
+  "43a12899-6cbb-42a7-aee7-15cc1e6ffa63": {
+   "text": "leider",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "final r runs to the right edge and appears clipped; d like 'cl'; last letters d-e-r wobbly and the r is cut at the right edge"
+  },
+  "8df1d0b0-172b-468f-a480-d1519360e396": {
+   "text": "Nationalpark",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "fast and slurred, letters a-l-p-a-r-k merge"
+  },
+  "cb15db6c-4722-4b4d-9041-6e52ef7b2f58": {
+   "text": "Programm",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "rushed, final m-m is a wave"
+  },
+  "d807386c-db4a-41d1-9d56-e032cc871131": {
+   "text": "veröffentlichten",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "unusually small writing, tight letters"
+  },
+  "99446902-e4da-49f7-b543-a53c5e10c763": {
+   "text": "Politik",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "final k clipped or hasty at the right edge, i-k strokes slurred"
+  },
+  "82376849-1a10-443e-8ed7-2eece5bdd655": {
+   "text": "während",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "slurred wave for r-e-n-d, umlaut dots missing or hard to see"
+  },
+  "ce78f314-ed0c-493a-aff9-18027b1144ee": {
+   "text": "erreichbar",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "hasty, r-r-e-i-c-h merge into waves"
+  },
+  "068bc559-b7f5-490a-8aaa-ea599cee3f6d": {
+   "text": "Finanzkrise",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "rushed, n-z-k-r letters crowded and ambiguous"
+  },
+  "6fd8e1f4-53c3-4271-88ed-07c652fd5129": {
+   "text": "Bezeichnung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "slurred, i-c-h-n-u-n-g run together"
+  },
+  "72e30b74-25eb-41a0-af0a-a922e22aa9de": {
+   "text": "Römer",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "R is very deformed and the umlaut dots over o seem missing; rest legible"
+  },
+  "91a3ca87-b4c9-4644-af3a-a1bf46e9e198": {
+   "text": "bemühte",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "umlaut dots on ü not visible, m-ü-h-t crowded"
+  },
+  "e4e50c4c-d4e2-47f6-b0ac-6c36187b735e": {
+   "text": "niemandem",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "unusually tiny and slurred, letters m-a-n-d-e-m run together; small and slurred, m-a-n-d-e-m wave"
+  },
+  "aac3b189-57cc-4a7b-81d2-286b04eacd60": {
+   "text": "Eva",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "E is an odd open stroke with a separate bar and the v-a are loose and large; readable but ambiguous"
+  },
+  "7f93bceb-2c20-46cc-a460-9d765ca59224": {
+   "text": "bestätigte",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "ending -gte slurred into a flat tail, g and t ambiguous"
+  },
+  "2249e715-6a2f-4731-a9ba-599e979a460a": {
+   "text": "Frankfurt am Main",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "tiny writing, hasty letters; very small writing with large gaps, 'Main' wobbly"
+  },
+  "6adb60fd-1c3d-4baa-9f6a-9a0b6a1b3762": {
+   "text": "Zusammenschluss",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and hasty, the -schluss ending melts into a wave; tiny and hasty, 'schluss' letters merge into a scrawl but still readable"
+  },
+  "d5f0ed27-530a-47ec-bb8e-6d423c97fe50": {
+   "text": "Einschränkung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "rushed, -kung ending slurred, small"
+  },
+  "039faeb1-effb-4356-ad2a-12894a6c0479": {
+   "text": "Hauses",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "final -es is an ambiguous hook, e and s merged"
+  },
+  "47e15801-42da-4cf1-8472-0acad151fe06": {
+   "text": "Prozentpunkte",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "small and cramped, 'punkte' letters tight"
+  },
+  "93abafd3-569e-46cf-9cf0-4fe598544b22": {
+   "text": "fertigen",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "t and i read as an h shape ('ferhgen'), ambiguous letters; t-i-g merge into 'hg', t looks like h, ambiguous letters"
+  },
+  "418e9d07-6ccb-47a1-b6c0-1670f738db8f": {
+   "text": "Vermarktung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "-ktung squeezed and slurred, k and t hard to separate"
+  },
+  "9e4c6470-87ed-4f1c-b4c1-a7b40ee53ce8": {
+   "text": "Kommunisten",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "mm-u-n-i run together as waves, hasty; hasty, m-m-u-n-i letters crowded and slurred"
+  },
+  "cdbab10a-0d4f-4229-b72e-c3c079f6b5c3": {
+   "text": "Aufregung",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "extremely tiny writing plus a stray dot far below; word still barely readable (borderline C); tiny word in a big empty cell with a stray dot below; writing scale unusable"
+  },
+  "9f388393-7f87-411a-9cc1-a5e1b3e6487a": {
+   "text": "geraten",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "r-a-t-e-n slurred into connected waves, hasty; rushed, slurred; r and a/t run together"
+  },
+  "5e942d1c-45a4-4c4d-8793-b7dd3e5aa0d4": {
+   "text": "Funktionäre",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "umlaut dots over a barely visible or missing; cramped"
+  },
+  "a4f271b9-2c61-4f39-a32b-551d2d08fa09": {
+   "text": "drängten",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "umlaut dots over ä missing; d reads as cl"
+  },
+  "49070c95-0a65-4b3a-8c79-2e90032e8c84": {
+   "text": "halte",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "tiny writing with stray dot at the right edge; tiny word in an almost empty cell plus a stray dot"
+  },
+  "788566cd-3b48-4fb7-9dfd-4f99d0b9e952": {
+   "text": "Erwachsene",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "hasty, -chsene ending melts into a wave"
+  },
+  "04fdb59c-a696-46d8-86df-1a5074aaa567": {
+   "text": "Vorjahreszeitraum",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and compressed, ending -raum slurred; very small and cramped; the end 'raum' is slurred"
+  },
+  "c632508b-1059-4c7b-9c2f-4f28da197a10": {
+   "text": "Laura",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "u-r-a broken up and wobbly, r nearly detached"
+  },
+  "ef57a124-b983-4325-95e0-909aafcae270": {
+   "text": "breiten",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "tiny writing and a stray dot at right; tiny writing in an almost empty cell plus a stray dot"
+  },
+  "b5a761e6-5c50-4a52-813b-be4eaf0ff42c": {
+   "text": "Wahrnehmung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "hasty, h-n-e-h-m and -ung run together"
+  },
+  "9feecea6-b253-4720-915e-8c1e91462d72": {
+   "text": "allgegenwärtig",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "small and hasty; ä dots missing; 'gegenwärtig' slurred"
+  },
+  "743e4092-6c11-41cc-b902-c6edae55b2f7": {
+   "text": "ohne",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "extremely tiny with a stray dot lower down; tiny word in an almost empty cell plus a stray dot below"
+  },
+  "adee1120-023e-45ec-aaf1-e732161d46ae": {
+   "text": "Ermittlungsverfahren",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and cramped, double t/l letters crowded; small and cramped; the middle 'ttlungs' is crowded"
+  },
+  "5e1d3387-64b1-45f5-ac2e-bd2fa2047f4e": {
+   "text": "Einwände",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "no visible umlaut dots over the a; otherwise readable"
+  },
+  "d53d97b8-e31b-4ec0-bb82-e3afb1acbbad": {
+   "text": "Abkommens",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "ending 'mens' collapses into a scrawl; small"
+  },
+  "c0650ab4-06c2-4ede-96f8-55470241d0c6": {
+   "text": "Energiewirtschaft",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "small and cramped; 'wirtschaft' is tight"
+  },
+  "dd6eaa4d-c6c2-4d7c-ace3-91e8d261dd87": {
+   "text": "Säule",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "no visible umlaut dots over the a; a/u hasty"
+  },
+  "c0c47e2e-fcf8-4bb6-9a21-9488346e7246": {
+   "text": "Bundesinnenminister",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "unusually tiny writing, many minims (nnn, mini) hard to separate, but readable; small and cramped; 'innenminister' is crowded"
+  },
+  "8921a452-09b3-443d-a8f2-09be1361593b": {
+   "text": "Fußballer",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "microscopic scrawl in the cell, practically empty and too small to use; tiny word in an almost empty cell, practically illegible"
+  },
+  "0d24727b-3837-437b-a9b2-f7945f7712a7": {
+   "text": "Rheinland-Pfalz",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "small and cramped, letters in Rheinland run together, P looks like a sharp-s; small and hasty; R reads like Nh; 'Pfalz' is rushed"
+  },
+  "0dc10f11-b407-432e-b346-04986c00ed9b": {
+   "text": "sinnlos",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "ending 'los' is rushed and detached, o and s are ambiguous squiggles; ending 'los' degenerates into loops (o and s unclear); could be near C"
+  },
+  "f9b22d7e-0443-4f63-b013-76fb7f3cdeee": {
+   "text": "schwierig",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "hasty and slurred; 'ie' and 'g' ambiguous; stray dot above"
+  },
+  "6dcbb9e4-ca21-4b25-8b9f-81d597283cc0": {
+   "text": "Globalisierung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "small and hasty, letters run together in a cursive chain (b-a-l-i-s-i-e)"
+  },
+  "ded1a3bf-f194-4428-bcc2-bea49c0587d5": {
+   "text": "Verständnis",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "no visible umlaut dots; final 'nis' rushed; umlaut dots on ä not visible, final 'nis' slurred"
+  },
+  "6f7e5d00-656a-4256-a975-e1fa62e8724f": {
+   "text": "Plätzen",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "no visible umlaut dots; tz crowded into 'tt'-like shape; ä dots not visible, 't'/'z' cluster ambiguous, letters crowd each other"
+  },
+  "c6b9976f-bf0f-4dff-a60b-e70a36871b13": {
+   "text": "Strahlung",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "'hlung' ending hasty and wavy, l/u/n/g hard to separate"
+  },
+  "057853a6-c65a-4e9a-b742-6118ac442d71": {
+   "text": "Zubereitung",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "microscopic writing at top of cell plus a stray dot below, effectively unusable; microscopic writing in a mostly empty cell plus a stray dot far below"
+  },
+  "e0a6825f-d7e8-4132-8d3c-bb0245ab5c7f": {
+   "text": "brauchen",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "tiny writing in a mostly empty cell plus a stray dot at right; not usable as a sample; tiny word in an otherwise empty cell, with a stray dot to the right"
+  },
+  "0642eb73-df39-4053-8c67-2ed1068f4512": {
+   "text": "Zuvor",
+   "source": "handwriting-v1",
+   "grade": "unusable",
+   "reason": "minuscule writing at the top of an otherwise empty cell, with a stray dot below; effectively empty; microscopic writing in an empty cell, with a stray dot below"
+  },
+  "dadf410a-a2d7-4211-bf0e-0d10e2a166d5": {
+   "text": "wissenschaftlich",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "unusually small and cramped, but readable letter by letter; unusually small and cramped, letters tightly packed though readable"
+  },
+  "1d6e4de9-86c4-4483-bf6e-ed5e25628f68": {
+   "text": "das",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "big, loose letters with an ambiguous d (reads like 'cl' plus an extra stroke) and wide gaps; still readable"
+  },
+  "d0994cd0-631e-4ac5-a120-65738c70ca0a": {
+   "text": "Fuß",
+   "source": "handwriting-v1",
+   "grade": "borderline",
+   "reason": "u is tiny and sits oddly under the baseline, ß is a loose ambiguous shape"
+  },
+  "40bb8d3a-04c5-44d7-a393-b1538a80e2fe": {
+   "text": "Ei",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "E is huge and the i is a detached hook far to the right; readable but oddly formed; E is huge and the i is just a small caret-like stroke, with no clear dot"
+  },
+  "2cb34a90-6a5f-4535-80c1-2d3b5372c7d2": {
+   "text": "trifft",
+   "source": "handwriting-v1",
+   "grade": "hasty",
+   "reason": "letters spaced apart and the ff/t cluster is spiky and loosely connected; readable; word breaks into separated fragments (tri / ff / t), letters are spaced and scrappy"
+  },
+  "9a56ff5f-98a7-4134-b14b-07cd26663a4d": {
+   "text": "001",
+   "source": "handwritten-numbers-codex",
+   "grade": "borderline",
+   "reason": "both zeros are lopsided and the second has a notch like a heart; digits still match"
+  },
+  "5364c59b-ec74-409b-bfd2-4d62bf3b52db": {
+   "text": "7358293",
+   "source": "handwritten-numbers-codex",
+   "grade": "borderline",
+   "reason": "small, hasty digits; 5/8/2 cramped and slightly ambiguous, still readable"
+  },
+  "65e49ef4-31a6-4702-8fe7-da0df721c638": {
+   "text": "83243571",
+   "source": "handwritten-numbers-codex",
+   "grade": "borderline",
+   "reason": "very small, cramped digits; 3/2/4 and 5/7 a bit ambiguous"
+  },
+  "affc0f6d-251b-4c57-9a41-8cc89fe2e5e7": {
+   "text": "2582",
+   "source": "handwritten-numbers-codex",
+   "grade": "hasty",
+   "reason": "last 2 is a flat L-like stroke, first 2 and 5 loosely formed; digits only barely readable; final 2 is flattened into an L-like stroke and 5/8 are hasty, still readable"
+  },
+  "e3e9801c-10ce-494c-a73e-0327039f1b13": {
+   "text": "Schultern",
+   "source": "v2testing",
+   "grade": "hasty",
+   "reason": "reads like 'Schulten'; the r before final n is unclear or missing; ending 'ern' is slurred and reads like 'ten'; letters crowd together"
+  },
+  "46b55cf6-2989-492b-8d97-a01a4f96bcc9": {
+   "text": "Scherz",
+   "source": "v2testing",
+   "grade": "unusable",
+   "reason": "hasty scrawl with big slashing S and trailing tail; c-h-e-r-z melt together and z is not identifiable; hasty, big loose S and trailing z stroke; middle letters 'her' slurred"
+  },
+  "3bf31c80-1a36-4e5e-ad9f-40ae9e0f8d33": {
+   "text": "sitzt",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "rushed, spiky t/z strokes crossing each other, stray dot above the s"
+  },
+  "4468fa8c-69bd-42a9-8e89-64817f9bae27": {
+   "text": "Erfolgen",
+   "source": "v3testing",
+   "grade": "unusable",
+   "reason": "writing is tiny, a fraction of normal size, plus a stray dot far below the word; writing is tiny, nearly empty cell, plus a stray dot far below the word"
+  },
+  "a91c3674-166b-4d1b-b896-bc5bcbfa5a12": {
+   "text": "Eines",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "E is a large odd loop, uneven; the i-dot is tiny and the 'nes' is cramped, but still readable"
+  },
+  "c43346d6-6158-48b4-a616-409db1e8dc70": {
+   "text": "Untersuchungshaft",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "unusually small and cramped; some letters in the middle are ambiguous"
+  },
+  "a15ee895-3b93-44fa-a339-44f3b4f48a4f": {
+   "text": "Wasserträger",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "umlaut dots over a are not visible, and the writing is somewhat hasty"
+  },
+  "39ca0748-d253-4f75-829f-aa70dfbdfd5d": {
+   "text": "Jahrhunderten",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "hasty and slurred; the 'd' and 'e' crash together, uneven baseline"
+  },
+  "fb7709d1-7706-4c40-ab17-d741e8cf9530": {
+   "text": "zitiert",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "second i and h merge ('zithert'), uneven; I hesitated between B and C"
+  },
+  "b7bc6ce1-22ff-4bb3-b373-e347147207fe": {
+   "text": "zukünftigen",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "middle 'ftig' compressed and slurred, 'ft' and 'i' hard to separate; 'ftigen' is rushed and the i after t looks missing or merged; I hesitated between B and C"
+  },
+  "f4958b82-6994-4fd4-b08e-32cd72fe85cb": {
+   "text": "Schleswig-Holstein",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "unusually small writing, letters cramped; unusually small writing, letters cramped"
+  },
+  "a766cfb1-6fce-4e6e-ab2c-2d2c669384c1": {
+   "text": "stößt",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "ß looks like a P and ö/ß/t run together; ambiguous letters; ß and t are ambiguous: the ß reads like a P and the last t is slurred ('stöPt')"
+  },
+  "1527befb-983d-4476-a4ce-6f5a1e9594fb": {
+   "text": "Fertigstellung",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small and hasty; the ending 'llung' is slurred"
+  },
+  "cc4ca326-d691-48f8-8030-e79319c19bde": {
+   "text": "Paket",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "'ake' squeezed, k/e ambiguous; the k and e are cramped and deformed; the a-k join is ambiguous"
+  },
+  "5dde50ce-dd0d-442a-9a55-64e34d9761d5": {
+   "text": "Medikamenten",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small and rushed; the middle 'ikamen' letters are cramped"
+  },
+  "72343dd4-345b-41ec-b727-95f07e01b69e": {
+   "text": "genießt",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "ß drawn like a P, ambiguous"
+  },
+  "5aa2c420-69a3-4327-8f7f-4929a12fdc45": {
+   "text": "zeitgenössischen",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small and hasty, ö/ss ambiguous"
+  },
+  "aed7ac06-0d42-42a1-adac-044f9785c105": {
+   "text": "Bundesfinanzministerium",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "very tiny writing, letters crammed; unusually tiny writing, long word compressed; readable but small"
+  },
+  "25457c8f-37a0-4d7e-b666-3f82842e15f3": {
+   "text": "Mönchengladbach",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "small, cramped, M and ö shape ambiguous; noticeably small and compressed, M and umlaut dots hasty"
+  },
+  "88d4c54e-4662-4f48-a89a-7005baf279ea": {
+   "text": "EU",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "E has detached stray top bar and a loose middle stroke; U oddly open, but still readable"
+  },
+  "d71b84ce-5907-4a20-8852-2d27821aa693": {
+   "text": "mit",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "m is a wide wobbly wave, i-stroke detached, uneven"
+  },
+  "1e9cd0fd-2ae1-4f79-9f99-ffe70909e75d": {
+   "text": "Bischofskonferenz",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "very small and cramped writing, final z hasty"
+  },
+  "f1358e8c-e924-4ac6-8520-95d3526f80bc": {
+   "text": "Services",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "final 'es' shrinks into a tiny trailing squiggle; the 'c' and 'e' are hard to tell apart"
+  },
+  "1e314539-7e54-4593-8166-08f3b07f5932": {
+   "text": "passende",
+   "source": "v3testing",
+   "grade": "unusable",
+   "reason": "writing is microscopic and the rest of the cell is empty apart from a stray dot below; microscopic word at top of cell, far too small to use, plus a stray dot at the bottom"
+  },
+  "0fd7af2b-40e3-4ce3-9bf9-efc73c47acbe": {
+   "text": "on",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "'o' is a large closed blob and 'n' is a detached V-shaped arch that looks like 'h'; legible but crude and oddly spaced"
+  },
+  "d7979a79-9a39-44ba-8818-3b2116bfc831": {
+   "text": "Wirtschaftsminister",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small, cramped; the letters crowd together in the middle (ftsmini)"
+  },
+  "973329dd-414c-40df-9dae-f352514d86d1": {
+   "text": "plus",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "letters are spread out and wobbly; 'u' and 's' are loose strokes and the final 's' trails off"
+  },
+  "addcfc02-847b-49c3-b6fd-6eea2acd87c7": {
+   "text": "Knoten",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "K is a V with no clear stem, and the 'n' arches run together in the middle"
+  },
+  "f42cad56-e37e-44ca-b4fc-7a993ccde706": {
+   "text": "Bei",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "capital B is traced twice (doubled, overwritten stroke) and the 'e' and 'i' sit far from it"
+  },
+  "3a817c9e-e40b-44fd-9f9b-96dabd384ff0": {
+   "text": "internationalen",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small, rushed slim letters; n/a/l shapes slightly ambiguous"
+  },
+  "d52994f7-ad52-4499-8d81-fa5cee624520": {
+   "text": "Vereinigten Staaten",
+   "source": "v3testing",
+   "grade": "unusable",
+   "reason": "written as 'Vereinigte Staaten'; the 'n' of 'Vereinigten' is missing, so it does not match the label; written 'Vereinigte Staaten': the n of 'Vereinigten' is missing, and the writing is small and cramped"
+  },
+  "c8f73116-2a27-4198-b900-6d4ef3f49826": {
+   "text": "Beratungsstellen",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "unusually small and squeezed; letters crowd together"
+  },
+  "d654fadc-8468-44e2-b058-8e776ccf8245": {
+   "text": "Leistungsnachweise",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "tiny and flat, hasty; middle letters slur together"
+  },
+  "fb51e6de-4d4f-41a4-aa8f-f11d73d7fcf7": {
+   "text": "eindeutige",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "t reads as h ('eindeuhige'); small hasty writing"
+  },
+  "8adf929a-18af-43fe-945b-9c9ee98ae608": {
+   "text": "Zustimmung",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "'mm' and 'ung' melt into a wave of arches, and the letters in that stretch are hard to tell apart"
+  },
+  "fd62cc80-b4d0-4ecf-a348-14b7e714c605": {
+   "text": "vermeintlichen",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small, slurred; m/e/i run together"
+  },
+  "f897d1b4-55eb-46b4-b44a-589b569016f2": {
+   "text": "amerikanischer",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "tiny, rushed; letters slur"
+  },
+  "dfd00a9a-1989-4c12-99ba-55de7c72d7c4": {
+   "text": "wünscht",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "umlaut dots over the 'ü' are missing and the 'n-s-c-h-t' run is slurred"
+  },
+  "7634a7f9-7f1e-4b7e-893b-da19637da57e": {
+   "text": "Tübingen",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "umlaut dots on the 'u' are missing or not visible, so it reads 'Tubingen'; the rest is clean; no umlaut dots visible over u; otherwise readable"
+  },
+  "3ee2f592-a4a1-4296-801b-86721c5de055": {
+   "text": "ausgeschaltet",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small and hasty; sch and t slurred"
+  },
+  "d82dbbdd-80ce-4b40-83c1-7b6f0b9663f8": {
+   "text": "Unternehmens",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "hasty, middle letters (ehm) run together, final s trails off"
+  },
+  "b00b2b3b-d73c-4f99-b491-dcafc2519995": {
+   "text": "Funk",
+   "source": "v3testing",
+   "grade": "unusable",
+   "reason": "nearly empty cell, only a tiny illegible scribble plus a stray dot; almost empty cell: only a tiny scribble and a stray dot"
+  },
+  "dc616862-f44d-42b6-a328-c5bbf9b621c3": {
+   "text": "wichtigsten",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small and hasty, c/h/t letters slurred into waves"
+  },
+  "5526fba6-c773-4c28-88c6-b6b4b9c4bfc3": {
+   "text": "enorm",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "o and rm loosely connected and wobbly, large gap in the word"
+  },
+  "5a8a025a-3505-4c05-9ab5-f6919fb80134": {
+   "text": "Leistungsnachweise",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "unusually tiny writing, readable; tiny and flat, rushed; letters in the middle slurred"
+  },
+  "02d33865-b092-43fc-aff7-7b81fa46af4a": {
+   "text": "Wissensvermittlung",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "very small and cramped, tail letters slurred; small, compressed; tt/l/ung slurred"
+  },
+  "97f9d666-5f2e-4ef5-8139-657d973fd9c5": {
+   "text": "aktivieren",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "k and t ambiguous (reads like 'akhvieren'), hasty; k and t merge ('akhvieren'), hasty"
+  },
+  "8557267f-27c3-4a7a-88cc-148c316766ad": {
+   "text": "Heinz",
+   "source": "v3testing",
+   "grade": "unusable",
+   "reason": "tiny illegible scribble in an otherwise empty cell, stray dot; nearly empty cell: only a tiny illegible mark plus a stray dot"
+  },
+  "71dc92dd-3731-41d6-9182-c58e837b3663": {
+   "text": "langfristige",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "t ambiguous (looks like h), end letters slurred"
+  },
+  "fa7d0899-5671-41f9-b68e-2f79d2473100": {
+   "text": "verabschieden",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "small and flat, a/b/s letters crowded; small, hasty; ab/sch letters crowd"
+  },
+  "478b6df2-994b-40c0-b0a9-59cf02f5a7b6": {
+   "text": "letzte",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "z written as k-like shape, cramped, reads 'letkte'"
+  },
+  "4ac0fdff-4bff-4172-aa29-1e05a7c14b0a": {
+   "text": "groß",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "g and ß are oversized, loopy and wobbly with a stray long tail; ß resembles f"
+  },
+  "27c9d229-0fa4-493c-9af8-de601d3f88b6": {
+   "text": "Kriminalpolizei",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "hasty, ends right at the right edge, final letters slurred"
+  },
+  "36f3fb2a-5fdc-4b50-b19e-1b0bc3a80e8d": {
+   "text": "griff",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "r looks like v, i and ff strokes spaced and wobbly, stray dot above"
+  },
+  "cc1fce18-a72d-4192-a6e0-db44474e58da": {
+   "text": "zurück",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "umlaut dots over the u not clearly visible; otherwise readable"
+  },
+  "b337a50b-34c9-4809-8ae0-528c748bf41a": {
+   "text": "Hauptversammlung",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "unusually tiny writing, middle letters melt together; unusually tiny, compressed writing, though still readable"
+  },
+  "6029a0c1-f5f6-4af6-be97-d9599b0bb31e": {
+   "text": "zukünftige",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "hasty, ü/n/f letters ambiguous; hasty, cramped letters (ü, n, f, t) somewhat slurred but readable"
+  },
+  "14a83324-7876-4aa0-9dd8-74461406a6c8": {
+   "text": "eine",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "e deformed into large loop, stray dot above, n/e crash together"
+  },
+  "f60211d4-921c-4b7d-bfca-df2e288cca05": {
+   "text": "Beeinträchtigungen",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "unusually tiny writing, readable but cramped; unusually tiny writing; letters small and crowded but readable"
+  },
+  "1685ecb7-2976-430c-9d25-705b2b74a517": {
+   "text": "Tagesordnung",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small and hasty, letters g-e-s-o-r-d-n-u-n-g run together and wobbly"
+  },
+  "1bce9d0f-a346-4950-89a9-14ae61828d28": {
+   "text": "unwahrscheinlich",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "unusually tiny, dense writing; u-n-w and e-i-n-l-i-c-h hard to separate but readable; very small, compressed writing; u/n/w minims blur together but word is readable"
+  },
+  "c67617ba-af5b-4485-9710-a1b21be75f2c": {
+   "text": "Nachhaltigkeit",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small, rushed; g-k-e-i-t crowded"
+  },
+  "4d6ef4db-e1c6-4553-9233-dc5d138171ef": {
+   "text": "Schauspielerin",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small and hasty; p-i-e-l-e-r-i-n letters crowded"
+  },
+  "018d35ea-83ed-41af-848f-be551f37d54c": {
+   "text": "Umsatzsteuer",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "last r clipped at right edge, a-t-z cramped; final r runs to the edge and looks clipped; 'ts' in the middle rushed"
+  },
+  "74537af7-5469-4e2e-ac5a-83e239ebc31f": {
+   "text": "Nationalsozialismus",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "tiny writing, long word, letters crammed though readable; tiny writing, final 'mus' letters crowded"
+  },
+  "2a971f30-aa77-4aee-b443-09869ff7e340": {
+   "text": "entsprechen",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "hasty, p-r-e-c-h slurred together"
+  },
+  "8e20c3a7-bb30-4440-a528-09fd905d7629": {
+   "text": "weiter",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "final r looks like s, i dot far away; ambiguous ending"
+  },
+  "4e0a2b7d-eba2-438f-b4b3-bfb23a1ec45d": {
+   "text": "Sanktionen",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "k and t merge so it reads as 'Sankhonen'; hasty"
+  },
+  "c5137023-784e-42ba-85f7-e473768de352": {
+   "text": "österreichische",
+   "source": "v3testing",
+   "grade": "borderline",
+   "reason": "small, hasty writing; 'reichi' letters crowded and umlaut dots tiny, still readable"
+  },
+  "843cd9cc-1290-45b1-8a77-3bf9342d9a6b": {
+   "text": "Beruhigungsmittel",
+   "source": "v3testing",
+   "grade": "hasty",
+   "reason": "very small and cramped long word, g-u-n-g-s-m-i-t-t-e-l slurred but readable; unusually tiny writing, letters cramped (uhig, ngsm), still readable"
+  }
+ }
+}
