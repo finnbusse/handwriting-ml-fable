@@ -26,6 +26,7 @@ import numpy as np
 import torch
 
 from . import dataset, sources
+from .base import ensure_base
 from .charset import BASE_CHARSET, DEFAULT_CHARSET, EXTRA_CHARS, Charset
 from .ink import Ink, contact_sheet
 from .model import SynthesisNetwork, extend_alphabet, load_state
@@ -179,6 +180,7 @@ def main(argv=None):
     torch.manual_seed(args.seed)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     os.makedirs(args.out, exist_ok=True)
+    ensure_base(args.base)
     with open(os.path.join(args.base, "stats.json")) as f:
         base_stats = json.load(f)
 
