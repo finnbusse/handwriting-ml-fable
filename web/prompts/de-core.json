@@ -975,13 +975,13 @@
 },
 {
 "id": "de-core-0163",
-"text": "10 + 10 = 20, und 20 + 20 = 40",
+"text": "Rechne: 100 + 50 + 25 = 175",
 "lang": "de",
 "block": 9
 },
 {
 "id": "de-core-0164",
-"text": "9 + 9 = 18 und 18 + 18 = 36",
+"text": "Frühstück 7:30; Mittag 12; Abend 18:30",
 "lang": "de",
 "block": 9
 },
@@ -993,37 +993,37 @@
 },
 {
 "id": "de-core-0166",
-"text": "Frühstück 7:30; Mittag 12; Abend 18:30",
-"lang": "de",
-"block": 9
-},
-{
-"id": "de-core-0167",
-"text": "X + Y = 15 und X - Y = 3",
-"lang": "de",
-"block": 9
-},
-{
-"id": "de-core-0168",
 "text": "Tel. 0365 / 48 97 36",
 "lang": "de",
 "block": 9
 },
 {
-"id": "de-core-0169",
+"id": "de-core-0167",
 "text": "Mo-Fr 9-18 Uhr, Sa 10-14 Uhr",
 "lang": "de",
 "block": 9
 },
 {
+"id": "de-core-0168",
+"text": "Geld zählen: 5 + 5 + 10 + 20 = 40",
+"lang": "de",
+"block": 9
+},
+{
+"id": "de-core-0169",
+"text": "Uhrzeit: 08:15, 12:30, 17:45",
+"lang": "de",
+"block": 9
+},
+{
 "id": "de-core-0170",
-"text": "Rechne: 100 + 50 + 25 = 175",
+"text": "Eis (Vanille) oder Kuchen (Apfel)?",
 "lang": "de",
 "block": 9
 },
 {
 "id": "de-core-0171",
-"text": "Eis (Vanille) oder Kuchen (Apfel)?",
+"text": "Büro: buero@beispiel.de, 0361 / 77 66",
 "lang": "de",
 "block": 9
 },
@@ -1035,43 +1035,43 @@
 },
 {
 "id": "de-core-0173",
-"text": "Büro: buero@beispiel.de, 0361 / 77 66",
-"lang": "de",
-"block": 9
-},
-{
-"id": "de-core-0174",
 "text": "Zahnbürste 2,95 €, Zahnpasta 1,85 €",
 "lang": "de",
 "block": 9
 },
 {
-"id": "de-core-0175",
+"id": "de-core-0174",
 "text": "Tel. 0341 / 22 33 44",
 "lang": "de",
 "block": 9
 },
 {
-"id": "de-core-0176",
-"text": "Abfahrt: 6:45 Uhr, Ankunft: 9:25 Uhr",
+"id": "de-core-0175",
+"text": "Aufgabe: X + 5 = 12, also X = 7",
 "lang": "de",
 "block": 9
 },
 {
-"id": "de-core-0177",
+"id": "de-core-0176",
 "text": "Die Hose gibt es in L, XL und XXL.",
 "lang": "de",
 "block": 9
 },
 {
+"id": "de-core-0177",
+"text": "Öffnungszeiten: 10-16 Uhr (Mo-Sa)",
+"lang": "de",
+"block": 9
+},
+{
 "id": "de-core-0178",
-"text": "Ein Schnäppchen für nur 7,77 €!",
+"text": "Ordner: Fotos_2025 (nicht löschen!)",
 "lang": "de",
 "block": 9
 },
 {
 "id": "de-core-0179",
-"text": "Heute: Äpfel (1 kg), Brötchen (6)",
+"text": "Heute: Äpfel 1,99 €, Birnen 2,29 €",
 "lang": "de",
 "block": 9
 },
@@ -1083,19 +1083,19 @@
 },
 {
 "id": "de-core-0181",
-"text": "Uhrzeit: 08:15, 12:30, 17:45",
+"text": "Adresse: Lindenweg 4, 07743 Jena",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0182",
-"text": "Mo: Lauf; Di: Pause; Mi: Rad; Do: Judo",
+"text": "Bestellung Nr. 6392, Lieferung am 5.7.",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0183",
-"text": "Bestellung Nr. 6392, Lieferung am 5.7.",
+"text": "Mo: Lauf; Di: Pause; Mi: Rad; Do: Judo",
 "lang": "de",
 "block": 10
 },
@@ -1113,13 +1113,13 @@
 },
 {
 "id": "de-core-0186",
-"text": "Adresse: Lindenweg 4, 07743 Jena",
+"text": "Abfahrt: 6:45 Uhr, Ankunft: 9:25 Uhr",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0187",
-"text": "Heute: Äpfel 1,99 €, Birnen 2,29 €",
+"text": "Punkt A liegt bei X = 4 und Y = 2.",
 "lang": "de",
 "block": 10
 },
@@ -1131,115 +1131,115 @@
 },
 {
 "id": "de-core-0189",
-"text": "Öffnungszeiten: 10-16 Uhr (Mo-Sa)",
-"lang": "de",
-"block": 10
-},
-{
-"id": "de-core-0190",
-"text": "Aufgabe: X + 5 = 12, also X = 7",
-"lang": "de",
-"block": 10
-},
-{
-"id": "de-core-0191",
-"text": "\"Heute Abend gibt's Pizza\", sagte Papa.",
-"lang": "de",
-"block": 10
-},
-{
-"id": "de-core-0192",
-"text": "Die Hälfte sind 50 %, ein Viertel 25 %.",
-"lang": "de",
-"block": 10
-},
-{
-"id": "de-core-0193",
 "text": "Zwei Kilo Äpfel für 3,98 €, bitte.",
 "lang": "de",
 "block": 10
 },
 {
+"id": "de-core-0190",
+"text": "Rabatt: 10 %, 20 % oder 30 %",
+"lang": "de",
+"block": 10
+},
+{
+"id": "de-core-0191",
+"text": "Heute: Äpfel (1 kg), Brötchen (6)",
+"lang": "de",
+"block": 10
+},
+{
+"id": "de-core-0192",
+"text": "Mo 8-16 Uhr, Di 9-17 Uhr, Mi frei",
+"lang": "de",
+"block": 10
+},
+{
+"id": "de-core-0193",
+"text": "\"Heute Abend gibt's Pizza\", sagte Papa.",
+"lang": "de",
+"block": 10
+},
+{
 "id": "de-core-0194",
-"text": "Geboren am 12.09.1987 in Jena",
+"text": "Rechne: 3 x X = 21, also X = 7",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0195",
-"text": "Für Y gilt: Y = 3 + X",
+"text": "Kinder/Erwachsene: 3 € / 6 €",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0196",
-"text": "Please call me; I'll answer later.",
+"text": "Page 79, exercises 3 to 8.",
 "lang": "en",
 "block": 10
 },
 {
 "id": "de-core-0197",
-"text": "Ordner: Fotos_2025 (nicht löschen!)",
+"text": "\"Wie geht's dir?\", fragte die Nachbarin.",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0198",
-"text": "Hast du das T-Shirt auch in XXL da?",
+"text": "Ein Schnäppchen für nur 7,77 €!",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0199",
-"text": "Von 8:30 bis 12:45 Uhr bin ich im Büro.",
+"text": "Viele Grüße von Vera und Viktor.",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0200",
-"text": "Brötchen & Käse & Tee zum Frühstück",
+"text": "Yoga um 7:30 Uhr, danach Frühstück.",
 "lang": "de",
 "block": 10
 },
 {
 "id": "de-core-0201",
-"text": "Kinder/Erwachsene: 3 € / 6 €",
-"lang": "de",
-"block": 11
-},
-{
-"id": "de-core-0202",
-"text": "Gleis 5, Wagen 37, Platz 64",
-"lang": "de",
-"block": 11
-},
-{
-"id": "de-core-0203",
-"text": "Postleitzahl 99084, Erfurt",
-"lang": "de",
-"block": 11
-},
-{
-"id": "de-core-0204",
-"text": "Gruppe A: 9 Uhr; Gruppe B: 10 Uhr",
-"lang": "de",
-"block": 11
-},
-{
-"id": "de-core-0205",
 "text": "Rechne aus: 84 - 29 = 55",
 "lang": "de",
 "block": 11
 },
 {
+"id": "de-core-0202",
+"text": "Postleitzahl 99084, Erfurt",
+"lang": "de",
+"block": 11
+},
+{
+"id": "de-core-0203",
+"text": "Zugnummer 1234, Gleis 6, Wagen 8",
+"lang": "de",
+"block": 11
+},
+{
+"id": "de-core-0204",
+"text": "Die Hälfte sind 50 %, ein Viertel 25 %.",
+"lang": "de",
+"block": 11
+},
+{
+"id": "de-core-0205",
+"text": "Löse die Gleichung: X + 4 = 9",
+"lang": "de",
+"block": 11
+},
+{
 "id": "de-core-0206",
-"text": "\"Pst\", sagte Opa, \"das Baby schläft.\"",
+"text": "Mo/Di/Mi: Chor; Do/Fr: Sport",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0207",
-"text": "Zugnummer 1234, Gleis 6, Wagen 8",
+"text": "Bus 63 fährt um 5:48 und um 6:18.",
 "lang": "de",
 "block": 11
 },
@@ -1251,31 +1251,31 @@
 },
 {
 "id": "de-core-0209",
-"text": "Rabatt: 10 %, 20 % oder 30 %",
+"text": "Bring Brot, Käse & Wasser (2 Flaschen).",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0210",
-"text": "Mo/Di/Mi: Chor; Do/Fr: Sport",
+"text": "Gleis 5, Wagen 37, Platz 64",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0211",
-"text": "Punkt A liegt bei X = 4 und Y = 2.",
+"text": "Von 8:30 bis 12:45 Uhr bin ich im Büro.",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0212",
-"text": "Mo 8-16 Uhr, Di 9-17 Uhr, Mi frei",
+"text": "Hals-Nasen-Ohren-Arzt am Markt",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0213",
-"text": "Anteil: 25 % (ein Viertel)",
+"text": "Liste: Tomaten, Gurken, Paprika & Salz",
 "lang": "de",
 "block": 11
 },
@@ -1293,31 +1293,31 @@
 },
 {
 "id": "de-core-0216",
-"text": "Bus 63 fährt um 5:48 und um 6:18.",
+"text": "Mein Opa (82) fährt noch Rad.",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0217",
-"text": "Kuchen (Apfel) oder Torte (Schoko)?",
+"text": "Hast du das T-Shirt auch in XXL da?",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0218",
-"text": "Qualität statt Quantität, bitte!",
+"text": "Sonderangebot! Nur 2,99 € / Stück",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0219",
-"text": "Gib einen Löffel Öl in die Pfanne.",
+"text": "Gruppe A: 9 Uhr; Gruppe B: 10 Uhr",
 "lang": "de",
 "block": 11
 },
 {
 "id": "de-core-0220",
-"text": "Page 79, exercises 3 to 8.",
+"text": "Please call me; I'll answer later.",
 "lang": "en",
 "block": 11
 },
@@ -1335,55 +1335,55 @@
 },
 {
 "id": "de-core-0223",
-"text": "Liste: Tomaten, Gurken, Paprika & Salz",
+"text": "\"Pst\", sagte Opa, \"das Baby schläft.\"",
 "lang": "de",
 "block": 12
 },
 {
 "id": "de-core-0224",
-"text": "Mein Opa (82) fährt noch Rad.",
-"lang": "de",
-"block": 12
-},
-{
-"id": "de-core-0225",
-"text": "Y = 2 + X, und X ist gleich 4.",
-"lang": "de",
-"block": 12
-},
-{
-"id": "de-core-0226",
-"text": "Gleis 3/4: Zug nach Leipzig",
-"lang": "de",
-"block": 12
-},
-{
-"id": "de-core-0227",
-"text": "Mein Cousin spielt Cello im Orchester.",
-"lang": "de",
-"block": 12
-},
-{
-"id": "de-core-0228",
-"text": "\"Wie geht's dir?\", fragte die Nachbarin.",
-"lang": "de",
-"block": 12
-},
-{
-"id": "de-core-0229",
 "text": "Im Stadion waren 38.450 Zuschauer.",
 "lang": "de",
 "block": 12
 },
 {
+"id": "de-core-0225",
+"text": "Nächster Termin: 3.12., 9:30 Uhr",
+"lang": "de",
+"block": 12
+},
+{
+"id": "de-core-0226",
+"text": "Mein Cousin spielt Cello im Orchester.",
+"lang": "de",
+"block": 12
+},
+{
+"id": "de-core-0227",
+"text": "Yoga-Kurs: dienstags um 18:30 Uhr",
+"lang": "de",
+"block": 12
+},
+{
+"id": "de-core-0228",
+"text": "Y = 2 x X + 1 ist eine Gerade.",
+"lang": "de",
+"block": 12
+},
+{
+"id": "de-core-0229",
+"text": "Gleis 3/4: Zug nach Leipzig",
+"lang": "de",
+"block": 12
+},
+{
 "id": "de-core-0230",
-"text": "Yoga-Übungen für den Rücken",
+"text": "Kuchen (Apfel) oder Torte (Schoko)?",
 "lang": "de",
 "block": 12
 },
 {
 "id": "de-core-0231",
-"text": "Viele Grüße von Vera und Viktor.",
+"text": "Yoghurt, Müsli und Obst zum Frühstück",
 "lang": "de",
 "block": 12
 },
@@ -1395,49 +1395,49 @@
 },
 {
 "id": "de-core-0233",
-"text": "Nächster Termin: 3.12., 9:30 Uhr",
-"lang": "de",
-"block": 12
-},
-{
-"id": "de-core-0234",
-"text": "Bring Brot, Käse & Wasser (2 Flaschen).",
-"lang": "de",
-"block": 12
-},
-{
-"id": "de-core-0235",
-"text": "Ein Cappuccino und ein Croissant, bitte.",
-"lang": "de",
-"block": 12
-},
-{
-"id": "de-core-0236",
 "text": "Übung 4 ist leicht, Übung 5 schwer.",
 "lang": "de",
 "block": 12
 },
 {
+"id": "de-core-0234",
+"text": "Ein Cappuccino und ein Croissant, bitte.",
+"lang": "de",
+"block": 12
+},
+{
+"id": "de-core-0235",
+"text": "Quark mit Leinöl und Pellkartoffeln",
+"lang": "de",
+"block": 12
+},
+{
+"id": "de-core-0236",
+"text": "Im Jahr 2026 feiern wir ein großes Fest.",
+"lang": "de",
+"block": 12
+},
+{
 "id": "de-core-0237",
-"text": "Rechnung Nr. 2026-18",
+"text": "Gib einen Löffel Öl in die Pfanne.",
 "lang": "de",
 "block": 12
 },
 {
 "id": "de-core-0238",
-"text": "Sonderangebot! Nur 2,99 € / Stück",
+"text": "Qualität statt Quantität, bitte!",
 "lang": "de",
 "block": 12
 },
 {
 "id": "de-core-0239",
-"text": "Yoghurt, Müsli und Obst zum Frühstück",
+"text": "Obst & Gemüse aus der Region",
 "lang": "de",
 "block": 12
 },
 {
 "id": "de-core-0240",
-"text": "Löse die Gleichung: X + 4 = 9",
+"text": "98 % sind geschafft, nur 2 % fehlen.",
 "lang": "de",
 "block": 12
 },
@@ -1449,13 +1449,13 @@
 },
 {
 "id": "de-core-0242",
-"text": "Quark mit Leinöl und Pellkartoffeln",
+"text": "Der Raum (Nr. 8) ist abgeschlossen.",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0243",
-"text": "Öle für den Salat: Olive und Raps",
+"text": "Öfen, Töpfe, Pfannen und Löffel",
 "lang": "de",
 "block": 13
 },
@@ -1467,157 +1467,157 @@
 },
 {
 "id": "de-core-0245",
-"text": "Notiz: Mittwoch Elternabend, 19 Uhr",
+"text": "Yoga-Übungen für den Rücken",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0246",
-"text": "Ich bin 1,68 m groß und 59 kg schwer.",
+"text": "Notiz: Mittwoch Elternabend, 19 Uhr",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0247",
-"text": "Ärzte, Bäcker, Köche und Lehrer",
-"lang": "de",
-"block": 13
-},
-{
-"id": "de-core-0248",
-"text": "Obst & Gemüse aus der Region",
-"lang": "de",
-"block": 13
-},
-{
-"id": "de-core-0249",
-"text": "E-Mail: lukas@beispiel.de (vormittags)",
-"lang": "de",
-"block": 13
-},
-{
-"id": "de-core-0250",
-"text": "Rechne: 3 x X = 21, also X = 7",
-"lang": "de",
-"block": 13
-},
-{
-"id": "de-core-0251",
-"text": "Örtliche Vereine freuen sich über Hilfe.",
-"lang": "de",
-"block": 13
-},
-{
-"id": "de-core-0252",
 "text": "Zeichne ein Quadrat mit 6 cm Kante.",
 "lang": "de",
 "block": 13
 },
 {
+"id": "de-core-0248",
+"text": "Ärzte, Bäcker, Köche und Lehrer",
+"lang": "de",
+"block": 13
+},
+{
+"id": "de-core-0249",
+"text": "Am 27. und 28. Januar ist geschlossen.",
+"lang": "de",
+"block": 13
+},
+{
+"id": "de-core-0250",
+"text": "Örtliche Vereine freuen sich über Hilfe.",
+"lang": "de",
+"block": 13
+},
+{
+"id": "de-core-0251",
+"text": "Salz & Zucker & Mehl: alles aufgefüllt",
+"lang": "de",
+"block": 13
+},
+{
+"id": "de-core-0252",
+"text": "E-Mail: lukas@beispiel.de (vormittags)",
+"lang": "de",
+"block": 13
+},
+{
 "id": "de-core-0253",
-"text": "Öfen, Töpfe, Pfannen und Löffel",
+"text": "Öle für den Salat: Olive und Raps",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0254",
-"text": "Yoga um 7:30 Uhr, danach Frühstück.",
+"text": "Von Nürnberg nach Würzburg: 2 Stunden",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0255",
-"text": "Nach Norden geht es zur Nordsee.",
+"text": "Kleinbus mit 9 Plätzen, Preis: 135 €",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0256",
-"text": "Jack and Jill live in Jena.",
+"text": "Can I have a cappuccino, please?",
 "lang": "en",
 "block": 13
 },
 {
 "id": "de-core-0257",
-"text": "Aufgabe 8: 56 geteilt durch 7 ist?",
+"text": "Meine Oma wird 85 Jahre alt.",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0258",
-"text": "Übergang über die Straße: Vorsicht!",
+"text": "Wie groß ist Y, wenn X = 10 ist?",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0259",
-"text": "Die Chance auf Regen liegt bei 30 %.",
+"text": "Ältere Nachbarn grüßen freundlich.",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0260",
-"text": "Quark und Quitten vom Markt holen",
+"text": "Ein Quäntchen Glück gehört dazu.",
 "lang": "de",
 "block": 13
 },
 {
 "id": "de-core-0261",
-"text": "Ohne Fleiß kein Preis, sagt Opa.",
+"text": "Der Vortrag ist um 18:30 in Raum 204.",
 "lang": "de",
 "block": 14
 },
 {
 "id": "de-core-0262",
-"text": "Ältere Nachbarn grüßen freundlich.",
+"text": "Übernachtung mit Frühstück: 59 €",
 "lang": "de",
 "block": 14
 },
 {
 "id": "de-core-0263",
-"text": "Salz & Zucker & Mehl: alles aufgefüllt",
-"lang": "de",
-"block": 14
-},
-{
-"id": "de-core-0264",
-"text": "Eis/Kuchen/Torte: Ihr habt die Wahl.",
-"lang": "de",
-"block": 14
-},
-{
-"id": "de-core-0265",
-"text": "7 + 8 = 15 und 15 + 5 = 20",
-"lang": "de",
-"block": 14
-},
-{
-"id": "de-core-0266",
-"text": "Ein Quäntchen Glück gehört dazu.",
-"lang": "de",
-"block": 14
-},
-{
-"id": "de-core-0267",
-"text": "98 % sind geschafft, nur 2 % fehlen.",
-"lang": "de",
-"block": 14
-},
-{
-"id": "de-core-0268",
-"text": "Can I have a cappuccino, please?",
-"lang": "en",
-"block": 14
-},
-{
-"id": "de-core-0269",
 "text": "Die Wohnung hat 74 Quadratmeter.",
 "lang": "de",
 "block": 14
 },
 {
+"id": "de-core-0264",
+"text": "Die Chance auf Regen liegt bei 30 %.",
+"lang": "de",
+"block": 14
+},
+{
+"id": "de-core-0265",
+"text": "Ein Örtchen am Fluss ist mein Zuhause.",
+"lang": "de",
+"block": 14
+},
+{
+"id": "de-core-0266",
+"text": "Tisch & Stühle & Sofa im Angebot",
+"lang": "de",
+"block": 14
+},
+{
+"id": "de-core-0267",
+"text": "Die XL-Pizza reicht für vier Personen.",
+"lang": "de",
+"block": 14
+},
+{
+"id": "de-core-0268",
+"text": "Jack and Jill live in Jena.",
+"lang": "en",
+"block": 14
+},
+{
+"id": "de-core-0269",
+"text": "Quark und Quitten vom Markt holen",
+"lang": "de",
+"block": 14
+},
+{
 "id": "de-core-0270",
-"text": "Yoga-Kurs: dienstags um 18:30 Uhr",
+"text": "Äußere Einflüsse stören mich nicht.",
 "lang": "de",
 "block": 14
 },
@@ -1629,25 +1629,25 @@
 },
 {
 "id": "de-core-0272",
-"text": "Die XL-Pizza reicht für vier Personen.",
+"text": "Nach Norden geht es zur Nordsee.",
 "lang": "de",
 "block": 14
 },
 {
 "id": "de-core-0273",
-"text": "Äußere Einflüsse stören mich nicht.",
+"text": "Heute haben wir den 18. Oktober 2026.",
 "lang": "de",
 "block": 14
 },
 {
 "id": "de-core-0274",
-"text": "Überweisung am 1. Juli erledigt",
+"text": "Übergang über die Straße: Vorsicht!",
 "lang": "de",
 "block": 14
 },
 {
 "id": "de-core-0275",
-"text": "Obst & Gemüse im Angebot",
+"text": "Sie las: \"Geöffnet von 9 bis 17 Uhr\".",
 "lang": "de",
 "block": 14
 },
@@ -1659,157 +1659,157 @@
 },
 {
 "id": "de-core-0277",
-"text": "Ein Örtchen am Fluss ist mein Zuhause.",
+"text": "Öl und Essig gehören in die Küche.",
 "lang": "de",
 "block": 14
 },
 {
 "id": "de-core-0278",
-"text": "\"Nicht so schnell!\", rief der Vater.",
+"text": "Hast du Größe XL oder lieber M?",
 "lang": "de",
 "block": 14
 },
 {
 "id": "de-core-0279",
-"text": "Meine Oma wird 85 Jahre alt.",
+"text": "Überweisung am 1. Juli erledigt",
 "lang": "de",
 "block": 14
 },
 {
 "id": "de-core-0280",
-"text": "They're coming at 7, aren't they?",
+"text": "I'll bring bread & butter.",
 "lang": "en",
 "block": 14
 },
 {
 "id": "de-core-0281",
-"text": "Wenn X = 3 ist, dann ist Y = 6.",
+"text": "Kaffee + Milch + Zucker = mein Frühstück",
 "lang": "de",
 "block": 15
 },
 {
 "id": "de-core-0282",
-"text": "Üble Laune verfliegt beim Spazieren.",
+"text": "Luftfeuchtigkeit: 65 %",
 "lang": "de",
 "block": 15
 },
 {
 "id": "de-core-0283",
-"text": "Quer durch die Stadt zum Quartier",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0284",
-"text": "Im Urlaub fahren wir nach Österreich.",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0285",
-"text": "Eis essen; Sonne genießen; Pause machen",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0286",
-"text": "Meine Nummer endet auf 7458.",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0287",
-"text": "Im Jahr 2026 feiern wir ein großes Fest.",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0288",
-"text": "Die Küche riecht nach Zimt und Äpfeln.",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0289",
-"text": "Mein Code: 4711 (nicht weitersagen)",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0290",
 "text": "Ärztliche Sprechstunde: 8 bis 11 Uhr",
 "lang": "de",
 "block": 15
 },
 {
-"id": "de-core-0291",
-"text": "Öl und Essig gehören in die Küche.",
+"id": "de-core-0284",
+"text": "Eis essen; Sonne genießen; Pause machen",
 "lang": "de",
 "block": 15
 },
 {
-"id": "de-core-0292",
-"text": "I'll bring bread & butter.",
-"lang": "en",
-"block": 15
-},
-{
-"id": "de-core-0293",
-"text": "Übernachtung mit Frühstück: 59 €",
+"id": "de-core-0285",
+"text": "Mein Code: 4711 (nicht weitersagen)",
 "lang": "de",
 "block": 15
 },
 {
-"id": "de-core-0294",
-"text": "Chemnitz, Jena, Weimar und Halle",
+"id": "de-core-0286",
+"text": "Zeichne die Achsen X und Y ein.",
 "lang": "de",
 "block": 15
 },
 {
-"id": "de-core-0295",
-"text": "Der Vortrag ist um 18:30 in Raum 204.",
+"id": "de-core-0287",
+"text": "Der Betrieb wurde 1998 gegründet.",
 "lang": "de",
 "block": 15
 },
 {
-"id": "de-core-0296",
-"text": "Anmeldung bis 5.5.: anna@beispiel.de",
+"id": "de-core-0288",
+"text": "Telefon: 03641 / 55 20 11",
 "lang": "de",
 "block": 15
 },
 {
-"id": "de-core-0297",
-"text": "Haben Sie das auch in Größe XL?",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0298",
-"text": "Überraschung! Alles Gute zum Geburtstag!",
-"lang": "de",
-"block": 15
-},
-{
-"id": "de-core-0299",
+"id": "de-core-0289",
 "text": "Quark mit Obst ist mein Frühstück.",
 "lang": "de",
 "block": 15
 },
 {
+"id": "de-core-0290",
+"text": "Üble Laune verfliegt beim Spazieren.",
+"lang": "de",
+"block": 15
+},
+{
+"id": "de-core-0291",
+"text": "Im Urlaub fahren wir nach Österreich.",
+"lang": "de",
+"block": 15
+},
+{
+"id": "de-core-0292",
+"text": "They're coming at 7, aren't they?",
+"lang": "en",
+"block": 15
+},
+{
+"id": "de-core-0293",
+"text": "Neue Wanderschuhe für 89,00 €",
+"lang": "de",
+"block": 15
+},
+{
+"id": "de-core-0294",
+"text": "Anmeldung bis 5.5.: anna@beispiel.de",
+"lang": "de",
+"block": 15
+},
+{
+"id": "de-core-0295",
+"text": "Der Ärmel ist an der Jacke zu kurz.",
+"lang": "de",
+"block": 15
+},
+{
+"id": "de-core-0296",
+"text": "Das Quiz beginnt um 19:30 Uhr.",
+"lang": "de",
+"block": 15
+},
+{
+"id": "de-core-0297",
+"text": "Wir schenken Opa ein Buch über Vögel.",
+"lang": "de",
+"block": 15
+},
+{
+"id": "de-core-0298",
+"text": "\"Nicht so schnell!\", rief der Vater.",
+"lang": "de",
+"block": 15
+},
+{
+"id": "de-core-0299",
+"text": "Die Quote liegt bei 60 %.",
+"lang": "de",
+"block": 15
+},
+{
 "id": "de-core-0300",
-"text": "Ärzte arbeiten oft bis in die Nacht.",
+"text": "Meine Cousine wohnt in Chemnitz.",
 "lang": "de",
 "block": 15
 },
 {
 "id": "de-core-0301",
-"text": "Zum Frühstück gibt es Brötchen mit Öl.",
+"text": "Müller & Söhne, Gartenbau seit 1952",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0302",
-"text": "Luftfeuchtigkeit: 65 %",
+"text": "Öl, Essig und Senf für die Soße",
 "lang": "de",
 "block": 16
 },
@@ -1827,79 +1827,79 @@
 },
 {
 "id": "de-core-0305",
-"text": "Das Quiz beginnt um 19:30 Uhr.",
+"text": "Die Küche riecht nach Zimt und Äpfeln.",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0306",
-"text": "Wir schenken Opa ein Buch über Vögel.",
+"text": "Fahrplan: ab 7:41, an 8:19",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0307",
-"text": "Der Ärmel ist an der Jacke zu kurz.",
+"text": "Übergib bitte den Brief an Opa.",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0308",
-"text": "Der Betrieb wurde 1998 gegründet.",
+"text": "Verlängerung bis zum 30.06. möglich",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0309",
-"text": "Öl, Essig und Senf für die Soße",
+"text": "Die Yucca-Palme braucht Licht.",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0310",
-"text": "Der Läufer läuft täglich zehn Kilometer.",
+"text": "Rechnung: 8 x 7 = 56",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0311",
-"text": "Von Nürnberg nach Würzburg: 2 Stunden",
+"text": "Ich esse gern Joghurt mit Nüssen.",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0312",
-"text": "Meine Cousine wohnt in Chemnitz.",
+"text": "Zum Frühstück gibt es Brötchen mit Öl.",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0313",
-"text": "Der Ordner heißt Urlaub und Ausflüge.",
+"text": "Der Yak-Käse ist würzig und fest.",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0314",
-"text": "5 + 6 = 11, 6 + 7 = 13",
+"text": "Obst & Gemüse im Angebot",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0315",
-"text": "Mein Zimmer ist 14 Quadratmeter groß.",
+"text": "Die Quaste hängt am Vorhang.",
 "lang": "de",
 "block": 16
 },
 {
 "id": "de-core-0316",
-"text": "Tea & biscuits at four o'clock",
+"text": "Quiz night is on Friday at 8.",
 "lang": "en",
 "block": 16
 },
 {
 "id": "de-core-0317",
-"text": "Äußerst freundlich war das Personal.",
+"text": "Ärzte arbeiten oft bis in die Nacht.",
 "lang": "de",
 "block": 16
 },
@@ -1923,25 +1923,25 @@
 },
 {
 "id": "de-core-0321",
-"text": "Übergib bitte den Brief an Opa.",
+"text": "Bus/Bahn: Fahrkarten im Verbund 28 €",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0322",
-"text": "Die Quaste hängt am Vorhang.",
+"text": "Eine Radtour durch Xanten ist schön.",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0323",
-"text": "Neue Wanderschuhe für 89,00 €",
+"text": "Äußerst freundlich war das Personal.",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0324",
-"text": "Bitte Rückmeldung an: zoo@beispiel.de",
+"text": "Chor, Orchester und Band proben hier.",
 "lang": "de",
 "block": 17
 },
@@ -1953,67 +1953,67 @@
 },
 {
 "id": "de-core-0326",
-"text": "Fahrplan: ab 7:41, an 8:19",
+"text": "Ich komme gern; allerdings erst um 8.",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0327",
-"text": "Die Yucca-Palme braucht Licht.",
+"text": "Der Läufer läuft täglich zehn Kilometer.",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0328",
-"text": "Quiz night is on Friday at 8.",
+"text": "Take bus 46 to the station at 6:30.",
 "lang": "en",
 "block": 17
 },
 {
 "id": "de-core-0329",
-"text": "Erst die Suppe; dann der Nachtisch.",
-"lang": "de",
-"block": 17
-},
-{
-"id": "de-core-0330",
 "text": "Ölgemälde hängen im Museum.",
 "lang": "de",
 "block": 17
 },
 {
+"id": "de-core-0330",
+"text": "Der Yen ist die Währung in Japan.",
+"lang": "de",
+"block": 17
+},
+{
 "id": "de-core-0331",
-"text": "Fisch & Chips gibt es am Hafen.",
+"text": "Der Ordner heißt Urlaub und Ausflüge.",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0332",
-"text": "Äußerlich wirkt er sehr ruhig.",
+"text": "Mein Zimmer ist 14 Quadratmeter groß.",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0333",
-"text": "Die Quote liegt bei 60 %.",
+"text": "Fisch & Chips gibt es am Hafen.",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0334",
-"text": "Das Lächeln der Verkäuferin war nett.",
+"text": "Äpfel pflücken im September",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0335",
-"text": "2 mal X ist 14, also ist X = 7.",
+"text": "Ich bin gespannt auf die Überraschung.",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0336",
-"text": "Jonglieren lernt man mit Übung.",
+"text": "Bitte Rückmeldung an: zoo@beispiel.de",
 "lang": "de",
 "block": 17
 },
@@ -2025,157 +2025,157 @@
 },
 {
 "id": "de-core-0338",
-"text": "Wie groß ist Y, wenn X = 10 ist?",
+"text": "Haben Sie das auch in Größe XL?",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0339",
-"text": "Im Garten blühen Tulpen und Narzissen.",
+"text": "Bestellnummer: 45 87 32",
 "lang": "de",
 "block": 17
 },
 {
 "id": "de-core-0340",
-"text": "My e-mail is anna@example.com",
+"text": "Tea & biscuits at four o'clock",
 "lang": "en",
 "block": 17
 },
 {
 "id": "de-core-0341",
-"text": "Chor, Orchester und Band proben hier.",
+"text": "Erst die Suppe; dann der Nachtisch.",
 "lang": "de",
 "block": 18
 },
 {
 "id": "de-core-0342",
-"text": "Öffentliche Bibliotheken sind kostenlos.",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0343",
-"text": "Müller & Söhne, Gartenbau seit 1952",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0344",
-"text": "Bus/Bahn: Fahrkarten im Verbund 28 €",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0345",
-"text": "Äpfel pflücken im September",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0346",
-"text": "Überlege dir die Antwort in Ruhe.",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0347",
-"text": "Im Fußball zählen Zusammenhalt und Spaß.",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0348",
 "text": "Örtliche Bäcker liefern Brötchen.",
 "lang": "de",
 "block": 18
 },
 {
-"id": "de-core-0349",
-"text": "Sie las: \"Geöffnet von 9 bis 17 Uhr\".",
+"id": "de-core-0343",
+"text": "Quedlinburg ist eine schöne Stadt.",
 "lang": "de",
 "block": 18
 },
 {
-"id": "de-core-0350",
-"text": "Der Yak-Käse ist würzig und fest.",
+"id": "de-core-0344",
+"text": "Yoga und Joggen halten mich fit.",
 "lang": "de",
 "block": 18
 },
 {
-"id": "de-core-0351",
-"text": "Qualitätsprodukte haben ihren Preis.",
+"id": "de-core-0345",
+"text": "Die Mehrwertsteuer beträgt 19 %.",
 "lang": "de",
 "block": 18
 },
 {
-"id": "de-core-0352",
-"text": "Take bus 46 to the station at 6:30.",
-"lang": "en",
-"block": 18
-},
-{
-"id": "de-core-0353",
-"text": "Mein Lieblingsmonat ist der Oktober.",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0354",
-"text": "Die Fäden hängen lose am Ärmel.",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0355",
-"text": "Champignons in Rahmsoße schmecken gut.",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0356",
-"text": "Der Yen ist die Währung in Japan.",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0357",
-"text": "Wo ist's am schönsten? Natürlich daheim.",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0358",
-"text": "Entschuldige die Verspätung!",
-"lang": "de",
-"block": 18
-},
-{
-"id": "de-core-0359",
+"id": "de-core-0346",
 "text": "Übrigens habe ich Karten fürs Konzert.",
 "lang": "de",
 "block": 18
 },
 {
+"id": "de-core-0347",
+"text": "Tee + Keks = ein schöner Nachmittag",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0348",
+"text": "Äußerlich wirkt er sehr ruhig.",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0349",
+"text": "Das Thermometer zeigt 36,7 Grad.",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0350",
+"text": "Der Quizabend im Vereinsheim war lustig.",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0351",
+"text": "Öffentliche Bibliotheken sind kostenlos.",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0352",
+"text": "My e-mail is anna@example.com",
+"lang": "en",
+"block": 18
+},
+{
+"id": "de-core-0353",
+"text": "Ein bunter Strauß Blumen für Oma",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0354",
+"text": "Die Cafeteria öffnet um 8 Uhr.",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0355",
+"text": "Das Hemd gibt es in Größe XL.",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0356",
+"text": "Überlege dir die Antwort in Ruhe.",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0357",
+"text": "Im Schlussverkauf alles 50 % billiger!",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0358",
+"text": "Überraschung! Alles Gute zum Geburtstag!",
+"lang": "de",
+"block": 18
+},
+{
+"id": "de-core-0359",
+"text": "Die Fäden hängen lose am Ärmel.",
+"lang": "de",
+"block": 18
+},
+{
 "id": "de-core-0360",
-"text": "Ökologisches Gemüse vom Markt",
+"text": "Qualitätsprodukte haben ihren Preis.",
 "lang": "de",
 "block": 18
 },
 {
 "id": "de-core-0361",
-"text": "Quedlinburg ist eine schöne Stadt.",
+"text": "Postleitzahl: 01067 Dresden",
 "lang": "de",
 "block": 19
 },
 {
 "id": "de-core-0362",
-"text": "Tickets: tickets@beispiel.de",
+"text": "Der Bus 94 fährt über die Hauptstraße.",
 "lang": "de",
 "block": 19
 },
 {
 "id": "de-core-0363",
-"text": "Am 27. und 28. Januar ist geschlossen.",
+"text": "Yoga hilft mir beim Entspannen.",
 "lang": "de",
 "block": 19
 },
@@ -2187,55 +2187,55 @@
 },
 {
 "id": "de-core-0365",
-"text": "Äpfel schälen und in Würfel schneiden",
+"text": "Ölwechsel am Freitag um 8 Uhr",
 "lang": "de",
 "block": 19
 },
 {
 "id": "de-core-0366",
-"text": "Ich komme gern; allerdings erst um 8.",
-"lang": "de",
-"block": 19
-},
-{
-"id": "de-core-0367",
-"text": "Ein bunter Strauß Blumen für Oma",
-"lang": "de",
-"block": 19
-},
-{
-"id": "de-core-0368",
-"text": "Die Mehrwertsteuer beträgt 19 %.",
-"lang": "de",
-"block": 19
-},
-{
-"id": "de-core-0369",
-"text": "Überprüfe bitte noch einmal die Zahlen.",
-"lang": "de",
-"block": 19
-},
-{
-"id": "de-core-0370",
-"text": "Verlängerung bis zum 30.06. möglich",
-"lang": "de",
-"block": 19
-},
-{
-"id": "de-core-0371",
 "text": "Der Cappuccino ist heiß und süß.",
 "lang": "de",
 "block": 19
 },
 {
+"id": "de-core-0367",
+"text": "Äpfel schälen und in Würfel schneiden",
+"lang": "de",
+"block": 19
+},
+{
+"id": "de-core-0368",
+"text": "Juni, Juli und August sind Ferienmonate.",
+"lang": "de",
+"block": 19
+},
+{
+"id": "de-core-0369",
+"text": "Tickets: tickets@beispiel.de",
+"lang": "de",
+"block": 19
+},
+{
+"id": "de-core-0370",
+"text": "Im Garten blühen Tulpen und Narzissen.",
+"lang": "de",
+"block": 19
+},
+{
+"id": "de-core-0371",
+"text": "Das Lächeln der Verkäuferin war nett.",
+"lang": "de",
+"block": 19
+},
+{
 "id": "de-core-0372",
-"text": "Tisch & Stühle & Sofa im Angebot",
+"text": "Der Quark schmeckt mit Honig süß.",
 "lang": "de",
 "block": 19
 },
 {
 "id": "de-core-0373",
-"text": "Schule: sekretariat@beispiel.de",
+"text": "Xylophonstunde am Mittwoch um 16 Uhr",
 "lang": "de",
 "block": 19
 },
@@ -2247,7 +2247,7 @@
 },
 {
 "id": "de-core-0375",
-"text": "Nicht jetzt; vielleicht später.",
+"text": "Ökologisches Gemüse vom Markt",
 "lang": "de",
 "block": 19
 },
@@ -2259,979 +2259,979 @@
 },
 {
 "id": "de-core-0377",
-"text": "Der Quark schmeckt mit Honig süß.",
-"lang": "de",
-"block": 19
-},
-{
-"id": "de-core-0378",
-"text": "Hast du Größe XL oder lieber M?",
-"lang": "de",
-"block": 19
-},
-{
-"id": "de-core-0379",
-"text": "Ältere Geschwister helfen den Kleinen.",
-"lang": "de",
-"block": 19
-},
-{
-"id": "de-core-0380",
 "text": "Mein Onkel hat einen Ordner mit Fotos.",
 "lang": "de",
 "block": 19
 },
 {
+"id": "de-core-0378",
+"text": "Wo ist's am schönsten? Natürlich daheim.",
+"lang": "de",
+"block": 19
+},
+{
+"id": "de-core-0379",
+"text": "Übernachten kann man im Gästezimmer.",
+"lang": "de",
+"block": 19
+},
+{
+"id": "de-core-0380",
+"text": "Schule: sekretariat@beispiel.de",
+"lang": "de",
+"block": 19
+},
+{
 "id": "de-core-0381",
-"text": "Ölwechsel am Freitag um 8 Uhr",
+"text": "Bitte Seite 79 und Seite 83 lesen.",
 "lang": "de",
 "block": 20
 },
 {
 "id": "de-core-0382",
-"text": "Juni, Juli und August sind Ferienmonate.",
+"text": "Im Fußball zählen Zusammenhalt und Spaß.",
 "lang": "de",
 "block": 20
 },
 {
 "id": "de-core-0383",
-"text": "Übernachten kann man im Gästezimmer.",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0384",
-"text": "Das Thermometer zeigt 36,7 Grad.",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0385",
-"text": "Der Bus 94 fährt über die Hauptstraße.",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0386",
-"text": "Nur noch 15 % Akku auf dem Handy.",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0387",
-"text": "Kontakt: service@beispiel.de bitte",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0388",
-"text": "Yoga helps me relax after work.",
-"lang": "en",
-"block": 20
-},
-{
-"id": "de-core-0389",
-"text": "Der Rasenmäher macht furchtbaren Lärm.",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0390",
-"text": "Postleitzahl: 01067 Dresden",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0391",
-"text": "Die Eiche hat dicke, knorrige Äste.",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0392",
-"text": "Ab Montag gelten neue Öffnungszeiten.",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0393",
-"text": "Die Verkäuferin hilft mir bei der Größe.",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0394",
-"text": "Quarkspeise mit Himbeeren und Mandeln",
-"lang": "de",
-"block": 20
-},
-{
-"id": "de-core-0395",
 "text": "Der Campingplatz hat 40 Stellplätze.",
 "lang": "de",
 "block": 20
 },
 {
+"id": "de-core-0384",
+"text": "Überprüfe bitte noch einmal die Zahlen.",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0385",
+"text": "Die Yacht fährt morgen früh aus.",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0386",
+"text": "Ältere Geschwister helfen den Kleinen.",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0387",
+"text": "Maße: 120 x 80 x 75 cm",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0388",
+"text": "To do: call Anna & book a table",
+"lang": "en",
+"block": 20
+},
+{
+"id": "de-core-0389",
+"text": "Die Qualität des Stoffes ist sehr gut.",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0390",
+"text": "Kontakt: service@beispiel.de bitte",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0391",
+"text": "Die 3-Zimmer-Wohnung ist 68 qm groß.",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0392",
+"text": "Meine Yogamatte ist knallgelb.",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0393",
+"text": "Nicht jetzt; vielleicht später.",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0394",
+"text": "Die Eiche hat dicke, knorrige Äste.",
+"lang": "de",
+"block": 20
+},
+{
+"id": "de-core-0395",
+"text": "Ab Montag gelten neue Öffnungszeiten.",
+"lang": "de",
+"block": 20
+},
+{
 "id": "de-core-0396",
-"text": "Übertreibe es nicht mit dem Training.",
+"text": "1/2 Liter Milch und 1/4 Pfund Butter",
 "lang": "de",
 "block": 20
 },
 {
 "id": "de-core-0397",
-"text": "Du/Sie: Welche Anrede passt hier?",
+"text": "Der Ofen ist noch heiß, Vorsicht!",
 "lang": "de",
 "block": 20
 },
 {
 "id": "de-core-0398",
-"text": "Schlaf gut und träum etwas Schönes!",
+"text": "Liebe Grüße an die ganze Familie!",
 "lang": "de",
 "block": 20
 },
 {
 "id": "de-core-0399",
-"text": "In der Höhle wohnen Fledermäuse.",
+"text": "Bei 60 % Akku kann ich noch arbeiten.",
 "lang": "de",
 "block": 20
 },
 {
 "id": "de-core-0400",
-"text": "Dinner is at seven o'clock sharp.",
+"text": "Yoga helps me relax after work.",
 "lang": "en",
 "block": 20
 },
 {
 "id": "de-core-0401",
-"text": "Ärzte raten zu viel Bewegung.",
+"text": "Jonglieren lernt man mit Übung.",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0402",
-"text": "Bestellungen: shop@beispiel.de",
+"text": "Quarkspeise mit Himbeeren und Mandeln",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0403",
-"text": "Route: Bonn, Köln, Düsseldorf, Essen",
+"text": "Das Preisschild zeigt 19,99 €.",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0404",
-"text": "Die Yacht fährt morgen früh aus.",
+"text": "Das Xylophon klingt hell und fröhlich.",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0405",
-"text": "Fußballschuhe, Schienbeinschoner, Trikot",
-"lang": "de",
-"block": 21
-},
-{
-"id": "de-core-0406",
 "text": "Österreich, die Schweiz und Deutschland",
 "lang": "de",
 "block": 21
 },
 {
+"id": "de-core-0406",
+"text": "Champignons in Rahmsoße schmecken gut.",
+"lang": "de",
+"block": 21
+},
+{
 "id": "de-core-0407",
-"text": "Nüsse, Obst und Gemüse sind gesund.",
+"text": "Der Stundenlohn beträgt 14,75 €.",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0408",
-"text": "Maße: 120 x 80 x 75 cm",
+"text": "Ärzte raten zu viel Bewegung.",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0409",
-"text": "Die Qualität des Stoffes ist sehr gut.",
+"text": "Übertreibe es nicht mit dem Training.",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0410",
-"text": "Üppige Blumen schmücken den Tisch.",
-"lang": "de",
-"block": 21
-},
-{
-"id": "de-core-0411",
-"text": "Ämter haben nur vormittags geöffnet.",
-"lang": "de",
-"block": 21
-},
-{
-"id": "de-core-0412",
-"text": "To do: call Anna & book a table",
-"lang": "en",
-"block": 21
-},
-{
-"id": "de-core-0413",
 "text": "Fußgänger haben an der Ampel Vorrang.",
 "lang": "de",
 "block": 21
 },
 {
+"id": "de-core-0411",
+"text": "Frühstück + Mittagessen + Abendessen",
+"lang": "de",
+"block": 21
+},
+{
+"id": "de-core-0412",
+"text": "Dinner is at seven o'clock sharp.",
+"lang": "en",
+"block": 21
+},
+{
+"id": "de-core-0413",
+"text": "Um Punkt 8 Uhr fängt der Unterricht an.",
+"lang": "de",
+"block": 21
+},
+{
 "id": "de-core-0414",
-"text": "Xylophonstunde am Mittwoch um 16 Uhr",
+"text": "Route: Bonn, Köln, Düsseldorf, Essen",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0415",
-"text": "Treffpunkt: Bahnhof (Haupteingang)",
+"text": "Fußballschuhe, Schienbeinschoner, Trikot",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0416",
-"text": "Meine Yogamatte ist knallgelb.",
+"text": "In der Höhle wohnen Fledermäuse.",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0417",
-"text": "Liebe Grüße an die ganze Familie!",
+"text": "Fragen? Mail: info@chor-beispiel.de",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0418",
-"text": "Öfter mal früh ins Bett gehen!",
+"text": "Viel Erfolg bei der Prüfung!",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0419",
-"text": "Ich putze die Zähne zweimal täglich.",
+"text": "Das Quartal endet am 31. März.",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0420",
-"text": "Größe 38 ist leider ausverkauft.",
+"text": "Hausnummer 6-8 (Eingang B)",
 "lang": "de",
 "block": 21
 },
 {
 "id": "de-core-0421",
-"text": "Jongleure zeigen ihre Kunststücke.",
+"text": "Schule & Beruf: Tipps für die Zukunft",
 "lang": "de",
 "block": 22
 },
 {
 "id": "de-core-0422",
-"text": "Mit Kopfhörern höre ich Musik im Zug.",
+"text": "Der Rasenmäher macht furchtbaren Lärm.",
 "lang": "de",
 "block": 22
 },
 {
 "id": "de-core-0423",
-"text": "Mein Bildschirm ist 27 Zoll groß.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0424",
-"text": "I run five kilometres every week.",
-"lang": "en",
-"block": 22
-},
-{
-"id": "de-core-0425",
-"text": "Die Suppe ist würzig und schmeckt süß.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0426",
-"text": "Meine Notizen liegen in der Cloud.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0427",
-"text": "Um Punkt 8 Uhr fängt der Unterricht an.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0428",
-"text": "Ärgere dich nicht über Kleinigkeiten.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0429",
-"text": "Rückfragen an: lehrer@beispiel.de",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0430",
-"text": "Der König trägt eine goldene Krone.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0431",
-"text": "Überfüllte Busse sind morgens normal.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0432",
-"text": "Bei 60 % Akku kann ich noch arbeiten.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0433",
-"text": "Heute Pizza; morgen Salat; dann Braten",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0434",
-"text": "Ein Quiz über Tiere macht allen Spaß.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0435",
-"text": "Die Wassertemperatur beträgt 19 Grad.",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0436",
-"text": "Our new sofa arrives on Monday.",
-"lang": "en",
-"block": 22
-},
-{
-"id": "de-core-0437",
-"text": "Viel Erfolg bei der Prüfung!",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0438",
-"text": "Wo finde ich Öl und Essig?",
-"lang": "de",
-"block": 22
-},
-{
-"id": "de-core-0439",
 "text": "Adresse: Gartenstraße 9, Zimmer 17",
 "lang": "de",
 "block": 22
 },
 {
+"id": "de-core-0424",
+"text": "Our new sofa arrives on Monday.",
+"lang": "en",
+"block": 22
+},
+{
+"id": "de-core-0425",
+"text": "Ämter haben nur vormittags geöffnet.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0426",
+"text": "Die Überweisung dauert zwei Werktage.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0427",
+"text": "Mein Bildschirm ist 27 Zoll groß.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0428",
+"text": "Ölfarbe trocknet nur langsam.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0429",
+"text": "Der Yeti ist nur ein Märchen.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0430",
+"text": "Die Suppe ist würzig und schmeckt süß.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0431",
+"text": "Mit Kopfhörern höre ich Musik im Zug.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0432",
+"text": "Jongleure zeigen ihre Kunststücke.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0433",
+"text": "Bestellungen: shop@beispiel.de",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0434",
+"text": "Meine Notizen liegen in der Cloud.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0435",
+"text": "Der König trägt eine goldene Krone.",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0436",
+"text": "Is breakfast included in the price?",
+"lang": "en",
+"block": 22
+},
+{
+"id": "de-core-0437",
+"text": "Heute Pizza; morgen Salat; dann Braten",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0438",
+"text": "Du/Sie: Welche Anrede passt hier?",
+"lang": "de",
+"block": 22
+},
+{
+"id": "de-core-0439",
+"text": "Ähnliche Aufgaben lösten wir schon.",
+"lang": "de",
+"block": 22
+},
+{
 "id": "de-core-0440",
-"text": "Die Kaninchen knabbern an Möhren.",
+"text": "Die Querflöte klingt sehr weich.",
 "lang": "de",
 "block": 22
 },
 {
 "id": "de-core-0441",
-"text": "Die Überweisung dauert zwei Werktage.",
+"text": "Am 31. Oktober ist Halloween.",
 "lang": "de",
 "block": 23
 },
 {
 "id": "de-core-0442",
-"text": "Der Mäusebussard kreist über dem Feld.",
+"text": "Ein Yak lebt hoch im Gebirge.",
 "lang": "de",
 "block": 23
 },
 {
 "id": "de-core-0443",
-"text": "Für X = 5 ergibt sich Y = 11.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0444",
-"text": "Ähnliche Aufgaben lösten wir schon.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0445",
-"text": "Der Gärtner pflanzt neue Büsche.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0446",
-"text": "Das Geschäft schließt um 18:30 Uhr.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0447",
-"text": "Die Querflöte klingt sehr weich.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0448",
-"text": "Actions speak louder than words.",
-"lang": "en",
-"block": 23
-},
-{
-"id": "de-core-0449",
-"text": "Das Boot fährt zur Insel hinüber.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0450",
-"text": "Der Clown macht lustige Späße.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0451",
-"text": "Neue Gläser für den Küchenschrank",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0452",
-"text": "Der Stundenlohn beträgt 14,75 €.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0453",
-"text": "Anmeldung: kurs@beispiel.de",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0454",
-"text": "Die Tür quietscht, wir brauchen Öl.",
-"lang": "de",
-"block": 23
-},
-{
-"id": "de-core-0455",
 "text": "Der Wetterbericht meldet Windstärke 6.",
 "lang": "de",
 "block": 23
 },
 {
-"id": "de-core-0456",
-"text": "Zwischen den Felsen blüht Enzian.",
+"id": "de-core-0444",
+"text": "Die Tür quietscht, wir brauchen Öl.",
 "lang": "de",
 "block": 23
 },
 {
-"id": "de-core-0457",
-"text": "Möchten Sie eine Tüte dazu?",
+"id": "de-core-0445",
+"text": "Das Xylophon hat zwölf Stäbe.",
 "lang": "de",
 "block": 23
 },
 {
-"id": "de-core-0458",
-"text": "Hast du heiße Würstchen mitgebracht?",
+"id": "de-core-0446",
+"text": "Nur noch 15 % Akku auf dem Handy.",
 "lang": "de",
 "block": 23
 },
 {
-"id": "de-core-0459",
+"id": "de-core-0447",
+"text": "Hunderte Gäste kamen, genau 417.",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0448",
+"text": "The film lasts 97 minutes.",
+"lang": "en",
+"block": 23
+},
+{
+"id": "de-core-0449",
+"text": "Größe 38 ist leider ausverkauft.",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0450",
+"text": "Übrigens, ich komme etwas später.",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0451",
+"text": "Ärgere dich nicht über Kleinigkeiten.",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0452",
+"text": "Die Schulbibliothek schließt um 16 Uhr.",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0453",
+"text": "Das Boot fährt zur Insel hinüber.",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0454",
 "text": "Am Wochenende fotografiere ich Vögel.",
 "lang": "de",
 "block": 23
 },
 {
+"id": "de-core-0455",
+"text": "Der Gärtner pflanzt neue Büsche.",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0456",
+"text": "Rückfragen an: lehrer@beispiel.de",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0457",
+"text": "Schlaf gut und träum etwas Schönes!",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0458",
+"text": "Möchten Sie eine Tüte dazu?",
+"lang": "de",
+"block": 23
+},
+{
+"id": "de-core-0459",
+"text": "Die Kaninchen knabbern an Möhren.",
+"lang": "de",
+"block": 23
+},
+{
 "id": "de-core-0460",
-"text": "She's coming on Friday, isn't she?",
+"text": "I run five kilometres every week.",
 "lang": "en",
 "block": 23
 },
 {
 "id": "de-core-0461",
-"text": "Die Tomatensuppe wärmt schön auf.",
+"text": "Unser Treffen ist am 9. September.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0462",
-"text": "Wir bekommen neue Möbel für das Büro.",
+"text": "Ein Quiz über Tiere macht allen Spaß.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0463",
-"text": "Der Hirsch trägt ein großes Geweih.",
+"text": "Zwischen den Felsen blüht Enzian.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0464",
-"text": "Das Eichhörnchen springt von Ast zu Ast.",
+"text": "Der Clown balanciert auf einem Ball.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0465",
-"text": "Die Tropfen müssen kühl gelagert werden.",
+"text": "Ökologie ist heute ein wichtiges Fach.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0466",
-"text": "Am 31. Oktober ist Halloween.",
+"text": "Beim Yoga atme ich ruhig und tief.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0467",
-"text": "Draußen ist es kälter als drinnen.",
+"text": "Ich putze die Zähne zweimal täglich.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0468",
-"text": "Yoga und Joggen halten mich fit.",
+"text": "Der Aufzug fasst höchstens 8 Personen.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0469",
-"text": "Brezeln und Brötchen vom Bäcker holen",
+"text": "Die Tropfen müssen kühl gelagert werden.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0470",
-"text": "Unsere Familie ist ziemlich groß.",
+"text": "Der Hirsch trägt ein großes Geweih.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0471",
-"text": "Äpfel, Birnen und Pflaumen im Korb",
+"text": "Der Mäusebussard kreist über dem Feld.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0472",
-"text": "I would like a room for two nights.",
+"text": "She's coming on Friday, isn't she?",
 "lang": "en",
 "block": 24
 },
 {
 "id": "de-core-0473",
-"text": "Ein Lächeln öffnet viele Türen.",
+"text": "Die Tomatensuppe wärmt schön auf.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0474",
-"text": "Ein Drei-Gänge-Menü für zwei Personen",
+"text": "Wir bekommen neue Möbel für das Büro.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0475",
-"text": "Übrigens, ich komme etwas später.",
+"text": "Die Glühbirne im Flur ist durchgebrannt.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0476",
-"text": "Das Schwimmbad schließt schon um 19 Uhr.",
+"text": "Zürich ist die größte Stadt der Schweiz.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0477",
-"text": "Fröhliche Grüße aus dem Urlaub!",
+"text": "Draußen ist es kälter als drinnen.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0478",
-"text": "Quatsch, das stimmt doch gar nicht!",
+"text": "Hast du heiße Würstchen mitgebracht?",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0479",
-"text": "Schule & Beruf: Tipps für die Zukunft",
+"text": "Die Mütze hält meine Ohren warm.",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0480",
-"text": "Hunderte Gäste kamen, genau 417.",
+"text": "Brezeln und Brötchen vom Bäcker holen",
 "lang": "de",
 "block": 24
 },
 {
 "id": "de-core-0481",
-"text": "Die Kirschbäume blühen schon im April.",
+"text": "Überschrift in der ersten Zeile",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0482",
-"text": "Die Flöte ist ein einfaches Instrument.",
+"text": "Das Eichhörnchen springt von Ast zu Ast.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0483",
-"text": "Ökologie ist heute ein wichtiges Fach.",
+"text": "Die Umleitung führt zur Hauptstraße.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0484",
-"text": "Is breakfast included in the price?",
+"text": "Actions speak louder than words.",
 "lang": "en",
 "block": 25
 },
 {
 "id": "de-core-0485",
-"text": "Der Bach fließt langsam durchs Tal.",
+"text": "Jemand muss die Tür öffnen.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0486",
-"text": "Die Münzen zähle ich später.",
+"text": "Die Quelle im Wald ist glasklar.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0487",
-"text": "Die Mütze hält meine Ohren warm.",
+"text": "Äpfel, Birnen und Pflaumen im Korb",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0488",
-"text": "Das Mädchen trägt einen roten Rock.",
+"text": "Der Frühling kommt mit Vogelgezwitscher.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0489",
-"text": "Ich bin überzeugt, dass es klappt.",
+"text": "Die Wassertemperatur beträgt 19 Grad.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0490",
-"text": "Käse, Brötchen und Gemüse vom Markt",
+"text": "Das Xylophon hat 12 Klangstäbe.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0491",
-"text": "Zahnpasta, Seife, Shampoo und Tücher",
+"text": "Spiel & Spaß am Samstag",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0492",
-"text": "Die Hühner picken Körner im Hof.",
+"text": "Anmeldung: kurs@beispiel.de",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0493",
-"text": "Zürich ist die größte Stadt der Schweiz.",
+"text": "Die Tür 6 ist offen, Tür 7 ist zu.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0494",
-"text": "Die weißen Wolken ziehen langsam vorbei.",
+"text": "Käse, Brötchen und Gemüse vom Markt",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0495",
-"text": "Für den Ausflug brauche ich Proviant.",
+"text": "Das Mädchen löst die Aufgabe als Erste.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0496",
-"text": "Turn left at the traffic light.",
+"text": "I would like a room for two nights.",
 "lang": "en",
 "block": 25
 },
 {
 "id": "de-core-0497",
-"text": "Mein Fotoalbum wächst jedes Jahr.",
+"text": "Öfter mal früh ins Bett gehen!",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0498",
-"text": "Im Schlussverkauf alles 50 % billiger!",
+"text": "Notiz an mich: Blumen gießen!",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0499",
-"text": "Unser Treffen ist am 9. September.",
+"text": "Neue Gläser für den Küchenschrank",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0500",
-"text": "Der Yeti ist nur ein Märchen.",
+"text": "Unsere Familie ist ziemlich groß.",
 "lang": "de",
 "block": 25
 },
 {
 "id": "de-core-0501",
-"text": "Zweimal täglich eine Tablette nehmen",
+"text": "Das Geschäft schließt um 18:30 Uhr.",
 "lang": "de",
 "block": 26
 },
 {
 "id": "de-core-0502",
-"text": "Die Schüler räumen den Klassenraum auf.",
+"text": "Zweimal täglich eine Tablette nehmen",
 "lang": "de",
 "block": 26
 },
 {
 "id": "de-core-0503",
-"text": "Der Clown balanciert auf einem Ball.",
+"text": "Die Münzen zähle ich später.",
 "lang": "de",
 "block": 26
 },
 {
 "id": "de-core-0504",
-"text": "Das nächste Ziel heißt Salzburg.",
+"text": "Rezept: 200 g Mehl + 100 g Zucker",
 "lang": "de",
 "block": 26
 },
 {
 "id": "de-core-0505",
-"text": "Anfragen an: team@beispiel.net",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0506",
 "text": "Ich bin müde und gähne ständig.",
 "lang": "de",
 "block": 26
 },
 {
+"id": "de-core-0506",
+"text": "Die Flöte ist ein einfaches Instrument.",
+"lang": "de",
+"block": 26
+},
+{
 "id": "de-core-0507",
-"text": "Das ist schön; das gefällt mir sehr.",
+"text": "Die Kirschbäume blühen schon im April.",
 "lang": "de",
 "block": 26
 },
 {
 "id": "de-core-0508",
-"text": "The shop closes at half past six.",
-"lang": "en",
-"block": 26
-},
-{
-"id": "de-core-0509",
-"text": "Überall liegen Blätter im Garten.",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0510",
-"text": "Die Umzugskartons stapeln sich im Flur.",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0511",
-"text": "Das Müsli ist mit Früchten und Nüssen.",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0512",
-"text": "Das Kino zeigt einen Zeichentrickfilm.",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0513",
-"text": "Die Schulbibliothek schließt um 16 Uhr.",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0514",
-"text": "Ich höre ein Hörbuch beim Spazieren.",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0515",
-"text": "Einkaufs-, Putz- und Wäschetag",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0516",
-"text": "Auf dem Flohmarkt finde ich oft Schätze.",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0517",
-"text": "Mögen all deine Wünsche wahr werden!",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0518",
-"text": "Welche Farbe gefällt dir besser?",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0519",
-"text": "Das Büro ist ab 7 Uhr geöffnet.",
-"lang": "de",
-"block": 26
-},
-{
-"id": "de-core-0520",
 "text": "Time flies when you have fun.",
 "lang": "en",
 "block": 26
 },
 {
+"id": "de-core-0509",
+"text": "Das nächste Ziel heißt Salzburg.",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0510",
+"text": "Zahnpasta, Seife, Shampoo und Tücher",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0511",
+"text": "Die Hühner picken Körner im Hof.",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0512",
+"text": "Für den Ausflug brauche ich Proviant.",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0513",
+"text": "Mein Fotoalbum wächst jedes Jahr.",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0514",
+"text": "Yoga-Kurse gibt es montags und freitags.",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0515",
+"text": "To-do: Wäsche waschen, Müll rausbringen",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0516",
+"text": "Mein Computer hat 16 Gigabyte.",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0517",
+"text": "Fröhliche Grüße aus dem Urlaub!",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0518",
+"text": "Herzlichen Glückwunsch zum Geburtstag!",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0519",
+"text": "Auf dem Flohmarkt finde ich oft Schätze.",
+"lang": "de",
+"block": 26
+},
+{
+"id": "de-core-0520",
+"text": "The kitchen needs a good clean.",
+"lang": "en",
+"block": 26
+},
+{
 "id": "de-core-0521",
-"text": "Meine Großeltern haben Goldene Hochzeit.",
+"text": "Ein Drei-Gänge-Menü für zwei Personen",
 "lang": "de",
 "block": 27
 },
 {
 "id": "de-core-0522",
-"text": "Schlüssel (Haustür), Schlüssel (Keller)",
+"text": "Das Mädchen trägt einen roten Rock.",
 "lang": "de",
 "block": 27
 },
 {
 "id": "de-core-0523",
-"text": "Die Umleitung führt zur Hauptstraße.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0524",
-"text": "Das Mädchen löst die Aufgabe als erste.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0525",
-"text": "Ein Käfer krabbelt über mein Bein.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0526",
-"text": "Die Düne glänzt in der Abendsonne.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0527",
-"text": "Der Lärm stört mich beim Lesen.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0528",
-"text": "To-do: Wäsche waschen, Müll rausbringen",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0529",
-"text": "Die Fußgängerzone ist autofrei.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0530",
-"text": "Meine Laufschuhe sind total durchnässt.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0531",
-"text": "Nächste Woche beginnt der Malkurs.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0532",
-"text": "The kitchen needs a good clean.",
-"lang": "en",
-"block": 27
-},
-{
-"id": "de-core-0533",
-"text": "Das Hemd gibt es in Größe XL.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0534",
-"text": "Eine Taste klemmt, ich muss sie säubern.",
-"lang": "de",
-"block": 27
-},
-{
-"id": "de-core-0535",
 "text": "Wir besuchen den Zoo in Leipzig.",
 "lang": "de",
 "block": 27
 },
 {
+"id": "de-core-0524",
+"text": "Weiße Bohnen, Zwiebeln, Knoblauch",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0525",
+"text": "Einkaufs-, Putz- und Wäschetag",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0526",
+"text": "Das Müsli ist mit Früchten und Nüssen.",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0527",
+"text": "Überall liegen Blätter im Garten.",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0528",
+"text": "Treffpunkt: Bahnhof (Haupteingang)",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0529",
+"text": "Das Getränk hat 0 % Alkohol.",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0530",
+"text": "Meine Großeltern haben Goldene Hochzeit.",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0531",
+"text": "Das Büro ist ab 7 Uhr geöffnet.",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0532",
+"text": "Our team has twelve members.",
+"lang": "en",
+"block": 27
+},
+{
+"id": "de-core-0533",
+"text": "Die weißen Wolken ziehen langsam vorbei.",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0534",
+"text": "Die Schüler räumen den Klassenraum auf.",
+"lang": "de",
+"block": 27
+},
+{
+"id": "de-core-0535",
+"text": "Meine Laufschuhe sind total durchnässt.",
+"lang": "de",
+"block": 27
+},
+{
 "id": "de-core-0536",
-"text": "Die Quelle im Wald ist glasklar.",
+"text": "Ein Käfer krabbelt über mein Bein.",
 "lang": "de",
 "block": 27
 },
 {
 "id": "de-core-0537",
-"text": "Ärger mit dem Drucker, schon wieder!",
+"text": "Mögen all deine Wünsche wahr werden!",
 "lang": "de",
 "block": 27
 },
 {
 "id": "de-core-0538",
-"text": "Der 30. Hochzeitstag meiner Eltern!",
+"text": "Ist der Pullover im Angebot?",
 "lang": "de",
 "block": 27
 },
 {
 "id": "de-core-0539",
-"text": "Der Aufzug fasst höchstens 8 Personen.",
+"text": "Schlüssel (Haustür), Schlüssel (Keller)",
 "lang": "de",
 "block": 27
 },
@@ -3243,19 +3243,19 @@
 },
 {
 "id": "de-core-0541",
-"text": "Die Hüte hängen an der Garderobe.",
+"text": "Die Fußgängerzone ist autofrei.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0542",
-"text": "Zebras haben schwarz-weiße Streifen.",
+"text": "Nächste Woche beginnt der Malkurs.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0543",
-"text": "Ein Yak lebt hoch im Gebirge.",
+"text": "Ich höre ein Hörbuch beim Spazieren.",
 "lang": "de",
 "block": 28
 },
@@ -3267,421 +3267,421 @@
 },
 {
 "id": "de-core-0545",
-"text": "Mein Bruder ist größer und stärker.",
+"text": "Die Umzugskartons stapeln sich im Flur.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0546",
-"text": "Das Büro liegt direkt am Marktplatz.",
+"text": "Die Hüte hängen an der Garderobe.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0547",
-"text": "Öffne bitte die Tür für den Gast.",
+"text": "Mein Bruder ist größer und stärker.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0548",
-"text": "Die Landschaft ist wunderschön hier.",
+"text": "Eine Taste klemmt, ich muss sie säubern.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0549",
-"text": "Im Fitnessstudio ist heute wenig los.",
+"text": "Das Büro liegt direkt am Marktplatz.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0550",
-"text": "Salz, Pfeffer und Muskat zum Würzen",
+"text": "Yogamatte, Handtuch, Wasser mitbringen",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0551",
-"text": "Der Frühling kommt mit Vogelgezwitscher.",
+"text": "Die Düne glänzt in der Abendsonne.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0552",
-"text": "Mein Großvater erzählt gern Geschichten.",
+"text": "Ändere bitte das Passwort.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0553",
-"text": "Das Gerät muss zuerst aufgeladen werden.",
+"text": "Heute Training; morgen Ruhetag",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0554",
-"text": "Weiße Bohnen, Zwiebeln, Knoblauch",
+"text": "Das Schwimmbad schließt schon um 19 Uhr.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0555",
-"text": "Das Programm fragt nach einem Passwort.",
+"text": "Ich wähle den Dateinamen selbst.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0556",
-"text": "My train leaves at 6:45 tomorrow.",
+"text": "Turn left at the traffic light.",
 "lang": "en",
 "block": 28
 },
 {
 "id": "de-core-0557",
-"text": "Ist der Pullover im Angebot?",
+"text": "Welche Farbe gefällt dir besser?",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0558",
-"text": "Herzlich willkommen im neuen Jahr!",
+"text": "Quatsch, das stimmt doch gar nicht!",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0559",
-"text": "Kleinbus mit 9 Plätzen, Preis: 135 €",
+"text": "Der Zug nach Dresden fährt um 8:08 Uhr.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0560",
-"text": "Das Mädchen trägt Zöpfe.",
+"text": "Der Lärm stört mich beim Lesen.",
 "lang": "de",
 "block": 28
 },
 {
 "id": "de-core-0561",
-"text": "Der Apotheker erklärt die Einnahme.",
+"text": "Mein Lieblingslied läuft im Radio.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0562",
-"text": "In den Nächten ist es jetzt kühl.",
-"lang": "de",
-"block": 29
-},
-{
-"id": "de-core-0563",
-"text": "Bitte per Mail: sport@beispiel.de",
-"lang": "de",
-"block": 29
-},
-{
-"id": "de-core-0564",
-"text": "Die Wiese ist voller Gänseblümchen.",
-"lang": "de",
-"block": 29
-},
-{
-"id": "de-core-0565",
 "text": "Er ist immer pünktlich und zuverlässig.",
 "lang": "de",
 "block": 29
 },
 {
+"id": "de-core-0563",
+"text": "Salz, Pfeffer und Muskat zum Würzen",
+"lang": "de",
+"block": 29
+},
+{
+"id": "de-core-0564",
+"text": "In den Nächten ist es jetzt kühl.",
+"lang": "de",
+"block": 29
+},
+{
+"id": "de-core-0565",
+"text": "Die Verkäuferin hilft mir bei der Größe.",
+"lang": "de",
+"block": 29
+},
+{
 "id": "de-core-0566",
-"text": "Die Fähre fährt von drüben ab.",
+"text": "Der Apotheker erklärt die Einnahme.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0567",
-"text": "Tee + Keks = ein schöner Nachmittag",
+"text": "Öffne bitte die Tür für den Gast.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0568",
-"text": "Great goal, well played, everyone!",
+"text": "My train leaves at 6:45 tomorrow.",
 "lang": "en",
 "block": 29
 },
 {
 "id": "de-core-0569",
-"text": "Der Bär brummt in seiner Höhle.",
+"text": "Bitte mitbringen: Stift & Block",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0570",
-"text": "Das T-Shirt gibt es in Rot und Grün.",
+"text": "Das Mädchen trägt Zöpfe.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0571",
-"text": "Ich wähle den Dateinamen selbst.",
+"text": "Im Fitnessstudio ist heute wenig los.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0572",
-"text": "Der Bär schläft den ganzen Winter.",
+"text": "Gemüse, Nüsse und Früchte sind gesund.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0573",
-"text": "Im Kreisverkehr zweite Ausfahrt nehmen",
+"text": "Mein Xylophon steht im Wohnzimmer.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0574",
-"text": "Der frühe Vogel fängt den Wurm.",
+"text": "Der Bach fließt langsam durchs Tal.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0575",
-"text": "Das Straßenschild ist abgeknickt.",
+"text": "Die Temperatur fällt über Nacht stark.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0576",
-"text": "Die Creme ist gut für die Hände.",
+"text": "Das T-Shirt gibt es in Rot und Grün.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0577",
-"text": "Die Wäsche trocknet auf dem Balkon.",
+"text": "Wo finde ich die nächste Tankstelle?",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0578",
-"text": "Bitte pünktlich um 10:00 Uhr da sein!",
+"text": "Einen schönen Gruß an deine Eltern!",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0579",
-"text": "Das Xylophon hat 12 Klangstäbe.",
+"text": "Der Zug nach München fährt von Gleis 7.",
 "lang": "de",
 "block": 29
 },
 {
 "id": "de-core-0580",
-"text": "Total: 15.80 euros (incl. tax)",
+"text": "The shop closes at half past six.",
 "lang": "en",
 "block": 29
 },
 {
 "id": "de-core-0581",
-"text": "Die Glühbirne im Flur ist durchgebrannt.",
+"text": "Die Wiese ist voller Gänseblümchen.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0582",
-"text": "Der Löwe brüllt laut im Zoo.",
+"text": "Der Bär schläft den ganzen Winter.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0583",
-"text": "Die Temperatur fällt über Nacht stark.",
+"text": "Ich bin überzeugt, dass es klappt.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0584",
-"text": "Zucchini, Möhren, Lauch schneiden",
+"text": "Überfüllte Busse sind morgens normal.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0585",
-"text": "Packliste: Jacke, Schuhe, Zahnbürste",
+"text": "Das Programm fragt nach einem Passwort.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0586",
-"text": "Überhaupt keine Sorge, es wird gut.",
+"text": "Meine Füße sind müde vom Laufen.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0587",
-"text": "Ein süßer Duft liegt in der Luft.",
+"text": "Das Gerät muss zuerst aufgeladen werden.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0588",
-"text": "Der Vater trägt das Baby auf dem Arm.",
+"text": "Die Creme ist gut für die Hände.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0589",
-"text": "Nüsse und Trockenfrüchte im Angebot",
+"text": "Zebras haben schwarz-weiße Streifen.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0590",
-"text": "Wir wandern von Hütte zu Hütte.",
+"text": "Im Kreisverkehr zweite Ausfahrt nehmen",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0591",
-"text": "Am Montag früh ist Teambesprechung.",
+"text": "Der Schäfer hütet seine Schafe.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0592",
-"text": "The traffic is heavy this morning.",
+"text": "Practice makes perfect.",
 "lang": "en",
 "block": 30
 },
 {
 "id": "de-core-0593",
-"text": "Der Gegner war stärker als gedacht.",
+"text": "Der Löwe brüllt laut im Zoo.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0594",
-"text": "Spaghetti mit Tomatensoße und Käse",
+"text": "Das Kino zeigt einen Zeichentrickfilm.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0595",
-"text": "Zum Entspannen höre ich Jazz.",
+"text": "Der frühe Vogel fängt den Wurm.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0596",
-"text": "Am Samstag ist Flohmarkt auf dem Platz.",
+"text": "Ein süßer Duft liegt in der Luft.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0597",
-"text": "Notiz an mich: Blumen gießen!",
+"text": "Herzlich willkommen im neuen Jahr!",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0598",
-"text": "Nur noch 2 Stück auf Lager!",
+"text": "Der 30. Hochzeitstag meiner Eltern!",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0599",
-"text": "Das Getränk hat 0 % Alkohol.",
+"text": "Der Download ist zu 90 % fertig.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0600",
-"text": "Ältere Menschen brauchen oft mehr Ruhe.",
+"text": "Die Fähre fährt von drüben ab.",
 "lang": "de",
 "block": 30
 },
 {
 "id": "de-core-0601",
-"text": "\"Gute Nacht\", flüsterte das Mädchen.",
+"text": "Der Bär brummt in seiner Höhle.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0602",
-"text": "Mein Lieblingslied läuft im Radio.",
+"text": "Wir wandern von Hütte zu Hütte.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0603",
-"text": "Die Möbel sind aus Holz gebaut.",
+"text": "Jeans, Pullover und Jacke einpacken",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0604",
-"text": "Practice makes perfect.",
+"text": "Great goal, well played, everyone!",
 "lang": "en",
 "block": 31
 },
 {
 "id": "de-core-0605",
-"text": "Mir tut der Rücken von der Arbeit weh.",
+"text": "Nüsse und Trockenfrüchte im Angebot",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0606",
-"text": "Er stieß sich den Kopf am Regal.",
+"text": "Spaghetti mit Tomatensoße und Käse",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0607",
-"text": "Der Schäfer hütet seine Schafe.",
+"text": "Die Möbel sind aus Holz gebaut.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0608",
-"text": "Mein Banknachbar heißt Jonas.",
+"text": "Der Himmel ist grau und wolkenverhangen.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0609",
-"text": "Ökologisch einkaufen ist mir wichtig.",
+"text": "Der Gegner war stärker als gedacht.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0610",
-"text": "Jemand muss die Tür öffnen.",
+"text": "Ein Lächeln öffnet viele Türen.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0611",
-"text": "Ein Eichhörnchen sammelt Nüsse.",
+"text": "Mir tut der Rücken von der Arbeit weh.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0612",
-"text": "Sonntags frühstücken wir gemütlich.",
+"text": "Mein Großvater erzählt gern Geschichten.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0613",
-"text": "Beim Yoga atme ich ruhig und tief.",
+"text": "Wir haben den Pokal knapp verpasst.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0614",
-"text": "Zucker ist süß, Zitrone ist sauer.",
+"text": "Die Gänse fliegen nach Süden.",
 "lang": "de",
 "block": 31
 },
@@ -3693,73 +3693,73 @@
 },
 {
 "id": "de-core-0616",
-"text": "Our team has twelve members.",
+"text": "The traffic is heavy this morning.",
 "lang": "en",
 "block": 31
 },
 {
 "id": "de-core-0617",
-"text": "Wo finde ich die nächste Tankstelle?",
+"text": "Anfragen an: team@beispiel.net",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0618",
-"text": "Gleich um die Ecke, in 5 Minuten!",
+"text": "Bitte pünktlich um 10:00 Uhr da sein!",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0619",
-"text": "Das Quartal endet am 31. März.",
+"text": "Abfahrt um 7:20 Uhr am Busbahnhof.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0620",
-"text": "Die Gänse fliegen nach Süden.",
+"text": "Ökologisch einkaufen ist mir wichtig.",
 "lang": "de",
 "block": 31
 },
 {
 "id": "de-core-0621",
-"text": "Bitte mitbringen: Stift & Block",
+"text": "Der Grießbrei ist heute besonders süß.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0622",
-"text": "Wir bieten Ausbildungsplätze an.",
+"text": "Ein Eichhörnchen sammelt Nüsse.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0623",
-"text": "Der Verband wird täglich gewechselt.",
+"text": "Die Ärztin hat mir Tee empfohlen.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0624",
-"text": "Wir haben den Pokal knapp verpasst.",
+"text": "Im Teich blühen gelbe Seerosen.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0625",
-"text": "Der Schlüssel liegt an der Rezeption.",
+"text": "Die Eisdiele an der Ecke ist gemütlich.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0626",
-"text": "Der Himmel ist grau und wolkenverhangen.",
+"text": "Im Zeugnis steht eine Zwei in Englisch.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0627",
-"text": "Heißer Tee wärmt von innen.",
+"text": "Die Wäsche trocknet auf dem Balkon.",
 "lang": "de",
 "block": 32
 },
@@ -3771,49 +3771,49 @@
 },
 {
 "id": "de-core-0629",
-"text": "Der Ständer für das Fahrrad ist kaputt.",
+"text": "Die Landschaft ist wunderschön hier.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0630",
-"text": "Fleischbällchen mit Kartoffelbrei",
+"text": "Am Samstag ist Flohmarkt auf dem Platz.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0631",
-"text": "Jeans, Pullover und Jacke einpacken",
+"text": "Er stieß sich den Kopf am Regal.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0632",
-"text": "Meine Füße sind müde vom Laufen.",
+"text": "Der Verband wird täglich gewechselt.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0633",
-"text": "Das Bild hängt jetzt im Wohnzimmer.",
+"text": "\"Gute Nacht\", flüsterte das Mädchen.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0634",
-"text": "Mein Arbeitgeber zahlt einen Zuschuss.",
+"text": "Heißer Tee wärmt von innen.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0635",
-"text": "Im Zeugnis steht eine Zwei in Englisch.",
+"text": "Quedlinburg hat viel Fachwerk.",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0636",
-"text": "Der Papagei kann schon drei Wörter.",
+"text": "Der Vater trägt das Baby auf dem Arm.",
 "lang": "de",
 "block": 32
 },
@@ -3825,13 +3825,13 @@
 },
 {
 "id": "de-core-0638",
-"text": "Noch 12 Tage bis zu den Ferien!",
+"text": "Nur noch 2 Stück auf Lager!",
 "lang": "de",
 "block": 32
 },
 {
 "id": "de-core-0639",
-"text": "Die 7b fährt am Freitag ins Museum.",
+"text": "Die Fahrt Jena-Leipzig dauert 1 Stunde.",
 "lang": "de",
 "block": 32
 },
@@ -3843,67 +3843,67 @@
 },
 {
 "id": "de-core-0641",
-"text": "Der Flug nach Lissabon ist ausgebucht.",
+"text": "Wir bieten Ausbildungsplätze an.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0642",
-"text": "Im Werkunterricht sägen wir Brettchen.",
+"text": "Xanten liegt am Niederrhein.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0643",
-"text": "Spätzle mit Soße sind mein Favorit.",
+"text": "Im Werkunterricht sägen wir Brettchen.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0644",
-"text": "Reise: Dresden, Görlitz, dann Zittau",
+"text": "Wir tanzen auf der Hochzeit bis spät.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0645",
-"text": "Im Teich blühen gelbe Seerosen.",
+"text": "Die Yacht gleitet über den See.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0646",
-"text": "Der Park schließt bei Dunkelheit.",
+"text": "Packliste: Jacke, Schuhe, Zahnbürste",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0647",
-"text": "Der Löwe schläft im Schatten.",
+"text": "Ich schneide das Gemüse in Würfel.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0648",
-"text": "Die Schüler schreiben fleißig mit.",
+"text": "Die Köchin schmeckt die Suppe ab.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0649",
-"text": "Mehr Gewürze machen es würziger.",
+"text": "Der Papagei kann schon drei Wörter.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0650",
-"text": "Das Kino ist in der Bahnhofstraße.",
+"text": "Der Januar ist der kälteste Monat.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0651",
-"text": "Die Übersetzung war nicht einfach.",
+"text": "Im März gibt es oft Aprilwetter.",
 "lang": "de",
 "block": 33
 },
@@ -3915,157 +3915,157 @@
 },
 {
 "id": "de-core-0653",
-"text": "Bitte die Milch in den Kühlschrank!",
+"text": "Die Schüler schreiben fleißig mit.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0654",
-"text": "Das Ladekabel liegt im Rucksack.",
+"text": "Wir lernen die Hauptstädte Europas.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0655",
-"text": "Ein Fasan läuft über den Feldweg.",
+"text": "Überweisung bitte bis Freitag erledigen.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0656",
-"text": "Der Grießbrei ist heute besonders süß.",
+"text": "Spätzle mit Soße sind mein Favorit.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0657",
-"text": "Im März gibt es oft Aprilwetter.",
+"text": "Der Löwe schläft im Schatten.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0658",
-"text": "Tempo 30 km/h in der Zone",
+"text": "Noch 12 Tage bis zu den Ferien!",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0659",
-"text": "Die Bäckerei öffnet um 6 Uhr.",
+"text": "Der Turm der Kirche ist 60 Meter hoch.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0660",
-"text": "Wir tanzen auf der Hochzeit bis spät.",
+"text": "Der Flug nach Lissabon ist ausgebucht.",
 "lang": "de",
 "block": 33
 },
 {
 "id": "de-core-0661",
-"text": "Die Bücherei ist neben dem Schwimmbad.",
+"text": "Am Montag früh ist Teambesprechung.",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0662",
-"text": "Einen schönen Gruß an deine Eltern!",
+"text": "In der Innenstadt ist ein Straßenfest.",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0663",
-"text": "Im Süden ist es meist wärmer.",
+"text": "Der Park schließt bei Dunkelheit.",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0664",
-"text": "It costs only 9.50 euros.",
+"text": "It's cold, so wear a warm jacket.",
 "lang": "en",
 "block": 34
 },
 {
 "id": "de-core-0665",
-"text": "Zieh dir bitte Handschuhe und Mütze an.",
+"text": "Die Bücherei ist neben dem Schwimmbad.",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0666",
-"text": "Es ist nicht alles Gold, was glänzt.",
+"text": "Das Ladekabel liegt im Rucksack.",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0667",
-"text": "Die Vögel zwitschern schon früh.",
-"lang": "de",
-"block": 34
-},
-{
-"id": "de-core-0668",
-"text": "Der Januar ist der kälteste Monat.",
-"lang": "de",
-"block": 34
-},
-{
-"id": "de-core-0669",
-"text": "Frohes Schaffen und viel Erfolg!",
-"lang": "de",
-"block": 34
-},
-{
-"id": "de-core-0670",
-"text": "Süßkartoffeln aus dem Ofen sind lecker.",
-"lang": "de",
-"block": 34
-},
-{
-"id": "de-core-0671",
-"text": "Joghurt mit Honig und Nüssen",
-"lang": "de",
-"block": 34
-},
-{
-"id": "de-core-0672",
 "text": "Die Nähe zum Wald gefällt mir sehr.",
 "lang": "de",
 "block": 34
 },
 {
+"id": "de-core-0668",
+"text": "Wir brauchen mehr Räume für die Gäste.",
+"lang": "de",
+"block": 34
+},
+{
+"id": "de-core-0669",
+"text": "Mein Banknachbar heißt Jonas.",
+"lang": "de",
+"block": 34
+},
+{
+"id": "de-core-0670",
+"text": "Bewegung an der frischen Luft tut gut.",
+"lang": "de",
+"block": 34
+},
+{
+"id": "de-core-0671",
+"text": "Im Süden ist es meist wärmer.",
+"lang": "de",
+"block": 34
+},
+{
+"id": "de-core-0672",
+"text": "Der Fächer kühlt mein Gesicht.",
+"lang": "de",
+"block": 34
+},
+{
 "id": "de-core-0673",
-"text": "Hinter der Kirche links, dann rechts",
+"text": "Es ist nicht alles Gold, was glänzt.",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0674",
-"text": "Kannst du bitte Müsli mitbringen?",
+"text": "Die Vögel zwitschern schon früh.",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0675",
-"text": "Die Hüfte tut mir etwas weh.",
+"text": "Meine Väter und Großväter waren Bäcker.",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0676",
-"text": "Reading is my favourite subject.",
+"text": "Total: 15.80 euros (incl. tax)",
 "lang": "en",
 "block": 34
 },
 {
 "id": "de-core-0677",
-"text": "Plötzlich fing es an zu regnen.",
+"text": "Ich wünsche euch viel Glück!",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0678",
-"text": "Das Gerät piept, wenn es fertig ist.",
+"text": "Auf zur nächsten Runde, ihr schafft das!",
 "lang": "de",
 "block": 34
 },
@@ -4077,175 +4077,175 @@
 },
 {
 "id": "de-core-0680",
-"text": "Der Fächer kühlt mein Gesicht.",
+"text": "Reise: Dresden, Görlitz, dann Zittau",
 "lang": "de",
 "block": 34
 },
 {
 "id": "de-core-0681",
-"text": "Alle Türen sind frisch geölt.",
+"text": "Mein Arbeitgeber zahlt einen Zuschuss.",
 "lang": "de",
 "block": 35
 },
 {
 "id": "de-core-0682",
-"text": "Wir brauchen mehr Räume für die Gäste.",
+"text": "Zieh dir bitte Handschuhe und Mütze an.",
 "lang": "de",
 "block": 35
 },
 {
 "id": "de-core-0683",
-"text": "Die Eisdiele an der Ecke ist gemütlich.",
+"text": "Zum Entspannen höre ich Jazz.",
 "lang": "de",
 "block": 35
 },
 {
 "id": "de-core-0684",
-"text": "Der Sturm hat einen Ast abgebrochen.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0685",
-"text": "Ich habe wirklich großes Glück gehabt.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0686",
-"text": "In der Innenstadt ist ein Straßenfest.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0687",
-"text": "Kraft, Ausdauer und Geduld sind wichtig.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0688",
-"text": "Who knows the answer to number 5?",
-"lang": "en",
-"block": 35
-},
-{
-"id": "de-core-0689",
-"text": "Sie ist größer als ihre Schwester.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0690",
-"text": "Ich schneide das Gemüse in Würfel.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0691",
-"text": "Das ist ja 'ne tolle Idee!",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0692",
-"text": "Die Köchin schmeckt die Suppe ab.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0693",
-"text": "Meine Brüder spielen im Hof Fußball.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0694",
 "text": "Der Käse schmilzt auf dem Toast.",
 "lang": "de",
 "block": 35
 },
 {
-"id": "de-core-0695",
-"text": "Bitte die Hände gründlich waschen.",
+"id": "de-core-0685",
+"text": "Mehr Gewürze machen es würziger.",
 "lang": "de",
 "block": 35
 },
 {
-"id": "de-core-0696",
-"text": "Meine Väter und Großväter waren Bäcker.",
+"id": "de-core-0686",
+"text": "Plötzlich fing es an zu regnen.",
 "lang": "de",
 "block": 35
 },
 {
-"id": "de-core-0697",
-"text": "Gib das Passwort noch einmal ein.",
+"id": "de-core-0687",
+"text": "Süßkartoffeln aus dem Ofen sind lecker.",
 "lang": "de",
 "block": 35
 },
 {
-"id": "de-core-0698",
-"text": "Wir lernen die Hauptstädte Europas.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0699",
-"text": "Der Möbelwagen kommt um 8 Uhr.",
-"lang": "de",
-"block": 35
-},
-{
-"id": "de-core-0700",
+"id": "de-core-0688",
 "text": "The band plays on Saturday night.",
 "lang": "en",
 "block": 35
 },
 {
-"id": "de-core-0701",
+"id": "de-core-0689",
+"text": "Die Soße darf ruhig etwas dicker sein.",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0690",
+"text": "Das Geschenk soll hübsch verpackt sein.",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0691",
+"text": "Die Wäsche muss noch aufgehängt werden.",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0692",
+"text": "Der Schlüssel liegt an der Rezeption.",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0693",
+"text": "Der Lehrer erklärt die Bruchrechnung.",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0694",
+"text": "Kraft, Ausdauer und Geduld sind wichtig.",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0695",
+"text": "Zucchini, Möhren, Lauch schneiden",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0696",
 "text": "Das Geschäft läuft nach Plan.",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0697",
+"text": "Kannst du bitte Müsli mitbringen?",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0698",
+"text": "Gleich um die Ecke, in 5 Minuten!",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0699",
+"text": "Um 20 Uhr beginnt das Fußballspiel.",
+"lang": "de",
+"block": 35
+},
+{
+"id": "de-core-0700",
+"text": "Reading is my favourite subject.",
+"lang": "en",
+"block": 35
+},
+{
+"id": "de-core-0701",
+"text": "Sonntags frühstücken wir gemütlich.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0702",
-"text": "Ich muss zur Kontrolle in die Klinik.",
+"text": "Das Kino ist in der Bahnhofstraße.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0703",
-"text": "Hamburg, Bremen, Lübeck und Kiel",
+"text": "Bitte die Hände gründlich waschen.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0704",
-"text": "Das Leben ist schön, genieße es.",
+"text": "Wir spielen im Musikunterricht Flöte.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0705",
-"text": "Die Autobahn ist heute voll gesperrt.",
+"text": "Zucker ist süß, Zitrone ist sauer.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0706",
-"text": "Mein Onkel erzählt gern Witze.",
+"text": "Im Süden ist das Wetter oft schöner.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0707",
-"text": "Der Wolf lebt in großen Wäldern.",
+"text": "Das Gerät lässt sich nicht einschalten.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0708",
-"text": "Zur Mittagszeit ist es am wärmsten.",
+"text": "Zwei Würste und ein Brötchen, bitte.",
 "lang": "de",
 "block": 36
 },
@@ -4257,7 +4257,7 @@
 },
 {
 "id": "de-core-0710",
-"text": "Chili und Paprika machen es scharf.",
+"text": "Der Kühlschrank ist fast leer.",
 "lang": "de",
 "block": 36
 },
@@ -4269,43 +4269,43 @@
 },
 {
 "id": "de-core-0712",
-"text": "I need a new charging cable.",
+"text": "Tomorrow it will be 25 degrees.",
 "lang": "en",
 "block": 36
 },
 {
 "id": "de-core-0713",
-"text": "Wer möchte noch eine Runde Schach?",
+"text": "Der Ständer für das Fahrrad ist kaputt.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0714",
-"text": "Die Lehrerin prüft heute die Vokabeln.",
+"text": "Es gibt heute Eintopf mit Erbsen.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0715",
-"text": "Ich wünsche euch viel Glück!",
+"text": "Das Stück Kuchen schmeckt köstlich.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0716",
-"text": "Könntest du mir das erklären?",
+"text": "Die Familie feiert Silvester zusammen.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0717",
-"text": "Österreich liegt südlich von uns.",
+"text": "Das ist ja 'ne tolle Idee!",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0718",
-"text": "Mein Computer hat 16 Gigabyte.",
+"text": "Glück im Unglück gehabt!",
 "lang": "de",
 "block": 36
 },
@@ -4317,25 +4317,25 @@
 },
 {
 "id": "de-core-0720",
-"text": "Die Frösche quaken am Ufer.",
+"text": "Alle Türen sind frisch geölt.",
 "lang": "de",
 "block": 36
 },
 {
 "id": "de-core-0721",
-"text": "Das Gerät lässt sich nicht einschalten.",
+"text": "Bitte per Mail: sport@beispiel.de",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0722",
-"text": "Zwei Würste und ein Brötchen, bitte.",
+"text": "Meine Brüder spielen im Hof Fußball.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0723",
-"text": "Das Stück Kuchen schmeckt köstlich.",
+"text": "Die Treppe knarrt bei jedem Schritt.",
 "lang": "de",
 "block": 37
 },
@@ -4347,235 +4347,235 @@
 },
 {
 "id": "de-core-0725",
-"text": "Die Ärztin hat mir Tee empfohlen.",
+"text": "Wir müssen den Tisch neu lackieren.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0726",
-"text": "Rot-Grün-Blau sind die Grundfarben.",
+"text": "Lies den Text bitte noch einmal genau.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0727",
-"text": "Das Wörterbuch liegt auf dem Pult.",
+"text": "Die Fotos entwickle ich selbst.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0728",
-"text": "Der Qualm zieht aus dem Schornstein.",
+"text": "Österreich liegt südlich von uns.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0729",
-"text": "Es gibt heute Eintopf mit Erbsen.",
+"text": "Das Leben ist schön, genieße es.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0730",
-"text": "Die Familie feiert Silvester zusammen.",
+"text": "Die Frösche quaken am Ufer.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0731",
-"text": "Süße Träume und eine gute Nacht!",
-"lang": "de",
-"block": 37
-},
-{
-"id": "de-core-0732",
 "text": "Ehrlich währt am längsten.",
 "lang": "de",
 "block": 37
 },
 {
+"id": "de-core-0732",
+"text": "Das Wörterbuch liegt auf dem Pult.",
+"lang": "de",
+"block": 37
+},
+{
 "id": "de-core-0733",
-"text": "Die Rüben sind schon ausgegraben.",
+"text": "Die Sehenswürdigkeiten liegen nah.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0734",
-"text": "Die Treppe knarrt bei jedem Schritt.",
+"text": "Hinter der Kirche links, dann rechts",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0735",
-"text": "Samstag früh geht es zum Kletterkurs.",
+"text": "Frohes Schaffen und viel Erfolg!",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0736",
-"text": "That sounds like a great idea.",
+"text": "I need a new charging cable.",
 "lang": "en",
 "block": 37
 },
 {
 "id": "de-core-0737",
-"text": "Die Flügel des Vogels sind braun.",
+"text": "Wer möchte noch eine Runde Schach?",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0738",
-"text": "Um 20 Uhr beginnt das Fußballspiel.",
+"text": "Der Möbelwagen kommt um 8 Uhr.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0739",
-"text": "Das Sekretariat ist bis 15 Uhr besetzt.",
+"text": "Das Reisebüro öffnet um 10 Uhr.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0740",
-"text": "Im Süden ist das Wetter oft schöner.",
+"text": "Der Zirkel liegt in meinem Mäppchen.",
 "lang": "de",
 "block": 37
 },
 {
 "id": "de-core-0741",
-"text": "Der Kürbis wiegt fast fünf Kilo.",
+"text": "Der Wolf lebt in großen Wäldern.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0742",
-"text": "Wir müssen den Tisch neu lackieren.",
+"text": "Sie ist größer als ihre Schwester.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0743",
-"text": "Schreibe einen Satz mit dem Wort Löwe.",
+"text": "Die Heizung macht seltsame Geräusche.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0744",
-"text": "Gesundheit ist das höchste Gut.",
+"text": "Hamburg, Bremen, Lübeck und Kiel",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0745",
-"text": "Die Sehenswürdigkeiten liegen nah.",
+"text": "Der Lohn kommt am Monatsende aufs Konto.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0746",
-"text": "E-Mail: chor@beispiel.org",
+"text": "Die Karte wurde leider abgelehnt.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0747",
-"text": "Schnell noch die Schnürsenkel zubinden.",
+"text": "Juchhu, es hat geklappt!",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0748",
-"text": "It's cold, so wear a warm jacket.",
+"text": "That sounds like a great idea.",
 "lang": "en",
 "block": 38
 },
 {
 "id": "de-core-0749",
-"text": "Bewegung an der frischen Luft tut gut.",
+"text": "Schreibe einen Satz mit dem Wort Löwe.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0750",
-"text": "Das Reisebüro öffnet um 10 Uhr.",
+"text": "Könntest du mir das erklären?",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0751",
-"text": "Die Fotos entwickle ich selbst.",
+"text": "Das Cello steht neben dem Klavier.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0752",
-"text": "Herzlichen Glückwunsch zum Geburtstag!",
+"text": "Brot, Käse, Äpfel und ein Messer",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0753",
-"text": "Überschrift in der ersten Zeile",
+"text": "Der Blutdruck ist ganz in Ordnung.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0754",
-"text": "Nach der Arbeit bin ich ruhig und müde.",
+"text": "Der Qualm zieht aus dem Schornstein.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0755",
-"text": "Die Wäsche muss noch aufgehängt werden.",
+"text": "Die Hüfte tut mir etwas weh.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0756",
-"text": "Das Rezept stammt von meiner Oma.",
+"text": "Mein Onkel erzählt gern Witze.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0757",
-"text": "Mein Telefon klingelt im Rucksack.",
+"text": "Die Möwen kreischen über dem Hafen.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0758",
-"text": "Wie heißt du eigentlich mit Vornamen?",
+"text": "Die Brühe muss 30 Minuten köcheln.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0759",
-"text": "Abfahrt um 7:20 Uhr am Busbahnhof.",
+"text": "Die Wanderung (ca. 12 km) beginnt früh.",
 "lang": "de",
 "block": 38
 },
 {
 "id": "de-core-0760",
-"text": "Tomorrow it will be 25 degrees.",
+"text": "Sleep well and sweet dreams!",
 "lang": "en",
 "block": 38
 },
 {
 "id": "de-core-0761",
-"text": "Sicherheitshalber komme ich früher.",
+"text": "Wer gewinnt, bekommt einen Pokal.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0762",
-"text": "Das Cello steht neben dem Klavier.",
+"text": "Die Flügel des Vogels sind braun.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0763",
-"text": "Der Betrag wurde gestern überwiesen.",
+"text": "Süße Träume und eine gute Nacht!",
 "lang": "de",
 "block": 39
 },
@@ -4593,103 +4593,103 @@
 },
 {
 "id": "de-core-0766",
-"text": "Wir spielen im Musikunterricht Flöte.",
+"text": "Gesundheit ist das höchste Gut.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0767",
-"text": "Der Zirkel liegt in meinem Mäppchen.",
+"text": "Die Rüben sind schon ausgegraben.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0768",
-"text": "Mit Sonnencreme bin ich lange draußen.",
+"text": "Die Autobahn ist heute voll gesperrt.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0769",
-"text": "Wer gewinnt, bekommt einen Pokal.",
+"text": "Der Kürbis wiegt fast fünf Kilo.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0770",
-"text": "Die Stadtbibliothek hat lange geöffnet.",
-"lang": "de",
-"block": 39
-},
-{
-"id": "de-core-0771",
-"text": "Fußgänger haben hier immer Vorrang.",
-"lang": "de",
-"block": 39
-},
-{
-"id": "de-core-0772",
-"text": "Sleep well and sweet dreams!",
-"lang": "en",
-"block": 39
-},
-{
-"id": "de-core-0773",
-"text": "Das Pflaster klebt auf der Wunde.",
-"lang": "de",
-"block": 39
-},
-{
-"id": "de-core-0774",
-"text": "Zettel: Schlüssel, Handy, Geldbeutel",
-"lang": "de",
-"block": 39
-},
-{
-"id": "de-core-0775",
-"text": "Die Linie 12 fährt zum Marktplatz.",
-"lang": "de",
-"block": 39
-},
-{
-"id": "de-core-0776",
 "text": "Die Haltestelle heißt Rathausplatz.",
 "lang": "de",
 "block": 39
 },
 {
+"id": "de-core-0771",
+"text": "Er sagte nichts, außer einem Gruß.",
+"lang": "de",
+"block": 39
+},
+{
+"id": "de-core-0772",
+"text": "What a lovely spring morning!",
+"lang": "en",
+"block": 39
+},
+{
+"id": "de-core-0773",
+"text": "Januar, Februar und März sind kalt.",
+"lang": "de",
+"block": 39
+},
+{
+"id": "de-core-0774",
+"text": "Mit dem großen Löffel rühre ich um.",
+"lang": "de",
+"block": 39
+},
+{
+"id": "de-core-0775",
+"text": "Joghurt mit Honig und Nüssen",
+"lang": "de",
+"block": 39
+},
+{
+"id": "de-core-0776",
+"text": "Der Clown macht lustige Späße.",
+"lang": "de",
+"block": 39
+},
+{
 "id": "de-core-0777",
-"text": "Das Geschenk soll hübsch verpackt sein.",
+"text": "Sicherheitshalber komme ich früher.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0778",
-"text": "Auf zur nächsten Runde, ihr schafft das!",
+"text": "Das Sekretariat ist bis 15 Uhr besetzt.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0779",
-"text": "Am 15. November ist Laternenumzug.",
+"text": "Ankunft in Zürich um 13:52 Uhr",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0780",
-"text": "Der Doktor sagt: Alles in Ordnung.",
+"text": "Zur Mittagszeit ist es am wärmsten.",
 "lang": "de",
 "block": 39
 },
 {
 "id": "de-core-0781",
-"text": "Die Straße führt über die Brücke.",
+"text": "Am Ufer entlang bis zur Mühle laufen",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0782",
-"text": "Die Heizung macht seltsame Geräusche.",
+"text": "Wir kaufen Brötchen beim Bäcker.",
 "lang": "de",
 "block": 40
 },
@@ -4701,73 +4701,73 @@
 },
 {
 "id": "de-core-0784",
-"text": "We have a quiz about animals today.",
+"text": "Room 204, second floor, on the left",
 "lang": "en",
 "block": 40
 },
 {
 "id": "de-core-0785",
-"text": "Mein Bruder wohnt jetzt in Leipzig.",
+"text": "Die Stadtbibliothek hat lange geöffnet.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0786",
-"text": "Mit dem großen Löffel rühre ich um.",
+"text": "Das Bild hängt jetzt im Wohnzimmer.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0787",
-"text": "Der Kühlschrank brummt leise.",
+"text": "Die Tabletten nehme ich dreimal täglich.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0788",
-"text": "Nichts ist so beständig wie der Wandel.",
+"text": "Fröhliche Musik klingt durchs Haus.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0789",
-"text": "Drüben am Ufer liegt ein Boot.",
+"text": "Ein Fasan läuft über den Feldweg.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0790",
-"text": "Ich bügele noch schnell zwei Hemden.",
+"text": "Die Sonnenblumen sind riesig groß.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0791",
-"text": "Yoga hilft mir beim Entspannen.",
+"text": "Schnell noch die Schnürsenkel zubinden.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0792",
-"text": "Im Laden gibt es schöne Mützen.",
+"text": "Der Torwart hält den Ball sicher.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0793",
-"text": "Zum Rätseln brauche ich einen Bleistift.",
+"text": "Die Lehrerin prüft heute die Vokabeln.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0794",
-"text": "Glück im Unglück gehabt!",
+"text": "Das Xylophon ist ein Schlaginstrument.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0795",
-"text": "Juchhu, es hat geklappt!",
+"text": "Chili und Paprika machen es scharf.",
 "lang": "de",
 "block": 40
 },
@@ -4779,25 +4779,25 @@
 },
 {
 "id": "de-core-0797",
-"text": "Der Drucker im Büro ist defekt.",
+"text": "Entschuldige die Verspätung!",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0798",
-"text": "Die Kinder bauen eine Höhle im Zimmer.",
+"text": "Bitte die Milch in den Kühlschrank!",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0799",
-"text": "Ankunft in Zürich um 13:52 Uhr",
+"text": "Die Lampe flackert, das stört mich.",
 "lang": "de",
 "block": 40
 },
 {
 "id": "de-core-0800",
-"text": "Ich putze den Herd und die Spüle.",
+"text": "Der Sturm hat einen Ast abgebrochen.",
 "lang": "de",
 "block": 40
 }

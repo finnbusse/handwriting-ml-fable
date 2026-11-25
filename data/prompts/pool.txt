@@ -92,7 +92,7 @@ Der Direktor spricht zur ganzen Schule.
 Schreibe einen Satz mit dem Wort Löwe.
 Die Gruppe präsentiert ihr Ergebnis.
 Wir feiern die Zeugnisse mit Kuchen.
-Das Mädchen löst die Aufgabe als erste.
+Das Mädchen löst die Aufgabe als Erste.
 Zum Schluss räumen wir alle auf.
 en|Please open your books on page 12.
 en|Homework is due on Thursday.
@@ -1548,7 +1548,6 @@ Wir bleiben bis zur letzten Station.
 Die Innenstadt ist ab 6 Uhr belebt.
 Der Radweg führt am Fluss entlang.
 Bitte nicht auf dem Gehweg parken.
-Chemnitz, Jena, Weimar und Halle
 Der Zug nach Dresden fährt um 8:08 Uhr.
 Fußgänger haben hier immer Vorrang.
 Der Schulbus hält vor dem Tor.
@@ -1863,7 +1862,6 @@ Postleitzahl: 01067 Dresden
 Heutiges Datum: 02.03.2026
 Bestellnummer: 45 87 32
 Betrag: 79,00 € netto
-Anteil: 25 % (ein Viertel)
 Rechnung Nr. 2026-18
 Sitzplatz 12 A, Wagen 5
 Hausnummer 6-8 (Eingang B)
@@ -2000,7 +1998,6 @@ Auf der Tür stand "Bitte klingeln".
 "Tschüss, bis morgen!", rief das Kind.
 Die Frage "Warum?" hört man oft.
 Bitte schreibe "Ja" oder "Nein" auf.
-Das Buch heißt "Die kleine Hexe".
 Im Heft steht: "Aufgabe 4 bitte lösen."
 Der Brief beginnt mit "Liebe Oma,".
 Am Ende steht "Viele Grüße, Jule".
@@ -2460,22 +2457,18 @@ Ich habe 3,75 € im Portemonnaie.
 Dreimal neun ist 27.
 Wir haben 9 Äpfel und 8 Birnen.
 Das Zimmer hat 26 Quadratmeter.
-Ich bin 1,68 m groß und 59 kg schwer.
 Die Wanderung dauert 4 Std. 15 Min.
 Am 29.05. ist Feiertag, am 30.05. frei.
 Der Termin ist am 24.06. um 14:40 Uhr.
-Geboren am 12.09.1987 in Jena
 Mein Jahrgang ist 1994.
 Im Jahr 2026 feiern wir ein großes Fest.
 Postleitzahl 99084, Erfurt
 Tel. 0365 / 48 97 36
-Meine Nummer endet auf 7458.
 Die Karte kostet 28 € für 2 Personen.
 Wir sind zu fünft und brauchen 5 Plätze.
 Es sind noch 36 Tage bis zum Urlaub.
 Bis zum Ziel sind es noch 47 Kilometer.
 Die Tür 6 ist offen, Tür 7 ist zu.
-Aufgabe 8: 56 geteilt durch 7 ist?
 Mein Sitzplatz ist die 34 im Wagen 6.
 Die Sendung läuft um 20:15 Uhr.
 Der Kuchen braucht 375 g Mehl.
@@ -2569,18 +2562,13 @@ en|Take bus 46 to the station at 6:30.
 en|There are 24 students in my class.
 en|Page 79, exercises 3 to 8.
 Löse die Gleichung: X + 4 = 9
-Wenn X = 3 ist, dann ist Y = 6.
 Aufgabe: X + 5 = 12, also X = 7
-2 mal X ist 14, also ist X = 7.
-Y = 2 + X, und X ist gleich 4.
 Zeichne die Achsen X und Y ein.
 Punkt A liegt bei X = 4 und Y = 2.
 Rechne: 3 x X = 21, also X = 7
-Für X = 5 ergibt sich Y = 11.
 Die X-Achse liegt waagerecht.
 Setze für X die Zahl 8 ein.
 Wie groß ist Y, wenn X = 10 ist?
-X + Y = 15 und X - Y = 3
 Das Xylophon hat zwölf Stäbe.
 Ich lerne Xylophon spielen.
 Xenon ist ein Edelgas.
@@ -2774,9 +2762,7 @@ Trinke 2 + 1 Liter Wasser am Tag.
 Kaffee + Kuchen = 6,50 €
 Plus und Minus: 5 + 3 - 2 = 6
 Rechne: 3 + 4 + 5 = 12
-10 + 10 = 20, und 20 + 20 = 40
 Ergebnis: 25 + 17 = 42
-7 + 8 = 15 und 15 + 5 = 20
 Mathe: 12 + 9 = 21
 Rechne: 100 + 50 + 25 = 175
 Brot + Butter + Käse = Abendessen
@@ -2869,10 +2855,8 @@ Der Yak-Käse ist würzig und fest.
 Yoga um 7:30 Uhr, danach Frühstück.
 Yoga-Kurse gibt es montags und freitags.
 Die Yacht liegt seit Mai im Hafen.
-Für Y gilt: Y = 3 + X
 Quatsch beiseite, jetzt wird gelernt.
 Die Quittung für 24,90 € liegt bei.
-Quer durch die Stadt zum Quartier
 Der Quader ist 4 cm hoch.
 Der Qualm hing in der Luft.
 Xylophon-Unterricht: freitags um 15 Uhr
@@ -2910,7 +2894,6 @@ Es regnet; trotzdem gehen wir los.
 Eis essen; Sonne genießen; Pause machen
 Der Anfang war schwer; das Ende leicht.
 Ich lese gern; er spielt lieber Fußball.
-Das ist schön; das gefällt mir sehr.
 Heute Training; morgen Ruhetag
 Gestern Regen; heute Sonnenschein
 Mal sehen; vielleicht klappt es morgen.
@@ -2922,9 +2905,7 @@ Fragen an: marie@beispiel.de
 Kaffee + Milch + Zucker = mein Frühstück
 Zwei Stunden + 10 Minuten Pause
 Tee + Keks = ein schöner Nachmittag
-5 + 6 = 11, 6 + 7 = 13
 Training + Spiel = ein langer Tag
-9 + 9 = 18 und 18 + 18 = 36
 Rechne: 14 + 28 = 42
 Frühstück + Mittagessen + Abendessen
 Haus 3/5, Hofeingang links
@@ -3045,7 +3026,6 @@ Wir kaufen ein; ihr deckt den Tisch.
 Erst die Arbeit; dann das Vergnügen.
 Mal Regen; mal Sonne; mal beides
 Mama & Papa kommen morgen früh an.
-Brötchen & Käse & Tee zum Frühstück
 Spiel & Sport für alle Kinder
 Fisch & Chips gibt es am Hafen.
 Katze & Hund verstehen sich gut.
