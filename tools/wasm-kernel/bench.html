@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>hwsyn engine benchmark</title>
+<style>body{font:15px/1.4 system-ui,sans-serif;margin:16px;max-width:760px}pre{background:#f3f3f3;padding:10px;overflow-x:auto;font-size:13px}button{font-size:16px;padding:8px 14px}</style>
+</head>
+<body>
+<h3>Handwriting-synthesis engine benchmark (single thread, random weights, V=90, U=60)</h3>
+<p>Serve this folder over http(s) (any static host) and open the page on the target device. No download of real weights needed.
+Add <code>?real=data/weights_i16.hws</code> to benchmark with a real weight file.</p>
+<button id="go">Run</button>
+<pre id="log">idle</pre>
+<script type="module">
+import { randomModel, samplePoint, mulberry32, encodeText } from './hwsyn_common.mjs';
+import { createJsEngine } from './hwsyn_js.mjs';
+import { createWasmEngine, wasmSimdSupported } from './hwsyn_wasm.mjs';
+import { modelFromHws } from './hwsyn_formats.mjs';
+const log = (s) => { document.getElementById('log').textContent += '\n' + s; };
+const tick = () => new Promise((r) => setTimeout(r, 30));
+function rollout(engine, steps, seed) {
+  const rnd = mulberry32(seed), p = new Float64Array(3); engine.reset();
+  let x0 = 0, x1 = 0, x2 = 0, acc = 0;
+  for (let t = 0; t < steps; t++) { engine.step(x0, x1, x2, 0.5); samplePoint(engine.out, rnd, p, 0); x0 = p[0]; x1 = p[1]; x2 = p[2]; acc += x0 + 2 * x1 + engine.phi[t % engine.U]; }
+  return acc;
+}
+async function run() {
+  const q = new URLSearchParams(location.search), STEPS = +(q.get('steps') || 700), REPS = +(q.get('reps') || 5);
+  document.getElementById('log').textContent = navigator.userAgent;
+  log(`hardwareConcurrency=${navigator.hardwareConcurrency} deviceMemory=${navigator.deviceMemory} crossOriginIsolated=${self.crossOriginIsolated} wasmSIMD=${wasmSimdSupported()} Float16Array=${typeof Float16Array !== 'undefined'}`);
+  let model, codes;
+  if (q.get('real')) {
+    const t0 = performance.now(); const buf = await (await fetch(q.get('real'))).arrayBuffer(); const t1 = performance.now();
+    model = modelFromHws(buf); codes = encodeText('Franz jagt im komplett verwahrlosten Taxi quer durch Bayern', model.charset);
+    log(`weights ${q.get('real')}: ${(buf.byteLength / 1e6).toFixed(2)} MB, fetch ${(t1 - t0).toFixed(0)} ms, parse ${(performance.now() - t1).toFixed(0)} ms`);
+  } else {
+    model = randomModel(90, 7); const r = mulberry32(99); codes = Int32Array.from({ length: 60 }, () => 1 + Math.floor(r() * 89));
+  }
+  const results = [];
+  const specs = [['wasm', 'hwsyn_i16.wasm'], ['wasm', 'hwsyn_i8.wasm'], ['wasm', 'hwsyn_f32.wasm'], ['js', 'axpy8']];
+  for (const [kind, what] of specs) {
+    await tick();
+    try {
+      const t0 = performance.now();
+      const engine = kind === 'js' ? createJsEngine(model, what) : await createWasmEngine(await (await fetch(what)).arrayBuffer(), model);
+      const tInit = performance.now() - t0;
+      engine.setText(codes);
+      let sink = rollout(engine, 300, 1) + rollout(engine, 300, 2);
+      const times = [];
+      for (let r = 0; r < REPS; r++) { await tick(); const a = performance.now(); sink += rollout(engine, STEPS, 100 + r); times.push(performance.now() - a); }
+      times.sort((a, b) => a - b);
+      const med = times[times.length >> 1];
+      const res = { engine: engine.name, init_ms: Math.round(tInit), steps_per_s_median: Math.round(STEPS / med * 1000), steps_per_s_best: Math.round(STEPS / times[0] * 1000), ms_per_700: Math.round(med * 700 / STEPS), sink: +sink.toFixed(3) };
+      results.push(res);
+      log(`${res.engine.padEnd(14)} median ${String(res.steps_per_s_median).padStart(5)} steps/s  best ${String(res.steps_per_s_best).padStart(5)}  ->  ${res.ms_per_700} ms per 700-point line   (init ${res.init_ms} ms)`);
+    } catch (e) { log(`${kind}:${what} FAILED: ${e}`); results.push({ engine: what, error: String(e) }); }
+  }
+  log('done');
+  window.__results = { ua: navigator.userAgent, simd: wasmSimdSupported(), float16: typeof Float16Array !== 'undefined', coi: self.crossOriginIsolated, results };
+}
+document.getElementById('go').onclick = run;
+if (new URLSearchParams(location.search).has('auto')) run();
+</script>
+</body>
+</html>
