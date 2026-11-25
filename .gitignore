@@ -10,5 +10,5 @@ node_modules/
 .DS_Store
 
 # generated test fixtures and exported models
-tests/web/fixtures/
+tests/engine/fixtures/
 web/model/

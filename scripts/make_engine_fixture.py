@@ -1,6 +1,6 @@
 """Reference results for the browser engine.
 
-    python scripts/make_engine_fixture.py runs/v2/best tests/web/fixtures
+    python scripts/make_engine_fixture.py runs/v2/best tests/engine/fixtures
 
 Exports the checkpoint the way the browser will load it (float16) and records,
 with exactly those weights, what the reference implementation produces for a
@@ -23,6 +23,11 @@ from hw.reference import make_draws, sample_reference
 from hw.sampling import SENTINEL, Synthesizer
 
 TEXTS = ["Hallo Welt", "Viele Grüße aus Köln!", "Zimmer 204, 3. Stock", "The quick brown fox"]
+NORMALIZE_CASES = [
+    "Hallo Welt", "  viele   Leerzeichen\tund\nUmbruch ", "„Zitat“ und ‚einfach‘", "Gedanken – Strich — lang",
+    "Café, naïve, señor, Ångström", "Preis: 3,50 € (inkl. 19 % MwSt.)", "E-Mail: info@beispiel.de", "a{b}c<d>e|f\\g~h^i",
+    "GROẞ und groß", "Drei Punkte… fertig", "Emoji 🙂 und 中文 fallen weg", "A\u0308pfel (zerlegtes Ä)", "100 $ = 92 €", "x² + y³",
+]
 PAGE_TEXT = "Heute ist ein schöner Tag, und morgen wird es noch besser.\nBis bald!"
 
 
@@ -87,6 +92,9 @@ def main():
     fixture = {
         "about": "reference results for web/js/engine, see scripts/make_engine_fixture.py",
         "model_sha256": manifest["sha256"], "bias": args.bias, "sentinel": SENTINEL, "xh_model": xh,
+        "charset": manifest["charset"],
+        "normalize": [{"in": t, "out": charset.normalize(t), "tokens": charset.encode(charset.normalize(t))}
+                      for t in NORMALIZE_CASES],
         "samples": samples,
         "page": {"text": PAGE_TEXT, "paragraphs": paragraphs, "pieces": pieces, "gap": list(gap),
                  "gap_draws": gap_draws, "width": pg.width, "line_height": 6.5, "margin": 3.0, "top": 5.0,

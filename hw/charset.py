@@ -52,6 +52,9 @@ class Charset:
             if ch in self._index:
                 out.append(ch)
                 continue
+            if ch.isspace():                 # any kind of space separates words
+                out.append(" ")
+                continue
             ch = _FOLD.get(ch, ch)
             if all(c in self._index for c in ch):
                 out.append(ch)
