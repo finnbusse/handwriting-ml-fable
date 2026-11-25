@@ -12,3 +12,6 @@ node_modules/
 # generated test fixtures and exported models
 tests/engine/fixtures/
 web/model/
+
+# isolated working copies of background agents
+.claude/worktrees/
