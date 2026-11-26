@@ -75,11 +75,14 @@ def export(model_dir: str, out_dir: str, dtype: str = "float16") -> dict:
         "gap_xh": meta.get("gap_xh"),
         "size_by_bias": meta.get("size_by_bias"),     # measured letter size per legibility setting (hw/page.py)
         "sentinel": SENTINEL,
-        "trained": {k: meta[k] for k in ("epoch", "val_real", "val_composed", "data", "base") if k in meta},
+        # a run without held-out lines (--train-all) has no score: NaN is not JSON and the browser would
+        # refuse the whole manifest
+        "trained": {k: (None if isinstance(meta[k], float) and not np.isfinite(meta[k]) else meta[k])
+                    for k in ("epoch", "val_real", "val_composed", "data", "base") if k in meta},
         "tensors": tensors,
     }
     with open(os.path.join(out_dir, "model.json"), "w", encoding="utf-8") as f:
-        json.dump(manifest, f, ensure_ascii=False, indent=1)
+        json.dump(manifest, f, ensure_ascii=False, indent=1, allow_nan=False)
     return {"bytes": len(blob), "max_abs_error": worst, "tensors": len(tensors)}
 
 
