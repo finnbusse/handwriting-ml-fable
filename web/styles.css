@@ -679,9 +679,13 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
    --pg-kb (the on-screen keyboard's height) and --pg-vh (what is visible above it) come
    from editor-tools.js. */
 .gen[data-mode="seite"] { margin-bottom: var(--pg-kb, 0px); }
-.pg-marks { display: flex; min-height: 48px; margin: 0 -8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.pg-marks { display: flex; min-height: 48px; margin: 0 -8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; scroll-snap-type: x proximity; }
 .pg-marks::-webkit-scrollbar { display: none; }
-.pg-marks .gen-tool { flex: none; font-size: 14px; padding: 0 10px; }
+.pg-marks .gen-tool { flex: none; font-size: 14px; padding: 0 10px; scroll-snap-align: start; }
+/* the end that runs on out of sight fades out (editor-tools.js sets data-fade) */
+.pg-marks[data-fade="r"] { mask-image: linear-gradient(to right, #000 calc(100% - 44px), transparent); }
+.pg-marks[data-fade="l"] { mask-image: linear-gradient(to left, #000 calc(100% - 44px), transparent); }
+.pg-marks[data-fade="lr"] { mask-image: linear-gradient(to right, transparent, #000 44px, #000 calc(100% - 44px), transparent); }
 .pg-marks .gen-tool::before { inset: 8px 0; }
 .pg-marks [data-tool="bold"] { font-weight: 700; }
 .pg-marks [data-tool="underline"] { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
@@ -695,9 +699,13 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
   .gen-dock:has(#pg-text:focus, #pg-marks:focus-within) > .pg-marks:not([hidden]) { display: flex; }
   .gen-dock:has(#pg-text:focus, #pg-marks:focus-within):has(> .pg-marks:not([hidden])) > .gen-row { display: none; }
   .pg-fmt-row .pg-size-btn { display: inline-flex; }
-  /* small: two lines away from the keyboard, more while typing; large: half of what is visible */
+  /* small: two lines away from the keyboard, more while typing; large: half of what is
+     visible, over the whole width, Schreiben under it.  An open Stil or Formatierung
+     panel takes the room back, so that Schreiben stays on the screen. */
   .pg-composer #pg-text { max-height: min(calc(var(--pg-vh, 100dvh) * .3), 220px); }
-  .gen[data-field="big"] .pg-composer #pg-text { height: calc(var(--pg-vh, 100dvh) * .5) !important; max-height: none; padding-bottom: 11px; margin-bottom: 0; }
+  .gen[data-field="big"]:not(:has(#gen-style:not([hidden]), #pg-format-panel:not([hidden]))) .pg-composer { flex-wrap: wrap; row-gap: 0; }
+  .gen[data-field="big"]:not(:has(#gen-style:not([hidden]), #pg-format-panel:not([hidden]))) .pg-composer #pg-text { flex-basis: 100%; height: calc(var(--pg-vh, 100dvh) * .5) !important; max-height: none; padding-bottom: 11px; margin-bottom: 0; }
+  .gen[data-field="big"] .pg-composer > .gen-go { margin-left: auto; }
 }
 @media (max-width: 560px) {
   /* a phone with the keyboard open needs every row for the text */
@@ -712,6 +720,8 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
     grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;      /* switch, text, marks, note, characters, bar */
   }
   .gen[data-mode="seite"] > .gen-modes { grid-column: 1 / -1; grid-row: 1; }
+  /* with the keyboard open the text needs the height more than the switch */
+  .gen[data-mode="seite"][data-kb] > .gen-modes { display: none; }
   .gen[data-mode="seite"] > .gen-stage, .gen[data-mode="seite"] > .pg-stage { grid-column: doc; grid-row: 2 / 6; }
   .gen[data-mode="seite"]:has(> .gen-dock[hidden]) > .gen-stage { grid-column: 1 / -1; }
   .gen[data-mode="seite"] .pg-pages { max-width: var(--gen-column); margin: 0 auto; }
@@ -742,7 +752,7 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
     max-height: min(calc(100% - 10px), 420px); margin: 0 0 6px; padding: 6px 18px 12px; overflow-y: auto; overscroll-behavior: contain;
     background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 14px 34px rgba(20, 26, 38, .18);
   }
-  .gen[data-mode="seite"] #gen-style { grid-column: doc; }
+  .gen[data-mode="seite"] #gen-style { grid-column: doc; container-type: inline-size; }
   .gen[data-mode="seite"] #pg-format-panel { grid-column: ed; }
   /* the text's half is as narrow as a phone: the reference in one column */
   .gen[data-mode="seite"] .pg-fmt-top .gen-opt { grid-template-columns: minmax(0, 1fr); flex-basis: 100%; }
@@ -751,7 +761,15 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
   .gen[data-mode="seite"] .pg-ref dt { white-space: pre-wrap; margin-top: 8px; }
   .gen[data-mode="seite"] .pg-ref dt:first-child { margin-top: 0; }
 
-  /* the text put away: the pages over the full width, Schreiben stays in the bar */
+  /* the text put away: the pages over the full width, centred in the window; the bar keeps
+     its halves, Schreiben stays in it */
   .gen[data-mode="seite"][data-editor="hidden"] { grid-template-columns: [ed] auto [doc] minmax(0, 1fr); }
   .gen[data-mode="seite"][data-editor="hidden"] :is(#pg-text, .pg-marks, #pg-note, #pg-chars, #pg-format, #pg-detected, #pg-format-panel) { display: none; }
+  .gen[data-mode="seite"][data-editor="hidden"] > .pg-stage { grid-column: 1 / -1; }
+  .gen[data-mode="seite"][data-editor="hidden"] #gen-style { grid-column: 1 / -1; width: min(100%, var(--gen-column)); margin-inline: auto; }
+}
+/* Stil in the pages' half: one option under the other where the half is narrow, as on a
+   narrow screen (the two columns need about 760 px) */
+@container (max-width: 760px) {
+  .gen-style-main, .gen-style-more { --gen-label: 100px; grid-template-columns: minmax(0, 1fr); grid-template-rows: none; grid-auto-flow: row; }
 }

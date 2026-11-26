@@ -441,27 +441,36 @@ reloaded.
   wraps out of sight where the half is too narrow) and Schreiben / Abbrechen at its right
   end; under the pages the status line, Stil, Teilen, PDF herunterladen. Formatierung
   and Stil open over their own half, above the bar, without moving anything, and scroll
-  inside themselves. With the text hidden the pages take the width and the bar keeps
-  the switch and Schreiben; hidden or not is kept on the device (`localStorage
+  inside themselves; Stil there puts one option under the other where its half is
+  narrower than 760 px. With the text hidden the pages are centred in the window and the
+  bar keeps the switch and Schreiben; hidden or not is kept on the device (`localStorage
   hw.pageEditor`). Narrower (a tablet in portrait, a phone) the pages stay above and
   the text below; a switch at the end of the Formatierung row makes the field half the
-  visible height and small again (kept too), and a paste that overflows the small field
+  visible height over the whole width, Schreiben under it, and small again (kept too;
+  while Stil or Formatierung is open the field is small, so Schreiben stays on screen), and a paste that overflows the small field
   while it has the focus makes it large by itself. Away from the keyboard the small
   field shows its first two lines.
 - On-screen keyboard: it shortens the visual viewport, not the layout, so
   `editor-tools.js` reads `visualViewport` and sets `--pg-kb` (the height below what is
   visible) and `--pg-vh` (what is visible); the page mode ends above the keyboard, the
   large field is half of what is visible, the caret's line is scrolled back into the
-  field, and on a phone the Zettel/Seite switch steps aside while the keyboard is open.
+  field, and on a phone and in the wide layout the Zettel/Seite switch steps aside while
+  the keyboard is open.  A pinch zoom (`visualViewport.scale` above 1) is not taken for
+  a keyboard.
   Schreiben stays on screen in both layouts (tested with a visual viewport of 420 px at
   1280 × 800 and 360 × 740, 960 px at 800 × 1280).
-- Mark tools: one slim row of quiet words that scrolls sideways (wide: under the field;
+- Mark tools: one slim row of quiet words that scrolls sideways, the end that runs on
+  out of sight fading out (wide: under the field;
   narrow: in the status row's place while the text has the focus, so it takes no line
   from the text). Überschrift, Liste, Kästchen, Merkkasten and Mitte act on every line
   the selection touches; kräftig, unterstreichen, markieren and Farbe on the selection
   (spaces at its ends left out, each line on its own, a list marker or heading never
-  inside) or, at a caret, on its word (none: an empty pair with the caret inside); Pfeil
-  and Datum are put in at the caret with a space either side. A second tap takes a mark
+  inside) or, at a caret, on its word (none: an empty pair with the caret inside); in
+  Markdown a selection that starts or ends inside a word takes the whole word, because
+  markup.js reads a mark only at a word's edge. `*` and `**` are read together (`***…***`
+  is both) and written out flat again, so a tap never nests or cuts one star mark in
+  another; in LaTeX a group is found by counting its braces. Pfeil and Datum are put in
+  after the selection, with a space either side. A second tap takes a mark
   off (a pair just put in at the caret too); Kästchen goes empty → ticked → none, Farbe
   rot → blau → grün → none. Markdown (and Automatisch on a text read as Markdown) gets
   `# `, `- `, `- [ ] `, `> `, `{mitte} `, `**…**`, `*…*`, `==…==`, `[…]{rot}`, `->`,
@@ -474,7 +483,7 @@ reloaded.
   in the text. The text operations are pure functions (`applyTool`, `listKey`), tested
   in Node.
 - Keys: on a list or check-list line Tab and Shift+Tab move it one level in or out (two
-  spaces, at most two levels in); Enter goes on with the list (the next number or
+  spaces, at most two levels in; a line that cannot move leaves Tab its meaning); Enter goes on with the list (the next number or
   letter, an empty box after a ticked one, the same indent and box) and on an empty item
   ends it; Enter on a row of a box goes on with the box the same way. Shift+Enter is a
   plain line break; Strg+Enter writes. Enter is taken as an edit (`beforeinput`), so

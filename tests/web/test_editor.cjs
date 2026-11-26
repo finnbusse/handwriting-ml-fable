@@ -84,16 +84,31 @@ async function pure() {
     ['check', 'x«»', '\\item[$\\square$] x«»', 'latex'], ['check', '\\item[$\\square$] x«»', '\\item[$\\checkmark$] x«»', 'latex'], ['check', '\\item[$\\checkmark$] x«»', 'x«»', 'latex'],
     ['box', '«a\nb»', '\\begin{framed}\n«a\nb»\n\\end{framed}', 'latex'], ['box', '\\begin{framed}\n«a\nb»\n\\end{framed}', '«a\nb»', 'latex'],
     ['center', 'x«»', '\\begin{center}\nx«»\n\\end{center}', 'latex'], ['arrow', 'A«»', 'A $\\rightarrow$ «»', 'latex'], ['date', 'am «»', 'am \\today{} «»', 'latex'],
+    // a Markdown mark opens and closes only at a word's edge: a selection inside a word takes the word
+    ['bold', 'Foto«synth»ese', '**«Fotosynthese»**'], ['underline', '«Foto»synthese ist', '*«Fotosynthese»* ist'], ['mark', 'Foto«synth»ese', '==«Fotosynthese»=='],
+    // * and ** together: *** is both, a second tap takes one of them off, a mark is never cut
+    ['underline', '«**fett**»', '***«fett»***'], ['underline', '***«fett»***', '**«fett»**'], ['underline', 'a **fe«»tt** b', 'a ***fe«»tt*** b'],
+    ['underline', '«**a** b»', '***«a*** *b»*'], ['bold', 'a **sehr fe«»tt** b', 'a **sehr** fe«»tt b'], ['bold', '**Wort**«»', 'Wort«»'], ['bold', '«**a**»', '«a»'],
+    ['bold', '«x \\textbf{a}» y', '\\textbf{«x \\textbf{a}»} y', 'latex'], ['bold', '\\textbf{«x \\textbf{a}»} y', '«x \\textbf{a}» y', 'latex'],
+    ['heading', 'a}b«»', 'a}b«»', 'latex'], ['heading', '\\section{a} % x«»', 'a % x«»', 'latex'], ['heading', 'a % x«»', '\\section{a} % x«»', 'latex'],
+    // an arrow or the date go after a selection, which stays
+    ['arrow', 'A «B»', 'A B -> «»'], ['date', '«eins\nzwei»', 'eins\nzwei {datum} «»'],
   ];
   const bad = cases.filter(([t, a, b, f]) => tool(t, a, f) !== b).map(([t, a, b, f]) => `${t}${f ? `/${f}` : ''}: ${JSON.stringify(a)} -> ${JSON.stringify(tool(t, a, f))}, wanted ${JSON.stringify(b)}`);
   L.check(`node: ${cases.length} tool cases (on a selection, a caret, several lines, off again, Markdown and LaTeX)`, !bad.length, bad.join(' | '));
+  // what the star tools write is read as marks: no star is left over in the handwriting
+  const { parseMarkup } = await import('../../web/js/generate/markup.js');
+  const stray = cases.filter(([t, , b, f]) => !f && (t === 'bold' || t === 'underline') && !/«»\*/.test(b))
+    .map(([, , b]) => b.replace(/[«»]/g, '')).filter((x) => parseMarkup(x, 'markdown').blocks.some((k) => (k.lines || []).flat().some((sp) => sp.text.includes('*'))));
+  L.check('node: the star tools\' Markdown reads without a stray star', !stray.length, stray.join(' | '));
   L.check('node: every tool is covered', TOOLS.every((t) => cases.some((c) => c[0] === t && !c[3]) && cases.some((c) => c[0] === t && c[3] === 'latex')));
   const keys = [
     ['Enter', '- a«»', '- a\n- «»'], ['Enter', '- «»', '«»'], ['Enter', '  - [ ] a«»', '  - [ ] a\n  - [ ] «»'], ['Enter', '- [x] a«»', '- [x] a\n- [ ] «»'],
     ['Enter', '1. a«»', '1. a\n2. «»'], ['Enter', 'a) a«»', 'a) a\nb) «»'], ['Enter', '- a«»b', '- a\n- «»b'], ['Enter', '> a«»', '> a\n> «»'], ['Enter', '> «»', '«»'],
     ['Enter', 'Text«»', null], ['Enter', '«»- a', null], ['Enter', '# Titel«»', null], ['Enter', '- «a»', null],
-    ['Tab', '- a«»', '  - a«»'], ['Tab', '    - a«»', '    - a«»'], ['Tab', '«- a\n- b»', '«  - a\n  - b»'], ['Tab', 'Text«»', null],
-    ['ShiftTab', '  - a«»', '- a«»'], ['ShiftTab', '«- a\n  - b»', '«- a\n- b»'], ['ShiftTab', 'Text«»', null],
+    ['Tab', '- a«»', '  - a«»'], ['Tab', '    - a«»', null], ['Tab', '«- a\n- b»', '«  - a\n  - b»'], ['Tab', 'Text«»', null],
+    ['ShiftTab', '  - a«»', '- a«»'], ['ShiftTab', '«- a\n  - b»', '«- a\n- b»'], ['ShiftTab', 'Text«»', null], ['ShiftTab', '- a«»', null],
+    ['Enter', '1. Apfel«» Birne', '1. Apfel\n2. «»Birne'],
     ['Enter', '\\item a«»', '\\item a\n\\item «»', 'latex'], ['Enter', '\\item «»', '«»', 'latex'], ['Enter', '\\item[$\\checkmark$] a«»', '\\item[$\\checkmark$] a\n\\item[$\\square$] «»', 'latex'],
     ['Tab', '\\item a«»', null, 'latex'], ['Enter', '- a«»', null, 'text'],
   ];
@@ -143,12 +158,21 @@ async function wide(browser, server) {
   await page.click('#gen-style-btn');
   const sp = await box(page, '#gen-style'), st3 = await box(page, '#pg-stage');
   L.check('1280x800: Stil opens over the pages\' half, above the bar, nothing moves', sp && sp.left >= st.left - 14 && sp.right <= st.right + 14 && sp.bottom <= w.top && st3.height === st.height && !(await page.isVisible('#pg-format-panel')), JSON.stringify(sp));
+  const cols = await page.evaluate(() => getComputedStyle(document.querySelector('.gen-style-main')).gridTemplateColumns.split(' ').length);
+  L.check('1280x800: Stil in the pages\' half has its options one under the other', cols === 1, String(cols));
   await page.click('#gen-style-btn');
+  // the tool row runs on out of sight: its end fades, and it starts again from the left
+  const fade = await page.evaluate(() => document.getElementById('pg-marks').dataset.fade);
+  await page.evaluate(() => { const m = document.getElementById('pg-marks'); m.scrollLeft = m.scrollWidth; m.dispatchEvent(new Event('scroll')); });
+  const fade2 = await page.evaluate(() => document.getElementById('pg-marks').dataset.fade);
+  L.check('1280x800: the tool row fades at the end that runs on (right, then left once scrolled)', fade === 'r' && fade2 === 'l', `${fade} ${fade2}`);
 
   // hide and show
   await page.click('#pg-editor-btn');
   const hid = { text: await page.isHidden('#pg-text'), marks: await page.isHidden('#pg-marks'), fmt: await page.isHidden('#pg-format'), write: await box(page, '#pg-write'), stage: await box(page, '#pg-stage') };
   L.check('hidden: the pages take the width, Schreiben stays in the bar', hid.text && hid.marks && hid.fmt && hid.write && hid.write.bottom <= 800 && hid.stage.width > st.width + 250 && (await page.getAttribute('#pg-editor-btn', 'aria-expanded')) === 'false', JSON.stringify(hid));
+  const pg = await box(page, '.pg-page');
+  L.check('hidden: the pages sit in the middle of the window', pg && Math.abs(pg.left - (1280 - pg.right)) < 24, JSON.stringify(pg));
   await page.reload();
   await page.waitForFunction(() => window.__hwReady);
   L.check('hidden: still hidden after a reload', await page.isHidden('#pg-text') && (await page.getAttribute('#gen', 'data-editor')) === 'hidden');
@@ -204,6 +228,25 @@ async function narrow(browser, server) {
     await page.evaluate(() => { window.__vv.h = null; window.__vv.dispatchEvent(new Event('resize')); });
     await page.click('#pg-size-btn');
     L.check(`${tag}: no page errors`, errors.length === 0, errors.join(' | '));
+    await ctx.close();
+  }
+  // large, then Stil or Formatierung opened: Schreiben stays on the screen (the pages may
+  // shrink to a strip in a 600 px window, as they do there with the small field)
+  for (const [tag, viewport] of [['899x600', { width: 899, height: 600 }], ['360x740', { width: 360, height: 740 }], ['600x960', { width: 600, height: 960 }]]) {
+    const { page, ctx } = await open(browser, server, { viewport });
+    await page.fill('#pg-text', Array.from({ length: 40 }, (_, i) => `Zeile ${i + 1} mit etwas mehr Text`).join('\n'));
+    await page.click('#pg-size-btn');
+    await page.evaluate(() => document.activeElement.blur());      // away from the text, the status row with Stil is back
+    const c = await box(page, '.pg-composer'), t = await box(page, '#pg-text');
+    L.check(`${tag}: large: the text over the whole width of its box, Schreiben under it`, t.width > c.width - 40 && (await box(page, '#pg-write')).top >= t.bottom - 1, JSON.stringify([t, c]));
+    const bad = [];
+    for (const btn of ['#gen-style-btn', '#pg-format']) {
+      await page.click(btn);
+      const w = await box(page, '#pg-write'), st = await box(page, '#pg-stage');
+      if (!w || w.bottom > viewport.height + 0.5 || !st || st.height < 20 || (await page.evaluate(() => document.scrollingElement.scrollTop)) > 0) bad.push(`${btn}: ${JSON.stringify([w, st])}`);
+      await page.click(btn);
+    }
+    L.check(`${tag}: large, with Stil or Formatierung open, Schreiben and the pages stay on the screen`, !bad.length, bad.join(' | '));
     await ctx.close();
   }
 }
