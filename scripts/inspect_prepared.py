@@ -1,5 +1,10 @@
 """Diagnostic: run the preparation and draw composed lines next to real lines."""
 import json, pickle, numpy as np
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the repo root, for "hw"
+
 from hw import sources, dataset, prep
 from hw.ink import contact_sheet, draw
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt

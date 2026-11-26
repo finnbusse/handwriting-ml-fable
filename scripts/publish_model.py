@@ -20,6 +20,9 @@ import json
 import os
 import shutil
 import tempfile
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the repo root, for "hw"
 
 from hw import models
 from hw.config import MAIN_WRITER

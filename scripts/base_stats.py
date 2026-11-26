@@ -1,6 +1,11 @@
 """Measure the base model's own handwriting: x-height (model units per x-height),
 point density and word spacing.  These constants calibrate the writer's data."""
 import json, sys, numpy as np, torch
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the repo root, for "hw"
+
 from hw.sampling import Synthesizer
 from hw import prep
 from hw.ink import contact_sheet

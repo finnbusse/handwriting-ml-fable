@@ -3,13 +3,19 @@
     python scripts/evaluate.py runs/v8/best --out runs/v8/eval
 
 Everything is measured on free-running samples at the app's default setting,
+written piece by piece exactly as the app does it (hw/page.py: split_pieces),
 that is on what the writer actually sees, not on likelihood (which mostly
 follows how narrow the predicted spread is, see hw/train.py):
 
-  first_try      share of pieces that came out clean at the first attempt
+  first_try      share of pieces that came out sound at the first attempt
+  drift          share of first attempts whose pen slid below the line
+  word_shift     share of words the layout has to move more than 0.3 x-heights
+                 to set them on the line
   dots           dot strokes set as a share of what the texts call for
                  (i, j and two per umlaut); capital umlauts separately
   final_stop     share of sentences ending in "." whose dot was written
+  delivered      after the retries of the app (three attempts, best one kept):
+                 share of pieces still faulty, share still lacking a dot
   size           stroke height and ink length per letter, generated / real
   style          ascender ratio, width per character, slant, word gap, pen
                  lifts per letter: generated minus real, same texts
@@ -31,10 +37,10 @@ import torch
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the repo root, for "hw"
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))                    # the other scripts
 
-from hw import dataset, prep  # noqa: E402
+from hw import dataset, page, prep  # noqa: E402
 from hw.config import MAIN_WRITER  # noqa: E402
-from hw.ink import contact_sheet  # noqa: E402
-from hw.sampling import Synthesizer  # noqa: E402
+from hw.ink import Ink, contact_sheet  # noqa: E402
+from hw.sampling import Synthesizer, expected_dots  # noqa: E402
 from hw.train import load_corpus_inks  # noqa: E402
 from compare import style_stats  # noqa: E402
 from umlaut_check import TEXTS as UMLAUT_TEXTS, dots as count_dots  # noqa: E402
@@ -55,7 +61,30 @@ RARE = [
 ]
 CAPITAL_UMLAUTS = ["Ärger im Ölhafen", "Über Österreich nach Ägypten", "Äpfel, Öl und Ölfarbe", "Übung und Ärger",
                    "Ölkanne, Äste, Übermut", "Ärzte aus Österreich"]
-REPEAT = ["Wir sehen uns morgen in der Schule.", "Das Wetter wird am Wochenende besser."]
+REPEAT = ["Wir sehen uns morgen", "Das Wetter wird am Sonntag"]
+PROSE = [
+    "Im Bewusstsein seiner Verantwortung vor Gott und den Menschen, von dem Willen beseelt, als gleichberechtigtes "
+    "Glied in einem vereinten Europa dem Frieden der Welt zu dienen, hat sich das Deutsche Volk kraft seiner "
+    "verfassungsgebenden Gewalt dieses Grundgesetz gegeben.",
+    "Der Parlamentarische Rat hat festgestellt, dass das Grundgesetz in der Woche vom 16. bis 22. Mai 1949 durch die "
+    "Volksvertretungen von mehr als zwei Dritteln der beteiligten deutschen Länder angenommen worden ist.",
+    "Liebe Oma, vielen Dank für das schöne Paket zum Geburtstag. Ich habe mich riesig darüber gefreut, vor allem über "
+    "den Kuchen und die Bücher. In der Uni läuft es gerade ganz gut, nächste Woche schreiben wir die erste Klausur.",
+    "Am Wochenende fahre ich mit Freunden an die Ostsee, hoffentlich spielt das Wetter mit. Wir wollen zelten, "
+    "grillen und abends am Strand sitzen. Wie geht es dir und dem Garten? Blühen die Rosen schon?",
+    "Einkaufen: Brot, Butter, Käse, sechs Eier, Äpfel, Joghurt und Zahnpasta. Termin beim Zahnarzt am Donnerstag "
+    "um 15:30 Uhr nicht vergessen. Die Vorlesung über Quantenphysik fällt morgen aus.",
+]
+
+
+def pieces_of(texts):
+    """The texts cut into the pieces the app writes, and for every text the indices of its pieces."""
+    flat, index = [], []
+    for t in texts:
+        ps = [p for para in page.split_pieces(t) for p in para]
+        index.append(list(range(len(flat), len(flat) + len(ps))))
+        flat += ps
+    return flat, index
 
 
 def to_xh(ink, xh_model):
@@ -74,10 +103,6 @@ def ink_per_letter(ink):
     p = ink.points
     d = np.hypot(*np.diff(p[:, :2], axis=0).T)[p[:-1, 2] < 0.5]
     return float(d.sum()) / max(len(ink.text.replace(" ", "")), 1)
-
-
-def expected_dots(text):
-    return sum(text.count(c) for c in "ij") + 2 * sum(text.count(c) for c in "äöüÄÖÜ")
 
 
 def main():
@@ -111,21 +136,42 @@ def main():
     real = [i for i in val if i.kind == "line"]
     real_all = [i for i in inks if i.kind == "line" and i.source in ("handwriting-fable",)] or real
 
+    norm = syn.charset.normalize
+    groups = {"common": COMMON, "rare": RARE, "umlauts": UMLAUT_TEXTS, "prose": PROSE}
+    texts = [norm(t) for g in groups.values() for t in g]
+    flat, index = pieces_of(texts)
+    bounds = np.cumsum([0] + [len(g) for g in groups.values()])
+    in_group = {name: [k for t in range(bounds[j], bounds[j + 1]) for k in index[t]] for j, name in enumerate(groups)}
+    caps_flat, _ = pieces_of([norm(t) for t in CAPITAL_UMLAUTS])
+    drifted = lambda i: any(p.startswith("drift") for p in i.meta["problems"])
+
     seeds = list(range(args.seeds))
     per_seed = []
     sheets = {}
     for seed in seeds:
         m = {}
-        first = write(COMMON + RARE + UMLAUT_TEXTS, 100 + seed)
-        m["first_try"] = float(np.mean([i.meta["ok"] for i in first]))
-        m["first_try_common"] = float(np.mean([i.meta["ok"] for i in first[:len(COMMON)]]))
-        m["first_try_rare"] = float(np.mean([i.meta["ok"] for i in first[len(COMMON):len(COMMON) + len(RARE)]]))
-        uml = first[len(COMMON) + len(RARE):]
-        m["dots"] = sum(count_dots(i, 1.0) for i in uml) / sum(expected_dots(t) for t in UMLAUT_TEXTS)
-        caps = write(CAPITAL_UMLAUTS, 200 + seed)
-        m["dots_capital_umlauts"] = sum(count_dots(i, 1.0) for i in caps) / sum(expected_dots(t) for t in CAPITAL_UMLAUTS)
+        first = write(flat, 100 + seed)
+        ok = np.array([i.meta["ok"] for i in first])
+        m["first_try"] = float(ok.mean())
+        for name in ("common", "rare", "prose"):
+            m[f"first_try_{name}"] = float(ok[in_group[name]].mean())
+        m["drift"] = float(np.mean([drifted(i) for i in first]))
+        shifts = []
+        for i in first:
+            st = page.straighten(Ink(i.points, text=norm(i.text), kind="line", source="generated"))
+            shifts += [abs(level) for w, level in page.levelled_words(st) if len(w.text) >= 3]
+        m["word_shift"] = float(np.mean(np.array(shifts) > 0.3))
+        uml = [first[k] for k in in_group["umlauts"]]
+        m["dots"] = sum(min(count_dots(i, 1.0), expected_dots(i.text)) for i in uml) / sum(expected_dots(i.text) for i in uml)
+        caps = write(caps_flat, 200 + seed)
+        m["dots_capital_umlauts"] = (sum(min(count_dots(i, 1.0), expected_dots(i.text)) for i in caps)
+                                     / sum(expected_dots(i.text) for i in caps))
         stops = [i for i in first if i.text.endswith(".")]
         m["final_stop"] = float(np.mean([dataset.has_final_period(i.copy(kind="line")) for i in stops]))
+        best = write(flat, 100 + seed, tries=3)
+        m["delivered_faulty"] = float(np.mean([not i.meta["ok"] for i in best]))
+        m["delivered_missing_dots"] = float(np.mean([i.meta["missing_dots"] > 0 for i in best]))
+        m["attempts"] = float(np.mean([i.meta["attempt"] for i in best]))
         gen = write([r.text for r in real], 300 + seed, tries=3)
         g, r = style_stats(gen), style_stats(real)
         m["style"] = {k: (None if g[k] is None or r[k] is None else round(g[k] - r[k], 3)) for k in g}
@@ -140,13 +186,14 @@ def main():
         m["same_text_spread"] = float(np.mean(rep))
         per_seed.append(m)
         if seed == 0:
-            sheets = {"common": first[:len(COMMON)], "rare": first[len(COMMON):len(COMMON) + len(RARE)],
-                      "umlauts": uml + caps, "real_vs_model": [x for pair in zip(real, gen) for x in pair]}
+            sheets = {"common": [first[k] for k in in_group["common"]], "rare": [first[k] for k in in_group["rare"]],
+                      "umlauts": uml + caps, "prose": [first[k] for k in in_group["prose"]][:40],
+                      "real_vs_model": [x for pair in zip(real, gen) for x in pair]}
 
     keys = [k for k in per_seed[0] if k != "style"]
     result = {"model": os.path.abspath(args.model_dir), "bias": args.bias, "seeds": len(seeds),
               "epoch": syn.meta.get("epoch"), "val_real": syn.meta.get("val_real"), "sd_shift": syn.meta.get("sd_shift"),
-              "lines_only": syn.meta.get("lines_only"), "real_lines_compared": len(real)}
+              "pieces": len(flat), "lines_only": syn.meta.get("lines_only"), "real_lines_compared": len(real)}
     for k in keys:
         v = np.array([m[k] for m in per_seed])
         result[k] = round(float(v.mean()), 4)

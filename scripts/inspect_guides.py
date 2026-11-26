@@ -1,5 +1,10 @@
 """Diagnostic: estimate baseline / x-height per session and draw check sheets."""
 import collections, numpy as np
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the repo root, for "hw"
+
 from hw import sources, prep
 from hw.ink import draw
 import matplotlib; matplotlib.use("Agg"); import matplotlib.pyplot as plt
