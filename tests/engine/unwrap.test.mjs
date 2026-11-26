@@ -1,19 +1,12 @@
 // Joining the lines of a text that carries the line breaks of a narrower source column
 // (web/js/generate/unwrap.js).  No model needed.
 import { unwrapLines, MIN_WIDTH } from '../../web/js/generate/unwrap.js';
+import { DELIBERATE, ADJACENT_EXCEPT, STILL_JOINED, FLOWING, FLOWING_EXCEPT, MIXED, MIXED_EXCEPT, SENTENCES, SHORT_LINES, wrap, prop, score } from './unwrap.corpus.mjs';
 
 let failures = 0;
 const check = (ok, msg) => { if (!ok) { failures++; console.log('FAIL', msg); } };
 const same = (got, want, msg) => check(got === want, `${msg}\n   got  ${JSON.stringify(got)}\n   want ${JSON.stringify(want)}`);
 const kept = (text, msg) => { const r = unwrapLines(text); check(r.joined === 0 && r.text === text, `${msg}: left as it is (joined ${r.joined})`); };
-// a text wrapped the way a source column does: a line ends when the next word would pass `width`
-const wrap = (text, width) => text.split('\n').map((par) => {
-  const out = [];
-  let line = '';
-  for (const w of par.split(' ')) { if (line && [...line].length + 1 + [...w].length > width) { out.push(line); line = w; } else line = line ? `${line} ${w}` : w; }
-  return [...out, line].join('\n');
-}).join('\n');
-
 // 1. the text this was built for: a law copied from a web page, 70 characters a line
 const law = `Art 1
 
@@ -101,24 +94,125 @@ kept(wrap(law, 70).split('\n').slice(0, 3).join('\n'), 'too few lines to tell');
   }
 }
 
-// 5. nothing but line breaks changes, and running it again changes nothing
+// 6. the owner's wishes, in their order of weight
+// (b) a break typed on purpose stays: every deliberate text comes out as it went in
+for (const c of DELIBERATE) kept(c.text, `deliberate: ${c.name}`);
+for (const c of STILL_JOINED) console.log(`known: "${c.name}" is joined (${unwrapLines(c.text).joined}): ${c.why}`);
+// ... and beside a wrapped paragraph, which sets the column and makes the text count as wrapped
+{
+  const paras = [SENTENCES.slice(0, 4).join(' '), SENTENCES.slice(-14, -10).join(' ')];
+  for (const c of DELIBERATE) {
+    let lost = 0;
+    for (const width of [60, 72, 80]) for (const p of paras) for (const below of [false, true]) {
+      const src = below ? `${wrap(p, width)}\n\n${c.text}` : `${c.text}\n\n${wrap(p, width)}`;
+      if (!unwrapLines(src).text.includes(c.text)) lost++;
+    }
+    const want = ADJACENT_EXCEPT[c.name]?.lost ?? 0;
+    check(lost === want, `deliberate beside a wrapped paragraph: ${c.name}: changed in ${lost} of 12 placements (want ${want})`);
+  }
+  for (const [name, e] of Object.entries(ADJACENT_EXCEPT)) console.log(`known: "${name}" beside a wrapped paragraph: changed in ${e.lost} of 12: ${e.why}`);
+}
+// ... and in a document of both, every break of the writer's own stays, the exceptions named
+const lostWords = (c, s) => s.lost.map((b) => c.orig.split(/\s+/u).filter(Boolean).slice(b - 2, b + 2).join(' ')).join(' | ');
+{
+  let breaks = 0, lost = 0;
+  for (const c of MIXED) {
+    const s = score(c.orig, c.src, unwrapLines(c.src).text), want = MIXED_EXCEPT[c.name] ?? { missed: 0, destroyed: 0 };
+    breaks += s.deliberate; lost += s.destroyed;
+    check(s.destroyed === want.destroyed && s.missed === want.missed, `mixed: ${c.name}: ${s.destroyed} of ${s.deliberate} own breaks lost (want ${want.destroyed}${s.destroyed ? `: ${lostWords(c, s)}` : ''}), ${s.missed} of ${s.added} copied breaks left (want ${want.missed})`);
+  }
+  for (const [name, e] of Object.entries(MIXED_EXCEPT)) console.log(`known: mixed "${name}": ${e.destroyed} lost, ${e.missed} left: ${e.why}`);
+  check(lost <= 1, `mixed documents: ${lost} of ${breaks} own breaks lost`);
+}
+// (a) a copied text flows
+for (const c of FLOWING) {
+  const r = unwrapLines(c.src);
+  if (c.expect) { same(r.text, c.expect, `flowing: ${c.name}`); continue; }
+  const s = score(c.orig, c.src, r.text), want = FLOWING_EXCEPT[c.name] ?? { missed: 0, destroyed: 0 };
+  check(s.missed === want.missed && s.destroyed === want.destroyed, `flowing: ${c.name}: ${s.missed} of ${s.added} copied breaks left (want ${want.missed}), ${s.destroyed} of ${s.deliberate} own lost (want ${want.destroyed})`);
+}
+for (const [name, e] of Object.entries(FLOWING_EXCEPT)) console.log(`known: flowing "${name}": ${e.missed} left, ${e.destroyed} lost: ${e.why}`);
+// random documents of those sentences: an own break is lost only behind a sentence end (a
+// paragraph that ends on a full line, before one that goes on), and few copied ones stay
+// (a 32-bit generator: the same formula in doubles loses bits and repeats its texts, 123
+// distinct ones in 20,000)
+let seed = 11;
+const rnd = () => { seed = (Math.imul(seed, 1103515245) + 12345) >>> 0; return (seed >>> 8) / 16777216; };
+const docs = Array.from({ length: 3000 }, () => {
+  const paras = Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => SENTENCES[Math.floor(rnd() * SENTENCES.length)]).join(' '));
+  const sep = rnd() < 0.5 ? '\n\n' : '\n';
+  const orig = paras.flatMap((p) => (rnd() < 0.25 ? [SHORT_LINES[Math.floor(rnd() * SHORT_LINES.length)], p] : [p])).join(sep);
+  const width = 45 + Math.floor(rnd() * 40);
+  return { orig, src: (rnd() < 0.5 ? wrap : prop)(orig, width) };
+});
+{
+  let added = 0, missed = 0, deliberate = 0, destroyed = 0, odd = 0;
+  for (const c of docs) {
+    const s = score(c.orig, c.src, unwrapLines(c.src).text), words = c.orig.split(/\s+/u).filter(Boolean);
+    added += s.added; missed += s.missed; deliberate += s.deliberate; destroyed += s.destroyed;
+    odd += s.lost.filter((b) => !/[.!?]$/u.test(words[b - 1])).length;
+  }
+  check(odd === 0, `3000 random documents: ${destroyed} of ${deliberate} own breaks lost, ${odd} of them not behind a sentence end`);
+  check(missed <= 0.03 * added, `3000 random documents: ${missed} of ${added} copied breaks left`);
+}
+
+// 7. what changes: line breaks become spaces, a split word loses its hyphen, a joined
+// quoted line its quote mark; nothing else.  Running it again changes nothing.
+const onlyJoins = (src, out) => {
+  const a = src.replace(/\s+/gu, ''), b = [...out.replace(/\s+/gu, '')];
+  let j = 0;
+  for (const ch of a) if (ch === b[j]) j++; else if (ch !== '-' && ch !== '>') return false;
+  return j === b.length;
+};
 {
   const src = wrap(law, 70), r = unwrapLines(src);
-  same(r.text.replace(/\s+/gu, ' '), src.replace(/\s+/gu, ' '), 'only white space differs');
+  same(r.text.replace(/\s+/gu, ' '), src.replace(/\s+/gu, ' '), 'a law: only white space differs');
   same(unwrapLines(r.text).text, r.text, 'idempotent');
-  let seed = 7;
-  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-  const words = ['und', 'der', 'Gerechtigkeit', 'in', '(1)', '-', '#', '|', '>', 'Öl', 'z. B.', '§ 3', '1.', 'a)', '---', '{mitte}', '', 'Menschenrechten', 'ist', '```'];
-  let bad = 0;
-  for (let i = 0; i < 2000; i++) {
-    const text = Array.from({ length: 1 + Math.floor(rnd() * 12) }, () => Array.from({ length: Math.floor(rnd() * 14) }, () => words[Math.floor(rnd() * words.length)]).join(' ')).join('\n');
-    const u = unwrapLines(text);
-    if (u.text.replace(/\s+/gu, ' ').trim() !== text.replace(/\s+/gu, ' ').trim() || unwrapLines(u.text).text.split('\n').length > u.text.split('\n').length) bad++;
+  let bad = 0, again = 0;
+  for (const c of [...DELIBERATE.map((d) => d.text), ...FLOWING.map((f) => f.src), ...MIXED.map((m) => m.src), ...docs.map((d) => d.src)]) {
+    const u = unwrapLines(c).text;
+    if (!onlyJoins(c, u)) bad++;
+    if (unwrapLines(u).text !== u) again++;
   }
-  check(bad === 0, `2000 random texts: only white space changes (${bad} bad)`);
+  check(bad === 0 && again === 0, `all texts above: ${bad} changed more than their joins, ${again} changed by a second run`);
+  seed = 1;
+  const words = ['und', 'die', 'Gerechtigkeit', 'in', '(1)', '-', '#', '|', '>', 'Öl', 'z.', 'B.', '§', '3', '1.', 'a)', '---', '{mitte}', 'ist.', '```', '  ', '\\', 'Ende.', 'weil', 'Haus-', '<br>', '\t', '***', '===', 'Die', 'Liebe', 'Anna,', '    '];
+  bad = 0; again = 0;
+  for (let i = 0; i < 5000; i++) {
+    const text = Array.from({ length: 1 + Math.floor(rnd() * 20) }, () => Array.from({ length: Math.floor(rnd() * 18) }, () => words[Math.floor(rnd() * words.length)]).join(' ')).join('\n');
+    const u = unwrapLines(text);
+    if (!onlyJoins(text, u.text) || (!u.joined && u.text !== text)) bad++;
+    if (unwrapLines(u.text).text !== u.text) again++;
+  }
+  check(bad === 0 && again === 0, `5000 random texts of marks and words: ${bad} changed more than their joins, ${again} changed by a second run`);
+}
+
+// 8. time: a long text, and inputs that make a careless regular expression backtrack
+{
   const t0 = performance.now();
   unwrapLines(wrap(Array(150).fill(law).join('\n\n'), 70));
   check(performance.now() - t0 < 200, `40 000 characters in ${(performance.now() - t0).toFixed(1)} ms`);
+  const four = (line) => [line, line, line, line].join('\n');
+  const hard = {
+    'a run of 100 000 spaces before a letter': four(`a${' '.repeat(100000)}b`),
+    'tabs and spaces alternating': four(`a${'\t '.repeat(100000)}b`),
+    '"- " 25 000 times': four(`${'- '.repeat(25000)}x`),
+    '"<br" before 50 000 spaces': four(`<br${' '.repeat(50000)}x`),
+    'a full stop before 100 000 spaces': four(`Ende.${' '.repeat(100000)}a`),
+    '". " 50 000 times': four(`${'. '.repeat(50000)}a`),
+    'a greeting of 100 000 characters': four(`Liebe ${'a, '.repeat(33000)}x`),
+    'hyphens 50 000 times': four(`${'Haus-'.repeat(50000)}`),
+    'quote marks 50 000 deep': four(`${'> '.repeat(50000)}Text`),
+    'a word of 100 000 dots before an opener': [...Array(3).fill(`a${'.'.repeat(100000)}b`), 'Die...'].join('\n'),
+    'a word of 100 000 commas before an opener': [...Array(3).fill(`a${','.repeat(100000)}b`), 'Die,,,'].join('\n'),
+    'an entry of 100 000 spaces': four(`Lisa${' '.repeat(100000)}x`),
+  };
+  for (const [name, text] of Object.entries(hard)) {
+    const t1 = performance.now();
+    unwrapLines(text);
+    const ms = performance.now() - t1;
+    check(ms < 200, `${name}: ${ms.toFixed(1)} ms`);
+  }
 }
 
 console.log(JSON.stringify({ failures }));

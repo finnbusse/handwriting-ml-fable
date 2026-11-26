@@ -550,27 +550,63 @@ Copied line breaks (`js/generate/unwrap.js`): a text copied from a web page, a
 PDF or an e-mail keeps the line breaks of its source column (a law from
 gesetze-im-internet.de: 70 characters), and a page row of this hand holds
 about 55 characters, so every such line ran over by a word or two that stood
-alone on a row. Before the text is parsed, `unwrapLines` joins such lines: the
-column is the ninth decile of the lengths of the lines that have a line after
-them (not the maximum, so that one line never wrapped does not hide it); a
-line is full when the first word of the next line would not have fitted
-behind it, or not into 0.8 of the column when the line does not end a
-sentence (a source in a proportional font wraps by width, so its full lines
-differ in their number of characters); the text counts as wrapped when the
-column is at least 40 characters, at least 3 lines are full, of the lines at
-least half the column wide at least two thirds are, not more than half of
-the lines end a sentence (that is one sentence a line, typed so), and some
-line after a full one starts with a small letter (running text goes on in
-the middle of a sentence; titles or entries one a line do not). Then every full line is joined to the
-next with one space. Lines that start a block of their own (heading, list
-item, quote, table row, rule, alignment mark, an enumerator like "(1)") are
-never joined to the line before, and two spaces, a backslash or `<br>` at the
-end of a line keep its break. Short lines typed on purpose, poems, lists and
-paragraphs typed in one line stay as they are. LaTeX texts are not touched (a
-line break is a space there already). The note line says "Kopierte
-Zeilenumbrüche zusammengeführt."; the switch "Kopierte Zeilenumbrüche
-zusammenführen" in the Formatierung panel (on by default, stored) turns it
-off.
+alone on a row. Before the text is parsed, `unwrapLines` joins such lines. A
+break typed on purpose weighs more than a copied one: where the two look
+alike, the break stays. Never joined to the line before: a line that starts
+a block of its own (heading, list item, table row, fence, rule, alignment
+mark, an enumerator like "(1)" or "a)", a change of quote marks), a numbered
+line only as "1." or after the number before it ("3. Oktober 1990" is
+running text), an entry ("Lisa: ...", "[18:02] Max: ...", "18:02 Max: ...",
+"– Kommst du?") next to another entry; a line indented deeper than the text
+of the line before. Never joined to the line after: a line ending in two
+spaces, a backslash or `<br>`; a line indented more than the next one unless
+it begins its block (the end of code or verse set in). The column is the
+ninth decile of the lengths of the lines of at least 35 characters that have
+a line after them and are no longer than 1.35 times their median, so that
+neither a paragraph typed in one line nor a list of short lines hides it; a
+line longer than 1.2 times the column was never wrapped. A line is full when
+the first word of the next line would not have fitted behind it; in a column
+of 50 or more also when it would not have fitted into 0.8 of the column and
+the line does not end a sentence (a source in a proportional font wraps by
+width). Below 50 only the first counts: verse of 35 to 46 characters a line
+(Rilke's "Der Panther", "Herbsttag") passes 0.8 of its own column, and a line
+under 50 fits a page row anyway. A line ending in a word split by a hyphen
+before a small letter is always full. Not full: a line that does not end a
+sentence before a line that starts one with a capitalised word such as
+"Die", "Wir" or "The" (a heading, an entry); a greeting ("Liebe Anna, ...,")
+as the first line of a block; a line that ends a sentence before a line
+starting with a capital or a digit, unless that line goes on itself (a
+paragraph, a heading, a page number, "Mit freundlichen Grüßen"). The text
+counts as wrapped when the column is at least 35 characters, at least 3
+lines are full, at least two thirds of the lines at least half the column
+wide are, not more than half of the lines end a sentence (one sentence a
+line, typed so), and some line after a full one starts with a small letter.
+Then each run of full lines is joined only if one of its lines has a
+sentence end inside it (not behind a number, a single letter as in "z. Hd.",
+another dot as in the dot leaders of a table of contents, or a title like
+"Dr."), its last line ends one, or it is a list item: a poem, a list or a
+table typed one a line mostly has none of these. A run of two lines next to
+a line typed in one go (longer than 1.2 times the column) stays too: that
+block was typed line by line. A joined break becomes one space; a word split
+by a hyphen is joined whole ("veran-kert": "verankert"), but the hyphen stays
+before a capital or behind a capital or a single letter ("E-Mail",
+"US-amerikanisch", "e-mail"), and so do hyphen and space before a link word
+("Haus- und Gartenarbeit"); the quote marks of a joined quoted line go. The
+text is joined again until nothing changes, so that a second call changes
+nothing. Still wrong: a compound split at its own hyphen after two small
+letters loses it ("well-known": "wellknown", "Ich-bezogen" after a small
+letter); a paste with fewer than 3 full lines (one paragraph of three lines)
+stays as typed; still joined are a paragraph whose last line is full and
+ends a sentence to a following paragraph without an empty line between them,
+a run of long lines whose only full stop is at its end, free verse in small
+letters at a column of 46, and, beside a wrapped paragraph that makes the
+text count as wrapped, a block of three long lines typed one a line (notes,
+a to-do list), verse of 40 to 48 characters next to a column of 60, and a
+verse or a quote that runs on over two lines ("bei mir,"/"dein Stecken").
+LaTeX texts are not touched (a line break is a space there already). The
+note line says "Kopierte Zeilenumbrüche zusammengeführt."; the switch
+"Kopierte Zeilenumbrüche zusammenführen" in the Formatierung panel (on by
+default, stored) turns it off.
 
 `planDocument` also takes the document model of `markup.js` (`{ format, blocks:
 [{ type, level, marker, align, box, lines: [[span]] }], notes }`); a string
