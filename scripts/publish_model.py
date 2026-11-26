@@ -3,7 +3,9 @@
     python scripts/publish_model.py runs/v2/best
 
 Uploads to the private model repo `<user>/handwriting-fable-model` on
-Hugging Face:
+Hugging Face, as a new version `models/hw-rnn-model-<writer>-<YYYYMMDD>-<HHMMSS>/`
+(see hw/models.py: models/index.json lists every version) and, as the newest,
+also to the repo root:
 
     model.json, model.bin      what the web app downloads after sign-in
     checkpoint/model.pt, …     the PyTorch checkpoint, so that a later training
@@ -19,9 +21,10 @@ import os
 import shutil
 import tempfile
 
-from huggingface_hub import HfApi
-
+from hw import models
+from hw.config import MAIN_WRITER
 from hw.export import export
+from hw.progress import HfHub
 
 CARD = """---
 language:
@@ -85,20 +88,22 @@ def main():
     ap.add_argument("--image", default=None, help="comparison image to store next to the model")
     ap.add_argument("--marker", default=None, help="JSON file stored as trained_on.json (which recordings were used)")
     ap.add_argument("--message", default=None)
+    ap.add_argument("--writer", default=None, help=f"whose hand it is (default: from the checkpoint, else {MAIN_WRITER})")
+    ap.add_argument("--note", default=None, help="a short note shown with this version in the app")
     args = ap.parse_args()
 
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_ACCESS_TOKEN")
-    api = HfApi(token=token)
-    repo = args.repo if "/" in args.repo else f"{api.whoami()['name']}/{args.repo}"
-    api.create_repo(repo, repo_type="model", private=True, exist_ok=True)
+    hub = HfHub(token, model=args.repo)
+    with open(os.path.join(args.model_dir, "meta.json"), encoding="utf-8") as f:
+        writer = args.writer or json.load(f).get("writer") or MAIN_WRITER
 
     with tempfile.TemporaryDirectory() as tmp:
         manifest, info = prepare(args.model_dir, tmp, args.image, args.marker)
         trained = manifest.get("trained", {})
         message = args.message or f"Modell aktualisiert (Runde {trained.get('epoch', '?')})"
-        api.upload_folder(folder_path=tmp, repo_id=repo, repo_type="model", commit_message=message)
-    print(json.dumps({"repo": repo, "private": True, "bytes": info["bytes"], "sha256": manifest["sha256"][:16],
-                      "trained": trained}, ensure_ascii=False))
+        version = models.publish(hub, tmp, writer=writer, note=args.note, message=message)
+    print(json.dumps({"repo": hub.model_repo, "private": True, "version": version["id"], "bytes": info["bytes"],
+                      "sha256": manifest["sha256"][:16], "trained": trained}, ensure_ascii=False))
 
 
 if __name__ == "__main__":

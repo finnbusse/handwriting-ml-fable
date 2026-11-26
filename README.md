@@ -61,9 +61,9 @@ aktualisieren und neu trainieren → Run workflow*. Der Lauf
 
 1. erzeugt aus den Rohaufnahmen die Tabelle für den Dataset Viewer von
    `handwriting-fable` (Vorschaubild, Text, Schreiber, Datum),
-2. trainiert das Modell neu, wenn mindestens 20 neue Zeilen dazugekommen sind
-   (mit dem Haken *force* auch bei weniger), und legt es im Modell-Repo ab; die
-   Web-App lädt es beim nächsten Öffnen.
+2. trainiert das Modell neu und legt es im Modell-Repo ab; die Web-App lädt es
+   beim nächsten Öffnen. Der Haken *force* ist vorausgewählt; ohne ihn wird nur
+   trainiert, wenn mindestens 20 neue Zeilen dazugekommen sind.
 
 Es gibt keinen Zeitplan, der Lauf startet nur von Hand. Nötig ist das
 Repository-Secret `HF_TOKEN` (Hugging-Face-Token mit Schreibrecht). Als
@@ -71,16 +71,25 @@ Ausweichweg gibt es `notebooks/nachtrainieren.ipynb` für Google Colab.
 
 ## Training aus der App
 
-Im Tab *Training* startet ein Knopf das Training auf einem kleinen, kostenlosen
-Hugging-Face-Space (`<konto>/handschrift-training`, Code in `trainer/`). Er
-führt dasselbe `scripts/retrain.py run` aus wie der GitHub-Lauf. Jeder Lauf,
-egal wo, schreibt seinen Fortschritt nach `training/` im Modell-Repo
-(Stand, Probebild, Zwischenstand zum Fortsetzen); die App zeigt ihn an und
-kann ihn abbrechen. Den Space einmal anlegen bzw. aktualisieren:
+Im Tab *Training* startet „Training starten“ genau diesen GitHub-Lauf, mit dem
+Haken *force* (ein Start aus der App trainiert immer). Er ist kostenlos, weil
+das Repository öffentlich ist.
 
-```bash
-python scripts/deploy_trainer.py
-```
+- Ohne weitere Einrichtung öffnet der Knopf die Seite des Workflows auf GitHub;
+  dort *Run workflow* antippen.
+- Mit einem GitHub-Schlüssel (Einstellungen → „Training direkt starten“)
+  startet die App den Lauf selbst. Nötig ist ein *fine-grained token*, der nur
+  für dieses Repository gilt, mit dem Recht *Actions: Read and write*.
+
+Jedes neu trainierte Modell bleibt als eigene Version im Modell-Repo erhalten
+(`models/hw-rnn-model-<schreiber>-<datum>-<uhrzeit>/`, Liste in
+`models/index.json`, anzeigen mit `python scripts/list_models.py`). In der App
+wählt man es unter *Schreiben → Stil → Erweitert → Modell*; vorgewählt ist das
+neueste.
+
+Jeder Lauf, egal wo, schreibt seinen Fortschritt nach `training/` im
+Modell-Repo (Stand, Probebild, Zwischenstand zum Fortsetzen); die App zeigt
+ihn an, kann ihn abbrechen und später fortsetzen.
 
 ## Herkunft und Lizenzen
 

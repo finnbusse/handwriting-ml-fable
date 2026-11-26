@@ -1,20 +1,42 @@
 name: Übersicht aktualisieren und neu trainieren
 
-# Läuft nur, wenn es von Hand gestartet wird (Actions > dieser Eintrag > Run workflow).
+# Läuft nur, wenn es gestartet wird: aus der App (Tab "Training") oder von Hand
+# (Actions > dieser Eintrag > Run workflow).
 # 1. ergänzt fehlende Vorschaubilder für den Dataset Viewer (normalerweise legt die App sie selbst an),
-# 2. trainiert das Modell neu, wenn mindestens 20 neue Zeilen dazugekommen sind
-#    (oder "force" angehakt ist), und legt es im Modell-Repo ab.
+# 2. trainiert das Modell neu und legt es im Modell-Repo ab. Ohne "force" nur,
+#    wenn mindestens 20 neue Zeilen dazugekommen sind.
 # Braucht das Repository-Secret HF_TOKEN (Hugging-Face-Token mit Schreibrecht).
-# Der Fortschritt steht wie bei jedem Lauf unter training/ im Modell-Repo und ist im
-# Tab "Training" der App zu sehen; "Abbrechen" dort beendet auch diesen Lauf nach der Runde.
+# Der Fortschritt steht unter training/ im Modell-Repo und ist im Tab "Training" der
+# App zu sehen; "Abbrechen" dort beendet den Lauf nach der laufenden Runde.
 
 on:
   workflow_dispatch:
     inputs:
       force:
-        description: Auch mit weniger als 20 neuen Zeilen trainieren
+        description: Jetzt trainieren, auch mit weniger als 20 neuen Zeilen
+        type: boolean
+        default: true
+      epochs:
+        description: Höchstens so viele Runden (leer = Standard)
+        type: string
+        default: ""
+      lines_only:
+        description: Nur ganze Zeilen (ohne die frühen Einzelwörter und Ziffern)
+        type: choice
+        options: [standard, ja, nein]
+        default: standard
+      sample_every:
+        description: Probebild alle so viele Runden (leer = Standard, 0 = nie)
+        type: string
+        default: ""
+      resume:
+        description: Den abgebrochenen Lauf fortsetzen (training/checkpoint im Modell-Repo)
         type: boolean
         default: false
+      note:
+        description: Notiz zum neuen Modell (erscheint in der App bei der Modellwahl)
+        type: string
+        default: ""
 
 concurrency:
   group: retrain
@@ -42,10 +64,26 @@ jobs:
         run: python scripts/rebuild_preview.py
       - name: Gibt es genug neue Aufnahmen?
         id: check
-        run: python scripts/retrain.py check ${{ inputs.force && '--force' || '' }}
+        run: python scripts/retrain.py check ${{ (inputs.force || inputs.resume) && '--force' || '' }}
       - name: Trainieren, vergleichen, veröffentlichen
         if: steps.check.outputs.needed == 'true'
-        run: python scripts/retrain.py run
+        # The inputs reach the shell as environment variables and are checked there,
+        # never pasted into the command line.
+        env:
+          IN_EPOCHS: ${{ inputs.epochs }}
+          IN_LINES_ONLY: ${{ inputs.lines_only }}
+          IN_SAMPLE_EVERY: ${{ inputs.sample_every }}
+          IN_RESUME: ${{ inputs.resume }}
+          IN_NOTE: ${{ inputs.note }}
+        run: |
+          args=()
+          if [[ "$IN_EPOCHS" =~ ^[0-9]{1,3}$ ]]; then args+=(--epochs "$IN_EPOCHS"); fi
+          case "$IN_LINES_ONLY" in ja) args+=(--lines-only) ;; nein) args+=(--all-data) ;; esac
+          if [[ "$IN_SAMPLE_EVERY" =~ ^[0-9]{1,2}$ ]]; then args+=(--sample-every "$IN_SAMPLE_EVERY"); fi
+          if [[ "$IN_RESUME" == "true" ]]; then args+=(--resume-run); fi
+          if [[ -n "$IN_NOTE" ]]; then args+=(--note "${IN_NOTE:0:120}"); fi
+          echo "retrain.py run ${args[*]}"
+          python scripts/retrain.py run "${args[@]}"
       - name: Vergleichsbild sichern
         if: steps.check.outputs.needed == 'true'
         uses: actions/upload-artifact@v4
@@ -53,3 +91,4 @@ jobs:
           name: vergleich
           path: runs/retrain/vergleich.png
           retention-days: 14
+          if-no-files-found: ignore

@@ -260,6 +260,8 @@
             <div class="gen-opt gen-opt-more"><button class="gen-more-btn" id="gen-more-btn" type="button" aria-expanded="false" aria-controls="gen-more">Erweitert<i aria-hidden="true"></i></button></div>
           </div>
           <div class="gen-style-more" id="gen-more" hidden>
+            <label class="gen-opt gen-opt-model" id="gen-model-row" hidden><span class="gen-opt-l">Modell</span>
+              <select class="gen-select" id="gen-model-pick"><option value="newest">Neuestes</option></select></label>
             <label class="gen-opt"><span class="gen-opt-l">Lesbarkeit</span><input type="range" id="gen-bias" min="0" max="1.2" step="0.05" value="0.4"></label>
             <label class="gen-opt"><span class="gen-opt-l">Zeilenabstand</span><input type="range" id="gen-spacing" min="5" max="9" step="0.25" value="6.5"></label>
             <div class="gen-opt" id="gen-ink-row"><span class="gen-opt-l" id="gen-ink-l">Tinte</span>
@@ -342,6 +344,9 @@
           <div class="row-actions"><button class="btn" id="acc-signout" type="button">Abmelden</button></div>
         </div>
       </section>
+
+      <!-- optional GitHub token for the Training tab (js/training/github-settings.js) -->
+      <section class="group" id="gh-settings" aria-labelledby="g-github"></section>
 
       <section class="group" aria-labelledby="g-upload">
         <h2 id="g-upload">Hochladen</h2>

@@ -1,60 +1,63 @@
-// What the Training tab shows, decided from what the model repo and the trainer
-// Space say (pure functions, no DOM).  Nothing here is remembered by the page:
-// reopening it during a run gives the same picture.
+// What the Training tab shows, decided from what the model repo and GitHub say
+// (pure functions, no DOM).  Nothing here is remembered by the page: reopening it
+// during a run, or while a run waits on GitHub, gives the same picture.
 
 export const MIN_LINES = 20;
-/** The driver's defaults (scripts/retrain.py); the runner reports the real ones when it is awake. */
-export const FALLBACK_DEFAULTS = { epochs: 30, lines_only: false, sample_every: 1 };
+/** The driver's defaults (EPOCHS, LINES_ONLY, SAMPLE_EVERY in scripts/retrain.py). */
+export const DEFAULTS = { epochs: 12, lines_only: false, sample_every: 1 };
+/** From the start on GitHub to the first status.json: queue, checkout, installing. */
+export const START_MINUTES = 2;
 
 const ACTIVE = ['starting', 'running', 'publishing'];
-const WHERE = { space: 'auf Hugging Face', github: 'auf GitHub', colab: 'in Google Colab', local: 'auf einem Computer' };
+const WHERE = { github: 'auf GitHub', colab: 'in Google Colab', local: 'auf einem Computer' };
 
 export const where = (runner) => WHERE[runner] || WHERE.local;
 export const isActive = (status) => !!status && ACTIVE.includes(status.state);
+const ms = (iso) => { const t = Date.parse(iso || ''); return Number.isFinite(t) ? t : 0; };
+const runActive = (r) => !!r && r.status !== 'completed';
+/** The GitHub run that wrote this status (its link is in runner_url). */
+export function sameRun(status, run) {
+  const m = status && run && /\/runs\/(\d+)/.exec(status.runner_url || '');
+  return !!m && m[1] === String(run.id);
+}
 
-/** A status that says "running" but has not moved for much longer than a round takes. */
-export function isStale(status, runner, now) {
+/** A status that says "running" but has not moved for much longer than a round takes, or whose GitHub run has ended. */
+export function isStale(status, run, now) {
   if (!isActive(status)) return false;
-  const age = now - Date.parse(status.updated || status.started || 0);
-  if (!Number.isFinite(age)) return false;
+  const age = now - ms(status.updated || status.started);
   const limitMin = status.state === 'starting' ? 30 : Math.max(20, 4 * (status.epoch_minutes || 0));
   if (age > limitMin * 60000) return true;
-  // The trainer Space answers, but has no job for this run (it restarted) or the job has ended.
-  if (status.runner === 'space' && runner && runner.kind === 'ok' && age > 60000) {
-    const job = runner.data.job;
-    if (!job || job.run_id !== status.run_id) return !runner.data.running;
-    if (job.exit_code !== null && job.exit_code !== undefined) return true;
-  }
-  return false;
+  return sameRun(status, run) && run.status === 'completed' && age > 60000;
+}
+
+/** The newest GitHub run started after the last status, that ended without writing one. */
+function endedEarly(i) {
+  const run = i.run, st = i.status;
+  if (!run || run.status !== 'completed' || sameRun(st, run)) return null;
+  if (i.pending && ms(run.created_at) < i.pending.at - 60000) return null;        // an older run, not the one just started
+  if (st && ms(st.started) >= ms(run.created_at) - 60000) return null;
+  if (i.now - ms(run.created_at) > 24 * 3600000 && !i.pending) return null;     // old news
+  return run.conclusion === 'success' ? 'ghended' : 'ghfailed';
 }
 
 /**
- * The screen to show.  in: {signedIn, loaded, error, status, lines, trainedOn, runner, action, pending, now}
- *   action:  null | {kind: 'waking'|'launching'|'wakefail'|'startfail'|'refused'|'nosetup'|'auth', message?}
- *   pending: null | {run_id, at}   a start that the status does not show yet
+ * The screen to show.  in: {signedIn, loaded, error, status, lines, trainedOn, run, pending, action, now}
+ *   run:     the newest run of the workflow on GitHub, or null (unknown or none)
+ *   pending: null | {at, manual}   a start that no run and no status shows yet
+ *   action:  null | {kind: 'dispatching'}
  */
 export function decide(i) {
   if (!i.signedIn) return 'signedout';
   if (i.error === 'auth') return 'auth';
-  const st = i.status;
-  if (i.action && ['waking', 'launching'].includes(i.action.kind)) return i.action.kind;
+  if (i.action && i.action.kind === 'dispatching') return 'dispatching';
   if (!i.loaded) return i.error ? 'offline' : 'loading';
-  if (isActive(st)) {
-    if (isStale(st, i.runner, i.now)) return 'interrupted';
-    return st.state;
-  }
-  if (i.pending) {
-    const job = i.runner && i.runner.kind === 'ok' && i.runner.data.job;
-    if (job && job.run_id === i.pending.run_id && job.exit_code !== null && job.exit_code !== undefined && job.exit_code !== 0) return 'startfail';
-    if (i.now - i.pending.at < 5 * 60000) return 'starting';
-  }
-  if (i.action && ['wakefail', 'startfail', 'refused', 'nosetup', 'auth'].includes(i.action.kind)) return i.action.kind;
+  const st = i.status;
+  if (isActive(st)) return isStale(st, i.run, i.now) ? 'interrupted' : st.state;
+  const early = endedEarly(i);
+  if (early) return early;
+  if (runActive(i.run) && !sameRun(st, i.run)) return i.pending ? 'ghstarting' : 'ghbusy';
+  if (i.pending) return i.pending.manual ? 'ghwait' : 'ghstarting';
   if ((i.lines || 0) < MIN_LINES) return 'few';
-  const r = i.runner && i.runner.kind;
-  if (r === 'missing') return 'nosetup';
-  if (r === 'broken') return 'broken';
-  if (r === 'paused') return 'paused';
-  if (r === 'ok' && i.runner.data.owner && i.signedIn && String(i.runner.data.owner).toLowerCase() !== String(i.signedIn).toLowerCase()) return 'refused';
   if (st && st.state === 'failed') return 'failed';
   if (st && st.state === 'stopped') return 'stopped';
   if (st && st.state === 'done' && newLines(i) === 0) return 'done';
@@ -118,18 +121,24 @@ export function fraction(status) {
 }
 
 /**
- * {text, sub, main, second, progress, note}: the one sentence, a quieter line
- * under it, at most one main action and one quiet one.
- *   main / second: {id, label, href?, disabled?}
+ * {text, sub, main, second, progress, busy, sample, curve, options, offer}: the one
+ * sentence, a quieter line, at most one main action and one quiet one.
+ *   main / second: {id, label, href?, external?, disabled?}
+ * i also carries: hasToken, stopPending, page (the workflow on GitHub), canCancel.
  */
 export function view(kind, i) {
   const st = i.status || {};
+  const run = i.run;
   const lines = i.lines || 0;
   const ckpt = Number.isInteger(st.checkpoint_epoch) && st.checkpoint_epoch > 0 ? st.checkpoint_epoch : null;
   const saved = ckpt ? ` Bis Runde ${ckpt} ist alles gesichert.` : '';
-  const again = ckpt ? { id: 'resume', label: 'Fortsetzen' } : { id: 'start', label: 'Nochmal versuchen' };
-  const fresh = ckpt ? { id: 'start', label: 'Von vorn beginnen' } : null;
-  const est = (i.defaults && i.defaults.epochs ? i.defaults.epochs : FALLBACK_DEFAULTS.epochs) * (st.epoch_minutes || 3) + 2;
+  // Starting: with a token straight from here, without one on GitHub's page.
+  // While a run is queued or running on GitHub there is no way to start another.
+  const start = (id, label) => (runActive(run) ? null : i.hasToken ? { id, label } : { id: id === 'resume' ? 'manual-resume' : 'manual', label, href: i.page, external: true });
+  const again = ckpt ? start('resume', 'Fortsetzen') : start('start', 'Nochmal versuchen');
+  const fresh = ckpt ? start('start', 'Von vorn beginnen') : null;
+  const onGitHub = run && run.html_url ? { id: 'run', label: 'Auf GitHub ansehen', href: run.html_url, external: true } : null;
+  const est = DEFAULTS.epochs * (st.epoch_minutes || 2.5) + START_MINUTES + 3;
   switch (kind) {
     case 'signedout': return { text: 'Melde dich an, dann kannst du hier dein Modell trainieren.', main: { id: 'signin', label: 'Anmelden' } };
     case 'auth': return { text: 'Deine Anmeldung gilt nicht mehr. Bitte melde dich neu an.', main: { id: 'signin', label: 'Anmelden' } };
@@ -144,28 +153,54 @@ export function view(kind, i) {
       const text = n === null ? `${lines} Zeilen sind da. Trainiert wurde noch nie.`
         : n === 0 ? `${lines} Zeilen sind da. Alle sind schon gelernt.`
           : `${lines} Zeilen sind da, ${n === 1 ? 'eine' : n} davon neu seit dem letzten Training.`;
-      return { text, sub: `Ein Training dauert ${duration(est)}. Du kannst die App dabei schließen.`, main: { id: 'start', label: 'Training starten' }, options: true };
+      return {
+        text, sub: `Ein Training dauert ${duration(est)} und läuft kostenlos auf GitHub. Du kannst die App dabei schließen.`,
+        main: start('start', 'Training starten'), options: i.hasToken, offer: !i.hasToken,
+      };
     }
-    case 'waking': return { text: 'Der Trainingsrechner wird geweckt. Das dauert etwa eine Minute.', busy: true };
-    case 'launching': return { text: 'Das Training wird gestartet …', busy: true };
-    case 'wakefail': return { text: 'Der Trainingsrechner wacht gerade nicht auf. Bitte versuch es in ein paar Minuten noch einmal.', main: { id: 'start', label: 'Nochmal versuchen' } };
-    case 'nosetup': return {
-      text: 'Der Trainingsrechner ist noch nicht eingerichtet.',
-      sub: `Er heißt ${i.spaceId || 'handschrift-training'} und wird einmal auf Hugging Face angelegt.`,
-      main: { id: 'recheck', label: 'Nochmal prüfen' },
+    case 'dispatching': return { text: 'Das Training wird gestartet …', busy: true };
+    case 'ghwait': return {
+      text: i.pending && i.pending.resume
+        ? 'Tippe auf GitHub auf „Run workflow“, setze den Haken bei „fortsetzen“ und tippe auf den grünen Knopf „Run workflow“.'
+        : 'Tippe auf GitHub auf „Run workflow“ und dann auf den grünen Knopf „Run workflow“.',
+      sub: 'Danach erscheint das Training hier von selbst. Dafür musst du bei GitHub angemeldet sein.',
+      main: { id: i.pending && i.pending.resume ? 'manual-resume' : 'manual', label: 'GitHub öffnen', href: i.page, external: true },
+      second: { id: 'forget', label: 'Doch nicht' },
     };
-    case 'refused': return {
-      text: 'Der Trainingsrechner gehört zu einem anderen Konto.',
-      sub: i.signedIn ? `Du bist als ${i.signedIn} angemeldet. Starten kann nur, wem der Rechner gehört.` : '',
+    case 'ghstarting': return {
+      text: `Das Training startet auf GitHub. Das dauert etwa ${START_MINUTES === 2 ? 'zwei' : START_MINUTES} Minuten.`,
+      sub: !run || !runActive(run) ? 'GitHub nimmt den Start gerade an.'
+        : run.status === 'queued' || run.status === 'waiting' || run.status === 'pending' ? 'Der Lauf wartet noch auf einen freien Rechner.'
+          : 'Der Rechner wird gerade eingerichtet.',
+      main: i.canCancel ? { id: 'cancel', label: 'Abbrechen' } : null,
+      second: onGitHub, busy: true,
     };
-    case 'broken': return { text: 'Der Trainingsrechner hat ein Problem und startet nicht.', sub: 'Auf seiner Seite bei Hugging Face steht, was los ist.', main: { id: 'page', label: 'Seite öffnen', href: i.pageUrl, external: true } };
-    case 'paused': return { text: 'Der Trainingsrechner ist pausiert.', sub: 'Auf seiner Seite bei Hugging Face kannst du ihn wieder einschalten.', main: { id: 'page', label: 'Seite öffnen', href: i.pageUrl, external: true } };
+    case 'ghbusy': {
+      const long = run && i.now - ms(run.created_at) > 20 * 60000;
+      return {
+        text: long ? 'Auf GitHub läuft gerade ein Training, das hier keinen Fortschritt zeigt.' : 'Auf GitHub startet gerade ein Lauf. Sobald das Training beginnt, siehst du es hier.',
+        sub: long ? 'Wenn es fertig ist, kannst du hier ein neues starten.' : '',
+        main: i.canCancel && !long ? { id: 'cancel', label: 'Abbrechen' } : null,
+        second: onGitHub, busy: !long,
+      };
+    }
+    case 'ghfailed': return {
+      text: run && run.conclusion === 'cancelled' ? 'Der Lauf auf GitHub wurde abgebrochen, bevor das Training begonnen hat.'
+        : 'Der Lauf auf GitHub ist abgebrochen, bevor das Training begonnen hat.',
+      sub: 'Auf GitHub steht, woran es lag.',
+      main: start('start', 'Nochmal versuchen'), second: onGitHub, options: i.hasToken,
+    };
+    case 'ghended': return {
+      text: 'Der Lauf auf GitHub ist fertig, hat aber nicht trainiert.',
+      sub: 'Vermutlich gab es zu wenig neue Zeilen. Ein Start von hier trainiert immer.',
+      main: start('start', 'Training starten'), second: onGitHub, options: i.hasToken,
+    };
     case 'starting': {
       const stopping = i.stopPending;
       return {
         text: stopping ? 'Das Training wird beendet.' : 'Das Training beginnt. Deine Zeilen werden geladen.',
-        sub: `Läuft ${where(st.runner || 'space')}. Du kannst die App dabei schließen.`,
-        main: { id: 'stop', label: stopping ? 'Wird beendet …' : 'Abbrechen', disabled: !!stopping || !isActive(st) },
+        sub: `Läuft ${where(st.runner)}. Du kannst die App dabei schließen.`,
+        main: { id: 'stop', label: stopping ? 'Wird beendet …' : 'Abbrechen', disabled: !!stopping },
         busy: true,
       };
     }
@@ -192,29 +227,24 @@ export function view(kind, i) {
         text: 'Fertig. Dein neues Modell ist jetzt in Gebrauch.',
         sub: `Gelernt aus ${zeilen(st.lines || lines)}${date ? ` am ${date}` : ''}. Am besten war Runde ${st.best_epoch}.`,
         main: { id: 'write', label: 'Ausprobieren', href: '#/schreiben' },
-        second: { id: 'start', label: 'Neu trainieren' },
-        sample: true, curve: true, options: true,
+        second: start('start', 'Neu trainieren'),
+        sample: true, curve: true, options: i.hasToken,
       };
     }
     case 'failed': return {
       text: 'Das Training hat nicht geklappt.',
       sub: `${st.message || 'Der Grund ist nicht bekannt.'}${saved}`,
-      main: again, second: fresh, sample: true, curve: true, options: true,
+      main: again, second: fresh, sample: true, curve: true, options: i.hasToken,
     };
     case 'stopped': return {
       text: st.message && !/^Abgebrochen/.test(st.message) ? st.message : `Abgebrochen nach Runde ${st.epoch || 0}.`,
       sub: ckpt ? `Du kannst an dieser Stelle weitermachen.${saved}` : 'Du kannst es jederzeit neu starten.',
-      main: again, second: fresh, sample: true, curve: true, options: true,
+      main: again, second: fresh, sample: true, curve: true, options: i.hasToken,
     };
     case 'interrupted': return {
       text: 'Das Training ist stehen geblieben.',
-      sub: `${st.runner === 'space' ? 'Der Trainingsrechner hat sich vermutlich neu gestartet.' : `Der Lauf ${where(st.runner)} meldet sich seit einer Weile nicht mehr.`}${saved}`,
-      main: again, second: fresh, sample: true, curve: true, options: true,
-    };
-    case 'startfail': return {
-      text: 'Das Training konnte nicht beginnen.',
-      sub: (i.action && i.action.message) || (i.runnerMessage) || 'Bitte versuch es noch einmal.',
-      main: { id: 'start', label: 'Nochmal versuchen' }, options: true,
+      sub: `Der Lauf ${where(st.runner)} meldet sich nicht mehr.${saved}`,
+      main: again, second: fresh, sample: true, curve: true, options: i.hasToken,
     };
     default: return { text: '' };
   }

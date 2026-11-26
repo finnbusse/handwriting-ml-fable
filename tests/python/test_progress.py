@@ -93,7 +93,7 @@ def _write(out, name, epoch):
 
 def args_for(tmp, *extra):
     ns = argparse.Namespace(out=os.path.join(tmp, "work"), epochs=None, lines_only=None, resume=False,
-                            resume_run=False, max_minutes=0, sample_every=1, checkpoint_every=2, runner="space",
+                            resume_run=False, max_minutes=0, sample_every=1, checkpoint_every=2, runner="github",
                             run_id="run-1", threads=1, epoch_items=0, writer="finn", cache="c", base="b",
                             no_fetch=True)
     for k, v in extra:
@@ -202,7 +202,7 @@ class DriverTest(unittest.TestCase):
         self.assertEqual(retrain.run(args, hub=self.hub, train_main=fake_train()), 0)
         st = self.hub.status()
         self.assertEqual(st["state"], "done")
-        self.assertEqual(st["runner"], "space")
+        self.assertEqual(st["runner"], "github")
         self.assertEqual(st["lines"], 25)
         self.assertEqual(st["epoch"], 4)
         self.assertEqual(st["best_epoch"], 4)

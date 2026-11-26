@@ -9,6 +9,8 @@ import { capabilities } from './capture/recorder.js';
 import { createCaptureView } from './capture/view.js';
 import { createGenerateView } from './generate/view.js';
 import { createTrainingView } from './training/view.js';
+import { createGitHub } from './training/github.js';
+import { createGitHubSettings } from './training/github-settings.js';
 import { normalize as normalizeDisplay } from './capture/ink.js';
 import { createLookControls } from './capture/look.js';
 import { createLibraryView } from './library.js';
@@ -501,7 +503,7 @@ async function route() {
   if (r === 'erfassen') app.capture.show();
   if (r === 'schreiben') app.generate.show();
   if (r === 'training') app.training.show();
-  if (r === 'einstellungen') renderSettings();
+  if (r === 'einstellungen') { renderSettings(); app.githubSettings.render(); }
   if (r === 'zeilen') app.library.show(from);
   if (r === 'start') { renderAccount(); $('start-writer').value = app.writer ? app.writer.name : ''; $('start-err').hidden = true; }
 }
@@ -596,7 +598,10 @@ async function boot() {
   app.generate = createGenerateView({ store, hf, toast, signIn: () => app.signIn() });
   await app.generate.init();
   // A finished training: Schreiben looks for the new model at once (its checksum decides whether to download).
-  app.training = createTrainingView({ hf, signIn: () => app.signIn(), writer: () => app.writer, modelChanged: () => app.generate.refresh() });
+  // Training runs on GitHub; the optional token for starting it from here is set up in Einstellungen.
+  app.github = createGitHub();
+  app.githubSettings = createGitHubSettings($('gh-settings'), app.github);
+  app.training = createTrainingView({ hf, github: app.github, signIn: () => app.signIn(), writer: () => app.writer, modelChanged: () => app.generate.refresh() });
   app.training.init();
 
   outbox.install();

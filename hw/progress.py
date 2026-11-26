@@ -1,6 +1,6 @@
 """Training progress in the model repo, for the web app's Training tab.
 
-Whoever runs a training (the trainer Space, GitHub, Colab, a computer) writes
+Whoever runs a training (GitHub Actions, Colab, a computer) writes
 the same files into `<user>/handwriting-fable-model`:
 
     training/status.json        where the run is, in one small JSON (format below)
@@ -15,7 +15,7 @@ logged and training goes on.
 status.json, format 1:
 
     {"format": 1, "run_id": "20261125-141502-a1b2", "state": "running",
-     "runner": "space", "runner_url": null,
+     "runner": "github", "runner_url": "https://github.com/<owner>/<repo>/actions/runs/123",
      "started": "2026-11-25T14:15:02Z", "updated": "2026-11-25T14:43:10Z",
      "epoch": 7, "epochs": 30, "best_epoch": 6,
      "scores": [1.92, 1.41, 1.33, ...],        # index = epoch (0 = before training); null = not measured
@@ -24,7 +24,7 @@ status.json, format 1:
      "data": {"train_lines": 160, "val_lines": 13, ...},
      "writer": "finn", "lines_only": true, "resumed_from": null,
      "sample_epoch": 7, "sample_kind": "progress", "checkpoint_epoch": 5,
-     "message": null, "error": null, "model_sha256": null}
+     "message": null, "error": null, "model_sha256": null, "model_version": null}
 
 state: starting | running | publishing | done | failed | stopped
 """
@@ -46,7 +46,7 @@ SAMPLE = "training/sample.png"
 STOP = "training/stop"
 CHECKPOINT = "training/checkpoint"
 STATES = ("starting", "running", "publishing", "done", "failed", "stopped")
-RUNNERS = ("space", "github", "colab", "local")
+RUNNERS = ("github", "colab", "local")
 
 
 def now_iso() -> str:
@@ -58,8 +58,6 @@ def new_run_id() -> str:
 
 
 def detect_runner() -> str:
-    if os.environ.get("SPACE_ID"):
-        return "space"
     if os.environ.get("GITHUB_ACTIONS") == "true":
         return "github"
     if os.environ.get("COLAB_RELEASE_TAG") or "google.colab" in sys.modules:
@@ -123,7 +121,7 @@ class NoCheckpoint(RuntimeError):
 
 
 class Interrupted(BaseException):
-    """The process was asked to end (SIGTERM, e.g. the Space shuts down)."""
+    """The process was asked to end (SIGTERM, e.g. a cancelled GitHub run)."""
 
 
 # ----------------------------------------------------------------------- hubs
@@ -162,7 +160,7 @@ class HfHub(Hub):
         self.api = HfApi(token=token)
         self.user = self.api.whoami()["name"]
         self.dataset_repo = f"{self.user}/{dataset}"
-        self.model_repo = f"{self.user}/{model}"
+        self.model_repo = model if "/" in model else f"{self.user}/{model}"
 
     def ensure_repo(self):
         self.api.create_repo(self.model_repo, repo_type="model", private=True, exist_ok=True)
@@ -308,7 +306,8 @@ class Progress:
                        "best_epoch": None, "scores": [], "minutes": 0.0, "minutes_left": None,
                        "epoch_minutes": None, "lines": None, "data": None, "writer": None, "lines_only": None,
                        "resumed_from": None, "sample_epoch": None, "sample_kind": None,
-                       "checkpoint_epoch": None, "message": None, "error": None, "model_sha256": None}
+                       "checkpoint_epoch": None, "message": None, "error": None, "model_sha256": None,
+                       "model_version": None}
         self.status.update(fields)
 
     def update(self, **fields):
@@ -353,8 +352,8 @@ class Progress:
 
 # -------------------------------------------------------------- stop / resume
 class StopWatch:
-    """Asks, once per epoch, whether the run should end: a local flag file (set by
-    the trainer Space's /stop) or `training/stop` in the model repo (set by the app)."""
+    """Asks, once per epoch, whether the run should end: a local flag file
+    (HW_STOP_FILE, for a run on a computer) or `training/stop` in the model repo (set by the app)."""
 
     def __init__(self, hub: Hub, local_flag: str | None = None, log=print):
         self.hub, self.local_flag, self.log = hub, local_flag, log

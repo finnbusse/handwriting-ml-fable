@@ -38,7 +38,7 @@ web/
   js/capture/qa.js          automatic checks on a finished line
   js/capture/view.js        the Erfassen screen
   js/generate/…             the Schreiben screen
-  js/training/…             the Training screen (status from the model repo, runner = trainer/ Space; hw/progress.py has the format)
+  js/training/…             the Training screen (status from the model repo, runs on GitHub Actions via .github/workflows/retrain.yml; hw/progress.py has the format)
   js/engine/…               the network in JavaScript
   prompts/de-core.json      what the writer is asked to write
   model/                    model.json + model.bin (not in git; fetched from the model repo)
@@ -49,7 +49,7 @@ web/
 | Thing | Repo | Visibility |
 |---|---|---|
 | new recordings | dataset `<user>/handwriting-fable` | public (the writer's choice; the app also works with a private one) |
-| trained model  | model `<user>/handwriting-fable-model` | private |
+| trained model  | model `<user>/handwriting-fable-model` (every version under `models/<id>/`, listed in `models/index.json`; the root is a copy of the newest; see `hw/models.py`) | private |
 | app            | static Space (app shell only: no data, no weights) | public |
 
 `<user>` is the signed-in account (`/api/whoami-v2`), never hard-coded.

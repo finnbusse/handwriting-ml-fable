@@ -3,11 +3,12 @@
 // No account name here: the account comes from the sign-in at runtime.
 self.HW_CONFIG = Object.freeze({
   appName: 'handwriting-capture',
-  version: '0.7.0',
+  version: '0.8.0',
   datasetRepo: 'handwriting-fable',        // dataset <user>/handwriting-fable (private)
   modelRepo: 'handwriting-fable-model',    // model <user>/handwriting-fable-model (private)
   hfBase: 'https://huggingface.co',
-  trainerSpace: 'handschrift-training',   // Space <user>/handschrift-training that runs a training (trainer/)
+  githubRepo: 'finnbusse/handwriting-ml-fable',   // where a training runs (GitHub Actions, free for a public repo)
+  githubWorkflow: 'retrain.yml',                 // .github/workflows/retrain.yml, started by the Training tab
   promptsUrl: 'prompts/de-core.json',
   blockSize: 20,          // lines per block / session
   goalBlocks: 5,          // 5 blocks of 20 = the ~100-line goal; later blocks count as extra

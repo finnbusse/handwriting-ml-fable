@@ -1,5 +1,5 @@
-"""Retrain when there are new recordings -- used by the trainer Space, the GitHub
-workflow and the Colab notebook, and fine to run by hand.
+"""Retrain when there are new recordings -- used by the GitHub workflow (which the
+web app's Training tab starts) and the Colab notebook, and fine to run by hand.
 
     python scripts/retrain.py check     # is there anything new?  (exit code 0, prints needed=true/false)
     python scripts/retrain.py run       # train, compare, publish
@@ -29,7 +29,7 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)                                   # the repo root, for "hw"
 sys.path.insert(0, os.path.join(ROOT, "scripts"))          # publish_model
-from hw import progress  # noqa: E402
+from hw import models, progress  # noqa: E402
 from hw.config import MAIN_WRITER  # noqa: E402
 
 DATASET = "handwriting-fable"
@@ -37,9 +37,9 @@ MODEL = "handwriting-fable-model"
 
 # Defaults of `run` (the Training tab of the web app shows and uses these).
 LINES_ONLY = False      # train on whole written lines only, without the early single words and digits
-EPOCHS = 30             # at most this many rounds; a run ends earlier when the held-out lines stop improving
+EPOCHS = 12             # a fixed budget of rounds (hw/train.py explains why it is short and fixed)
 SAMPLE_EVERY = 1        # draw training/sample.png every this many epochs (it takes a few seconds)
-CHECKPOINT_EVERY = 5    # store training/checkpoint/ every this many epochs (about 30 MB each time)
+CHECKPOINT_EVERY = 4    # store training/checkpoint/ every this many epochs (about 30 MB each time)
 MAX_MINUTES = 240       # stop training after this long and publish the best model so far
 
 
@@ -234,9 +234,10 @@ def run(args, hub=None, train_main=None):
 
         prog.update(minutes_left=2.0)
         prog.publish("publishing")
-        manifest = publish(args, hub, st, threads, lines_only, epochs, prog.status["run_id"])
+        manifest = publish(args, hub, st, threads, lines_only, epochs, prog.status["run_id"], rounds=result["epoch"])
         files = hooks._sample(hooks.final, result["best_epoch"], kind="best") if hooks.final else {}
-        prog.update(model_sha256=manifest["sha256"], minutes_left=0.0, best_epoch=result["best_epoch"])
+        prog.update(model_sha256=manifest["sha256"], model_version=manifest.get("version"), minutes_left=0.0,
+                    best_epoch=result["best_epoch"])
         prog.publish("done", files=files)
         with open(os.path.join(work, "best", "meta.json"), encoding="utf-8") as f:
             meta = json.load(f)
@@ -276,8 +277,9 @@ def _state_epoch(work):
         return json.load(f)["epoch"]
 
 
-def publish(args, hub, st, threads, lines_only, epochs, run_id):
-    """compare.py, then the model files in one commit (scripts/publish_model.py prepares them)."""
+def publish(args, hub, st, threads, lines_only, epochs, run_id, rounds=None):
+    """compare.py, then the model as a new version in one commit (scripts/publish_model.py
+    prepares the files, hw.models.publish puts them under models/<id>/ and the root)."""
     import publish_model
 
     py = sys.executable
@@ -289,7 +291,7 @@ def publish(args, hub, st, threads, lines_only, epochs, run_id):
     subprocess.run(cmd + (["--lines-only"] if lines_only else []), check=True, env=env)
     marker = {"dataset": st["dataset"], "dataset_sha": st["dataset_sha"], "lines": st["lines"],
               "lines_sha256": st["lines_sha256"], "writer": args.writer, "lines_only": lines_only,
-              "epochs": epochs, "run_id": run_id,
+              "epochs": epochs, "rounds": rounds, "run_id": run_id,
               "date": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")}
     with tempfile.TemporaryDirectory() as tmp:
         marker_path = os.path.join(tmp, "marker.json")
@@ -298,9 +300,10 @@ def publish(args, hub, st, threads, lines_only, epochs, run_id):
         folder = os.path.join(tmp, "upload")
         os.makedirs(folder)
         manifest, _ = publish_model.prepare(best, folder, image, marker_path)
-        hub.ensure_repo()
-        hub.commit(publish_model.folder_files(folder), message=f"Neu trainiert mit {st['lines']} erfassten Zeilen")
-    return manifest
+        version = models.publish(hub, folder, writer=args.writer, note=getattr(args, "note", None), rounds=rounds,
+                                 message=f"Neu trainiert mit {st['lines']} erfassten Zeilen")
+    print(f"published as {version['path']}")
+    return dict(manifest, version=version["id"])
 
 
 def main(argv=None):
@@ -332,6 +335,7 @@ def main(argv=None):
     r.add_argument("--threads", type=int, default=0, help="CPU threads (default: all)")
     r.add_argument("--epoch-items", type=int, default=0, help="training lines per epoch (default: as hw.train)")
     r.add_argument("--writer", default=MAIN_WRITER)
+    r.add_argument("--note", default=None, help="a short note stored with the published model (shown in the app)")
     r.add_argument("--cache", default="data_cache")
     r.add_argument("--base", default="artifacts/base")
     r.add_argument("--no-fetch", action="store_true", help="use the local data cache only")

@@ -30,12 +30,28 @@ const DEFAULTS = { text: '', bias: 0.4, size: 11, spacing: 6.5 };   // size: CSS
 
 const mb = (bytes) => (bytes / 1e6).toFixed(1).replace('.', ',');
 
-function formatDate(value) {
+/** "26. November, 01:48 Uhr" (local time; the year only when it is not this one), or for a bare date "25. November 2026". */
+export function formatWhen(value) {
   if (!value) return null;
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
-  const d = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(value);
+  const s = String(value);
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  const d = dateOnly && m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(s);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  if (dateOnly) return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+  const day = d.toLocaleDateString('de-DE', d.getFullYear() === new Date().getFullYear() ? { day: 'numeric', month: 'long' } : { day: 'numeric', month: 'long', year: 'numeric' });
+  return `${day}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
+}
+
+/** One version in the "Modell" list: "26. Nov. 2026, 01:48 · 143 Zeilen · Notiz · Anna" (the writer only when it is someone else). */
+export function versionLabel(v, writerId, names = {}) {
+  const d = new Date(v.created || '');
+  const parts = [Number.isNaN(d.getTime()) ? v.id
+    : `${d.toLocaleDateString('de-DE', { day: 'numeric', month: 'short', year: 'numeric' })}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`];
+  if (Number.isFinite(v.lines)) parts.push(v.lines === 1 ? '1 Zeile' : `${v.lines} Zeilen`);
+  if (v.note) parts.push(String(v.note));
+  if (v.writer && v.writer !== writerId) parts.push(names[v.writer] || v.writer);
+  return parts.join(' · ');
 }
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -56,6 +72,7 @@ export function createGenerateView(deps) {
     stage: $('gen-stage'), paper: $('gen-paper'), canvas: $('gen-canvas'), lines: $('gen-lines'), empty: $('gen-empty'),
     info: $('gen-info'), styleBtn: $('gen-style-btn'), style: $('gen-style'),
     moreBtn: $('gen-more-btn'), more: $('gen-more'), inkRow: $('gen-ink-row'),
+    modelRow: $('gen-model-row'), modelPick: $('gen-model-pick'),
     save: $('gen-save'), saveMenu: $('gen-save-menu'),
     png: $('gen-png'), inkPng: $('gen-ink-png'), svg: $('gen-svg'), copy: $('gen-copy'),
   };
@@ -72,6 +89,7 @@ export function createGenerateView(deps) {
     visible: false,
     // model
     engine: null, engineUser: null, sha: null, normalizer: null, writer: null, trainedOn: null,
+    version: null, index: null, choice: 'newest', switching: false, again: false,
     pendingModel: null, syncing: null, lastCheck: 0, authUser: undefined, stale: true,
     info: { kind: 'date' },                       // what the line under the controls says
     // writing
@@ -120,12 +138,15 @@ export function createGenerateView(deps) {
 
   function renderInfo() {
     const i = S.info;
-    const date = formatDate(S.trainedOn && S.trainedOn.date);
+    const date = formatWhen((S.version && S.version.created) || (S.trainedOn && S.trainedOn.date));
     const stand = date ? `Modell vom ${date}` : 'Modell bereit';
+    const what = S.switching ? 'Modell' : 'Neues Modell';
     let text = stand, bar = null;
-    if (i.kind === 'updating') { text = `Neues Modell wird geladen … ${i.total ? `${mb(i.loaded || 0)} von ${mb(i.total)} MB` : ''}`.trim(); bar = i.total ? (100 * (i.loaded || 0)) / i.total : 0; }
-    else if (i.kind === 'verifying') text = 'Neues Modell wird geprüft …';
+    if (i.kind === 'updating') { text = `${what} wird geladen … ${i.total ? `${mb(i.loaded || 0)} von ${mb(i.total)} MB` : ''}`.trim(); bar = i.total ? (100 * (i.loaded || 0)) / i.total : 0; }
+    else if (i.kind === 'verifying') text = `${what} wird geprüft …`;
     else if (i.kind === 'updated') text = `Neues Modell geladen. ${stand}`;
+    else if (i.kind === 'switched') text = `Jetzt in Gebrauch: ${stand}`;
+    else if (i.kind === 'gone') text = `Das gewählte Modell gibt es nicht mehr. Jetzt schreibt das neueste: ${stand}`;
     else if (i.kind === 'waiting') text = `Neues Modell gefunden. Es wird nach dem Schreiben benutzt.`;
     else if (i.kind === 'checksum') text = 'Das neue Modell war beschädigt und wurde nicht übernommen. Das bisherige bleibt im Gebrauch.';
     else if (i.kind === 'auth') text = `Deine Anmeldung gilt nicht mehr. ${stand}`;
@@ -139,9 +160,9 @@ export function createGenerateView(deps) {
     return !!S.engine && (!user || S.engineUser === user);
   };
 
-  async function useModel(entry, trainedOn, { updated = false } = {}) {
+  async function useModel(entry, trainedOn, { updated = false, info = null } = {}) {
     if (S.phase === 'writing') {                    // never swap the network under a running text
-      S.pendingModel = { entry, trainedOn, updated };
+      S.pendingModel = { entry, trainedOn, updated, info };
       S.info = { kind: 'waiting' }; renderInfo();
       return;
     }
@@ -157,13 +178,15 @@ export function createGenerateView(deps) {
     const old = S.engine;
     const normalizer = createNormalizer(ready.charset);
     S.engine = engine; S.engineUser = entry.user; S.sha = entry.manifest.sha256;
-    S.normalizer = normalizer; S.trainedOn = trainedOn || null;
+    S.normalizer = normalizer; S.trainedOn = trainedOn || null; S.version = entry.version || null;
     S.writer = createPageWriter({
       normalize: normalizer.normalize, xhModel: ready.xhModel, gapXh: ready.gapXh,
       writePiece: (job) => engine.writePiece(job),
     });
     if (old) old.terminate();
-    S.info = { kind: updated ? 'updated' : 'date' };
+    S.info = { kind: info || (updated ? 'updated' : 'date') };
+    S.switching = false;
+    renderPicker();
     showWork();
     syncUi();
   }
@@ -181,23 +204,38 @@ export function createGenerateView(deps) {
     }
   }
 
-  /** Use what is on the device at once, then look for a newer model. */
+  /** The current writer (for "Neuestes") and the names of all writers on this device (for the list). */
+  async function writers() {
+    try {
+      const id = await store.kvGet('writer', null);
+      const list = await store.kvGet('writers', []);
+      const names = {};
+      for (const w of Array.isArray(list) ? list : []) if (w && w.id) names[w.id] = w.name;
+      return { id, names };
+    } catch (_) { return { id: null, names: {} }; }
+  }
+
+  /** Use what is on the device at once, then look for a newer model (or the chosen one). */
   function refresh() {
-    if (S.syncing) return S.syncing;
+    if (S.syncing) { S.again = true; return S.syncing; }      // a choice made meanwhile is looked at right after
     S.syncing = (async () => {
       try {
         S.authUser = hf.userName();
         S.stale = false;
         if (!ownEngine()) {
-          const cached = await ms.usableCache();
+          const cached = await ms.usableCache(S.choice);
           if (cached) await useModel(cached.entry, cached.trainedOn);
           else if (!hf.userName()) { showCard('signin'); return; }
           else showCard('checking');
         }
         const had = ownEngine();
+        const who = await writers();
+        S.writerId = who.id; S.writerNames = who.names;
+        const choice = S.choice;
         let r;
         try {
           r = await ms.sync({
+            choice, writer: who.id,
             onStage: (stage, o = {}) => {
               if (stage === 'downloading') { if (had) S.info = { kind: 'updating', loaded: 0, total: o.total }; else showCard('downloading', { loaded: 0, total: o.total }); }
               else if (had) S.info = { kind: 'verifying' }; else showCard('verifying');
@@ -210,15 +248,53 @@ export function createGenerateView(deps) {
           });
         } catch (e) { onSyncError(e); return; }
         S.lastCheck = Date.now();
-        if (r.changed || !ownEngine()) await useModel(r.entry, r.trainedOn, { updated: r.changed && had });
-        else if (r.trainedOn && !S.trainedOn) { S.trainedOn = r.trainedOn; S.info = { kind: 'date' }; renderInfo(); }
-        else if (S.info.kind !== 'date' && S.info.kind !== 'updated') { S.info = { kind: 'date' }; renderInfo(); }
+        S.index = r.index;
+        if (r.fallback && choice === S.choice) { S.choice = 'newest'; saveChoice(); }
+        const other = !ownEngine() || String(r.entry.manifest.sha256).toLowerCase() !== String(S.sha || '').toLowerCase();
+        const info = r.fallback ? 'gone' : S.switching ? 'switched' : null;
+        if (other) await useModel(r.entry, r.trainedOn, { updated: had && choice === 'newest', info });
+        else {
+          S.trainedOn = r.trainedOn || S.trainedOn; S.version = r.version || S.version; S.switching = false;
+          if (info) S.info = { kind: info };
+          else if (S.info.kind !== 'updated') S.info = { kind: 'date' };
+          renderInfo(); renderPicker();
+        }
       } catch (e) {
         console.error(e);
         if (!ownEngine()) showCard('failed');
-      } finally { S.syncing = null; }
+      } finally {
+        S.syncing = null;
+        if (S.again) { S.again = false; refresh(); }
+      }
     })();
     return S.syncing;
+  }
+
+  // ---------- "Modell" (under Erweitert): which version writes ----------
+
+  function renderPicker() {
+    const models = (S.index && S.index.models) || [];
+    el.modelRow.hidden = models.length === 0;               // an older repo without versions: nothing to choose
+    if (!models.length) return;
+    const pick = el.modelPick;
+    const want = [['newest', 'Neuestes']].concat(models.map((m) => [m.id, versionLabel(m, S.writerId, S.writerNames || {})]));
+    const have = [...pick.options].map((o) => [o.value, o.textContent]);
+    if (JSON.stringify(want) !== JSON.stringify(have)) {
+      pick.textContent = '';
+      for (const [value, label] of want) { const o = document.createElement('option'); o.value = value; o.textContent = label; pick.append(o); }
+    }
+    pick.value = models.some((m) => m.id === S.choice) ? S.choice : 'newest';
+  }
+
+  function saveChoice() {
+    store.kvSet('modelChoice', { user: hf.userName(), id: S.choice }).catch(() => {});
+  }
+
+  function choose(id) {
+    if (id === S.choice) return;
+    S.choice = id; saveChoice();
+    S.switching = true;
+    refresh();
   }
 
   // ---------- drawing ----------
@@ -473,7 +549,7 @@ export function createGenerateView(deps) {
     if (S.cancelled) { settleAll(); setNote(el.note, S.page ? 'Abgebrochen. Was schon geschrieben ist, bleibt stehen.' : 'Abgebrochen.'); }
     setNote(el.bad, S.bad ? badText(S.bad) : '');
     syncUi();
-    if (S.pendingModel) { const p = S.pendingModel; S.pendingModel = null; await useModel(p.entry, p.trainedOn, { updated: p.updated }); }
+    if (S.pendingModel) { const p = S.pendingModel; S.pendingModel = null; await useModel(p.entry, p.trainedOn, { updated: p.updated, info: p.info }); }
     save();
   }
 
@@ -621,6 +697,7 @@ export function createGenerateView(deps) {
     el.bias.addEventListener('change', () => { if (S.lastText && S.phase === 'idle') run(S.lastText); });
     el.styleBtn.addEventListener('click', toggleStyle);
     el.moreBtn.addEventListener('click', toggleMore);
+    el.modelPick.addEventListener('change', () => choose(el.modelPick.value));
     el.style.addEventListener('click', (e) => {
       const b = e.target.closest('.gen-choice');
       if (!b) return;
@@ -673,6 +750,10 @@ export function createGenerateView(deps) {
         el.text.value = S.settings.text;
       } else if (window.innerWidth < 600) S.settings.size = 9;
     } catch (_) { /* no stored settings: defaults */ }
+    try {
+      const c = await store.kvGet('modelChoice', null);
+      if (c && typeof c.id === 'string' && c.user === hf.userName()) S.choice = c.id;
+    } catch (_) { /* "Neuestes" */ }
     applySettings();
     wire();
     syncUi();
@@ -695,6 +776,6 @@ export function createGenerateView(deps) {
     init, show, hide, refresh,
     info: () => ms.info(),
     /** For tests and the diagnostics page. */
-    debug: () => ({ phase: S.phase, page: S.page, seed: S.seed, sha: S.sha, settings: S.settings, look: Object.assign({}, S.look), ownLook: S.ownLook, runs: S.runId, scale: S.geo ? S.geo.scale : 0, text: S.lastText, bad: S.bad, settled: S.settled, total: S.total, done: S.done }),
+    debug: () => ({ choice: S.choice, version: S.version ? S.version.id : null, models: ((S.index && S.index.models) || []).map((m) => m.id), phase: S.phase, page: S.page, seed: S.seed, sha: S.sha, settings: S.settings, look: Object.assign({}, S.look), ownLook: S.ownLook, runs: S.runId, scale: S.geo ? S.geo.scale : 0, text: S.lastText, bad: S.bad, settled: S.settled, total: S.total, done: S.done }),
   };
 }

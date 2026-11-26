@@ -81,7 +81,7 @@ class DriverEndToEnd(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(hub, "model.json")))     # a stopped run publishes nothing
 
         # 2. continue it for one more epoch, then it publishes
-        r = subprocess.run(cmd("run2", "--resume-run", "--epochs", str(stopped_at + 1)), env=env, cwd=ROOT,
+        r = subprocess.run(cmd("run2", "--resume-run", "--epochs", str(stopped_at + 1), "--note", "e2e"), env=env, cwd=ROOT,
                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertIn(f"resuming after epoch {stopped_at}", r.stdout)
@@ -100,6 +100,17 @@ class DriverEndToEnd(unittest.TestCase):
         self.assertGreater(marker["lines"], 0)
         for f in ("model.bin", "vergleich.png", "checkpoint/model.pt"):
             self.assertTrue(os.path.exists(os.path.join(hub, f)), f)
+        # the model is also kept as its own version, listed in models/index.json
+        with open(os.path.join(hub, "models", "index.json"), encoding="utf-8") as f:
+            index = json.load(f)
+        self.assertEqual(len(index["models"]), 1)
+        v = index["models"][0]
+        self.assertTrue(v["id"].startswith("hw-rnn-model-finn-"))
+        self.assertEqual(v["id"], st["model_version"])
+        self.assertEqual((v["sha256"], v["rounds"], v["best_round"]), (st["model_sha256"], stopped_at + 1, st["best_epoch"]))
+        self.assertEqual(v["note"], "e2e")
+        for f in ("model.json", "model.bin", "trained_on.json", "version.json", "vergleich.png", "checkpoint/model.pt"):
+            self.assertTrue(os.path.exists(os.path.join(hub, v["path"], f)), f)
 
 
 if __name__ == "__main__":

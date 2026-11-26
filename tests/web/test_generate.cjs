@@ -84,7 +84,14 @@ const openSave = async (page) => { if (!(await page.isVisible('#gen-save-menu'))
 const openMore = async (page) => { await openStyle(page); if (!(await page.isVisible('#gen-more'))) await page.click('#gen-more-btn'); };
 const pickInk = async (page, name) => { await openMore(page); await page.click(`#gen-inks [data-ink="${name}"]`); };
 const pick = async (page, key, value) => { await openStyle(page); await page.click(`.gen-choice[data-k="${key}"][data-v="${value}"]`); await page.waitForTimeout(80); };
-const cachedSha = (page) => page.evaluate(async () => { const e = await window.__hw.store.kvGet('model', null); return e ? e.manifest.sha256 : null; });
+/** The model in the most recently used cache slot (model-store.js keeps up to three). */
+const cachedSha = (page) => page.evaluate(async () => {
+  const st = window.__hw.store;
+  const t = (await st.kvGet('modelSlots', null)) || {};
+  const slot = Object.keys(t).sort((a, b) => t[b].usedAt - t[a].usedAt)[0] || 'model';
+  const e = await st.kvGet(slot, null);
+  return e ? e.manifest.sha256 : null;
+});
 const infoText = (page) => page.textContent('#gi-text');
 
 async function tabletRun(browser, server) {
