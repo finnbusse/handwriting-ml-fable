@@ -140,7 +140,7 @@ function pageContent(doc, pageIndex, l, colors, textLayer, gstates) {
     out.push(`BT 3 Tr /F1 ${f2(size)} Tf`);
     const extra = [...(page.arrows || []), ...(page.markers || [])];
     const lines = extra.length
-      ? pageLines({ words: [...page.words, ...extra] }).map((ws) => ws.slice().sort((a, b) => a.x - b.x))
+      ? pageLines({ words: [...page.words, ...extra] }).map((ws) => (ws[0].trow !== undefined ? ws : ws.slice().sort((a, b) => a.x - b.x)))
       : pageLines(page);
     for (const line0 of lines) {
       // a list label goes with its first word: text tools read the column the labels

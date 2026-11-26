@@ -166,11 +166,19 @@ function dropTrailingBlanks(blocks) {
 
 function withBox(b, box) { const { lines, ...rest } = b; return { ...rest, box, lines }; }
 
+// The page holds at most this many columns; the cells past them go into the last one.
+const MAX_COLUMNS = 64;
+
 /** A table block: every row as many cells as the widest (missing ones empty, so a
  *  ragged row loses nothing), one alignment per column; null when no cell holds
  *  anything to write. */
-function tableBlock(columns, rows) {
-  const n = rows.reduce((m, r) => Math.max(m, r.cells.length), columns.length);
+function tableBlock(columns, rows, notes) {
+  let n = rows.reduce((m, r) => Math.max(m, r.cells.length), columns.length);
+  if (n > MAX_COLUMNS) {
+    notes.add(`Tabellen mit mehr als ${MAX_COLUMNS} Spalten: der Rest jeder Zeile steht in der letzten Spalte`);
+    for (const r of rows) if (r.cells.length > MAX_COLUMNS) r.cells.push(r.cells.splice(MAX_COLUMNS - 1).filter((c) => c.length).flatMap((c, i) => (i ? [{ text: ' ' }, ...c] : c)));
+    n = MAX_COLUMNS;
+  }
   const lines = [];
   for (const r of rows) {
     while (r.cells.length < n) r.cells.push([]);
@@ -276,8 +284,9 @@ function markdownBlocks(lines, st) {
           };
           const rows = [{ head: true, cells: head.cells.map(cell) }];
           let e = k + 2;
-          for (let r; e < lines.length && lines[e].trim() && (r = splitRow(lines[e])).pipes; e++) rows.push({ cells: r.cells.map(cell) });
-          const block = tableBlock(delim.cells.map((c) => (c.endsWith(':') ? (c.startsWith(':') ? 'center' : 'right') : 'left')), rows);
+          // a second delimiter row is no row of cells
+          for (let r; e < lines.length && lines[e].trim() && (r = splitRow(lines[e])).pipes; e++) if (!r.cells.every((c) => DELIM_CELL.test(c))) rows.push({ cells: r.cells.map(cell) });
+          const block = tableBlock(delim.cells.map((c) => (c.endsWith(':') ? (c.startsWith(':') ? 'center' : 'right') : 'left')), rows, st.notes);
           if (block) blocks.push(block);
           k = e - 1; indents = [];
           continue;
@@ -346,16 +355,16 @@ function markdownBlocks(lines, st) {
 const DELIM_CELL = /^:?-+:?$/;
 const NESTED_TABLE = 'Markdown: Tabellen in Listen oder Kästen werden als Text geschrieben';
 
-/** The cells of a table row, split at the pipes a backslash does not escape (the
- *  escape stays for the inline marks to read); a leading and a trailing pipe are
- *  the row's edges.  { cells, pipes }. */
+/** The cells of a table row, split at the pipes a backslash does not escape (an
+ *  escaped pipe is a pipe, in `code` too; any other escape stays for the inline
+ *  marks to read); a leading and a trailing pipe are the row's edges.  { cells, pipes }. */
 function splitRow(line) {
   const s = line.trim(), cells = [];
   let cur = '', pipes = 0, edge = false;
   for (let i = 0; i < s.length; i++) {
     const c = s[i];
     edge = false;
-    if (c === '\\' && i + 1 < s.length) { cur += c + s[++i]; continue; }
+    if (c === '\\' && i + 1 < s.length) { cur += s[i + 1] === '|' ? s[++i] : c + s[++i]; continue; }
     if (c === '|') { cells.push(cur.trim()); cur = ''; pipes++; edge = true; continue; }
     cur += c;
   }
@@ -879,10 +888,11 @@ function parseLatex(src, today) {
         parse(a.from, a.to, inner(ctx, { style: { ...ctx.style, ...ARG_STYLE[name] } }));
         return a.next;
       }
-      if (name === 'caption' && envs.some((e) => e.name === 'table' || e.name === 'table*')) {
-        // a table's caption: written centred under it, wherever it is typed
+      const tableEnv = name === 'caption' && envs.findLast((e) => e.name === 'table' || e.name === 'table*');
+      if (tableEnv && (tableEnv.block || (tableEnv.tabular && !tableEnv.seen))) {
+        // a drawn table's caption: written centred under it, wherever it is typed
         const o = optArg(j, to), a = reqArg(o ? o.next : j, to);
-        if (a) envs.findLast((e) => e.name === 'table' || e.name === 'table*').caption = a;
+        if (a) tableEnv.caption = a;
         return a ? a.next : j;
       }
       if (PASS.has(name)) { const a = reqArg(j, to); if (a) parse(a.from, a.to, inner(ctx)); return a ? a.next : j; }
@@ -1112,12 +1122,14 @@ function parseLatex(src, today) {
         const close = `\\end{${name}}`, e = str.indexOf(close, k), stop = e < 0 || e > to ? to : e, body = str.slice(k, stop);
         const why = name === 'array' ? `LaTeX: Tabellen (${name}) werden als Text geschrieben`
           : /\\(?:multicolumn|multirow)(?![a-zA-Z])/.test(body) ? 'LaTeX: Tabellen mit verbundenen Zellen (\\multicolumn, \\multirow) werden als Text geschrieben'
-            : b.lists.length || ctx.box || /\\begin\{(?:tabular|array|longtable|tabulary)/.test(body) ? 'LaTeX: Tabellen in Listen, Kästen oder anderen Tabellen werden als Text geschrieben' : null;
+            : b.lists.length || ctx.box || ctx.table || /\\begin\{(?:tabular|array|longtable|tabulary)/.test(body) ? 'LaTeX: Tabellen in Listen, Kästen oder anderen Tabellen werden als Text geschrieben' : null;
         b.close();
+        const env = envs.slice(0, -1).findLast((x) => x.name === 'table' || x.name === 'table*');
+        if (env) env.seen = true;
         if (why) { notes.add(why); ctx.table = true; return k; }
         envs.pop();
-        const block = tableBlock(columnAligns(spec), tableRows(k, stop, ctx));
-        if (block) { b.table(block); const env = envs.findLast((x) => x.name === 'table' || x.name === 'table*'); if (env) env.block = block; }
+        const block = tableBlock(columnAligns(spec), tableRows(k, stop, ctx), notes);
+        if (block) { b.table(block); if (env) env.block = block; }
         return e < 0 || e > to ? to : e + close.length;
       }
       if (QUIET_ENVS.has(name)) {
@@ -1125,6 +1137,12 @@ function parseLatex(src, today) {
         if (name === 'minipage') { const a = reqArg(k, to, true); if (a) k = a.next; }
         if (name === 'wrapfigure') for (let n = 0; n < 2; n++) { const a = reqArg(k, to, true); if (a) k = a.next; }
         if (name !== 'small' && name !== 'footnotesize' && name !== 'large' && name !== 'Large') b.close();
+        // a table environment whose tabular will be drawn holds its caption back for under it;
+        // without one its \caption stays text where it is typed
+        if (name === 'table' || name === 'table*') {
+          const e = str.indexOf(`\\end{${name}}`, k);
+          envs[envs.length - 1].tabular = /\\begin\{(?:tabular\*?|tabularx|longtable|tabulary)\}/.test(str.slice(k, e < 0 || e > to ? to : e));
+        }
         return k;
       }
       notes.add(`LaTeX: die Umgebung ${name} wird nicht unterstützt`);

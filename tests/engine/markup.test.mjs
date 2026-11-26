@@ -241,6 +241,13 @@ same(L('"a stays'), [P([T('"a stays')])], 'without German babel a " is a quote m
   check(inList.blocks.length === 1 && inList.blocks[0].type === 'item' && inList.blocks[0].lines.length === 3 && inList.notes.length === 1, 'a table in a list item is written as its lines, with a note');
   check(plainText(parseMarkup('| a | b |\n|---|---|\n| c |  |\n| -> | x<br>y |', 'markdown')) === 'a | b\nc\n→ | x y', 'plainText: a table row by row, its cells " | " apart');
   same(md('| a | b |\n|---|---|\n| **c** | d |')[0].lines, [[T('a'), T(' '), T('b')], [T('c', { bold: true }), T(' '), T('d')]], 'a table\'s lines: its rows\' words, for code that reads only lines');
+  same(tb('| a | b |\n|---|---|\n|---|---|\n| 1 | 2 |'), [TB(['left', 'left'], [{ head: true, cells: [[T('a')], [T('b')]] }, { cells: [[T('1')], [T('2')]] }])], 'a second delimiter row is no row of cells');
+  { const c = JSON.stringify(tb('| `a\\|b` | c |\n|--|--|\n| x |  |')[0].rows[0].cells[0]); check(c.includes('a|b') && !c.includes('\\\\'), `an escaped pipe in \`code\` is a pipe, without its backslash (${c})`); }
+  {
+    const wide = parseMarkup('|' + Array.from({ length: 70 }, (_, i) => ` h${i} |`).join('') + '\n|' + '---|'.repeat(70) + '\n|' + Array.from({ length: 70 }, (_, i) => ` w${i} |`).join(''), 'markdown');
+    const last = wide.blocks[0].rows[1].cells.at(-1).map((x) => x.text).join('');
+    check(wide.blocks[0].columns.length === 64 && last === 'w63 w64 w65 w66 w67 w68 w69' && wide.notes.some((n) => /mehr als 64 Spalten/.test(n)), `more than 64 columns: the rest of a row in the last column, with a note (${last}; ${wide.notes})`);
+  }
   const ttb = (t) => tex(t).blocks.map((b) => { if (b.type !== 'table') return b; const { lines, ...rest } = b; return rest; });
   same(ttb('\\begin{tabular}{|l|c|r|}\\hline Ware & Größe & Preis \\\\ \\hline Brot & \\textbf{groß} & 2,50 \\\\ Milch & & 1 \\\\ \\hline\\end{tabular}'), [TB(['left', 'center', 'right'], [
     { head: true, cells: [[T('Ware')], [T('Größe')], [T('Preis')]] }, { cells: [[T('Brot')], [T('groß', { bold: true })], [T('2,50')]] }, { cells: [[T('Milch')], [], [T('1')]] }])], 'LaTeX tabular: l c r, | and \\hline read and dropped, the first row a header when a rule follows it');
@@ -251,7 +258,11 @@ same(L('"a stays'), [P([T('"a stays')])], 'without German babel a " is a quote m
   same(cap.blocks.map((b) => b.type), ['paragraph', 'table', 'paragraph'], 'a table environment: its tabular a table');
   same(cap.blocks[1].caption, [T('Preise im Kiosk')], '\\caption in a table environment is the table\'s caption, wherever it stands');
   check(cap.notes.length === 0, `a tabular gets no note (${cap.notes})`);
-  same(tex('\\begin{table}\\caption{Nur Titel}\\end{table}').blocks, [{ type: 'paragraph', align: 'center', lines: [[T('Nur Titel')]] }], 'a caption without a tabular: a centred line');
+  // a table environment without a tabular (an image, an array) keeps its caption where it is typed, as before tables
+  same(tex('\\begin{table}\\caption{Nur Titel}\\end{table}').blocks, [P([T('Nur Titel')])], 'a caption without a tabular: text where it stands');
+  same(tex('Vorher \\begin{table}[h] Text A \\caption{Mitte} Text B \\end{table} danach.').blocks, [P([T('Vorher')]), P([T('Text A Mitte Text B')]), P([T('danach.')])], 'a caption between text in a table environment without a tabular: inline, as before');
+  const inner = tex('\\begin{tabular}{ll} a & \\begin{tabular}{l} x \\end{tabular} \\\\ c & d \\end{tabular}');
+  check(inner.blocks.every((b) => b.type !== 'table') && inner.notes.some((n) => /anderen Tabellen/.test(n)), `a tabular in a tabular: both written as text, the note true (${inner.notes})`);
   const merged = tex('\\begin{tabular}{ll} \\multicolumn{2}{c}{Kopf} \\\\ a & b \\end{tabular}');
   check(merged.blocks.every((b) => b.type !== 'table') && merged.notes.includes('LaTeX: Tabellen mit verbundenen Zellen (\\multicolumn, \\multirow) werden als Text geschrieben'), `merged cells: written as lines, with a note (${merged.notes})`);
   const nested = tex('\\begin{itemize}\\item \\begin{tabular}{ll} a & b \\end{tabular}\\end{itemize}');

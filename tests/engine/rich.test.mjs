@@ -7,7 +7,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { HandwritingModel, makeRandom, writePiece } from '../../web/js/engine/engine.js';
-import { planDocument, pieceSeed, preparePiece, layoutDocument, relayoutDocument, wordAt, pieceBoxes, TITLE_FIT } from '../../web/js/generate/document.js';
+import { planDocument, pieceSeed, preparePiece, layoutDocument, relayoutDocument, wordAt, pieceBoxes, pageLines, TITLE_FIT } from '../../web/js/generate/document.js';
 import { pdfBytes } from '../../web/js/generate/pdf.js';
 import * as decor from '../../web/js/generate/decor.js';
 
@@ -386,7 +386,32 @@ const lines = d.geometry.baselines.length;
   const tp = planDocument(td, norm), tw = write(tp);
   const tLines = tp.lines.filter((l) => tp.blocks[l.block].type === 'table');
   // planning: every cell a piece border; a short cell never a piece of its own
-  check(alone(tp), `tables: no piece of 3 characters or fewer next to other text (${tp.pieces.filter((p) => [...p.text].length <= 3).map((p) => p.text)})`);
+  // (a table row is a paragraph of its own, so alone() would let a short row through)
+  const shortOf = (pl) => pl.pieces.filter((p) => pl.blocks[p.block].type === 'table' && [...p.text].length <= 3).map((p) => p.text);
+  check(!shortOf(tp).length, `tables: no piece of 3 characters or fewer (${shortOf(tp)})`);
+  {
+    const rowsPl = planDocument(doc(TB(['left', 'left'], [['x', 'y'], ['1', '2'], ['3', '4']]), TB(['left'], [['Antwort'], ['Ja'], ['Nein'], ['42']]), TB(['left', 'left'], [['A', 'B'], ['Haus', 'Garten']])), norm);
+    check(!shortOf(rowsPl).length, `tables: rows of 3 characters or fewer ("| 1 | 2 |", "| Ja |") are no pieces of their own (${rowsPl.pieces.map((p) => p.text).join(' | ')})`);
+    const spare = rowsPl.pieces.filter((p) => p.spare);
+    check(spare.length === 10 && spare.every((p) => p.cuts.includes(p.text.split(' ').length - p.spare)), `tables: a short cell among short ones is written with a spare word cut off again (${spare.map((p) => p.text).join(' | ')})`);
+    const rd = layoutDocument(rowsPl, write(rowsPl), settings('liniert'), opts);
+    const shown = rd.pages.flatMap((pg) => pg.words.filter((w) => rowsPl.pieces[w.piece].spare && w.word >= rowsPl.pieces[w.piece].text.split(' ').length - rowsPl.pieces[w.piece].spare));
+    check(rd.complete && !shown.length && ['1', '2', '3', '4', 'Ja', '42'].every((t) => rd.pages[0].words.some((w) => w.text === t)), `tables: the spare word's ink is never shown, the short cells are (${shown.map((w) => w.text)})`);
+  }
+  {
+    // a written table piece whose cell border lies in no real gap of the ink is flagged for another try;
+    // the same ink for a piece without cells (plain text, other documents) is not
+    const ink = (gap) => {
+      const pts = [], x = model.xhModel, word = (x0, w) => { for (let a = x0; a < x0 + w - 0.3; a += 0.5) pts.push(a * x, 0, 0, (a + 0.2) * x, -x, 0, (a + 0.4) * x, 0, 1); };
+      word(0, 2); word(2 + gap, 4);
+      return { text: 'Mo Haus', points: new Float32Array(pts), count: pts.length / 3, ok: true, problems: [] };
+    };
+    planDocument(doc(TB(['left', 'left'], [['Mo', 'Di'], ['Fr', 'Sa']])), norm);
+    const wide = preparePiece(ink(3), model.xhModel), tight = preparePiece(ink(1), model.xhModel);
+    check(wide.words.length === 2 && !wide.flags.length && tight.words.length === 2 && tight.flags.some((f) => /^Zellgrenze/.test(f)), `tables: a cell border without a real gap marks the piece (${wide.flags} / ${tight.flags})`);
+    planDocument('Mo Haus', norm);
+    check(!preparePiece(ink(1), model.xhModel).flags.length, 'the same ink as plain text: no mark');
+  }
   check(tLines.every((l) => l.items.every((it) => Number.isInteger(it.cell) && it.sub === 0)), 'tables: every item knows its cell');
   check(tLines.every((l) => l.items.every((it, i) => !i || it.cell >= l.items[i - 1].cell)) && tLines.every((l) => l.items.every((it, i) => !i || it.piece !== l.items[i - 1].piece || it.cell !== l.items[i - 1].cell || it.sub !== l.items[i - 1].sub ? true : false)), 'tables: a cell border is an item border');
   const shortCells = tp.pieces.filter((p) => tp.blocks[p.block].type === 'table' && p.cuts);
@@ -422,7 +447,8 @@ const lines = d.geometry.baselines.length;
     }
     // the drawn grid: one ruler line per row border and column line, the header line twice
     const grid = dd.pages.flatMap((pg) => pg.strokes.map((q, i) => [xs(q), pg.styles[i], pg]).filter(([, st]) => st.kind === 'grid'));
-    check(grid.length === tabs.reduce((a, t) => a + t.ys.length + 1 + t.xs.length, 0) && grid.every(([, st]) => !st.color && !st.bold), `${paper}: the grid drawn in ink, one stroke a line (${grid.length})`);
+    // (the header line twice where its row leaves room, else once and firmer)
+    check(grid.length === tabs.reduce((a, t) => a + t.ys.length + t.xs.length + (t.head === 'double' ? 1 : 0), 0) && grid.every(([, st]) => !st.color) && grid.filter(([, st]) => st.bold).length === tabs.filter((t) => t.head === 'firm').length, `${paper}: the grid drawn in ink, one stroke a line (${grid.length}; header ${tabs.map((t) => t.head)})`);
     for (const t of tabs) for (const y of t.ys) {
       const h = grid.filter(([b, , pg]) => pg === t.pg && b.yhi - b.ylo < 1 && Math.abs((b.ylo + b.yhi) / 2 - y) < 0.6);
       check(h.length >= 1 && h.every(([b]) => b.lo < t.xs[0] + 0.5 && b.lo > t.xs[0] - 1.2 && b.hi > t.xs[t.xs.length - 1] - 0.5 && b.hi < t.xs[t.xs.length - 1] + 1.2 && b.yhi - b.ylo < 0.5), `${paper}: the row line at ${y.toFixed(1)} runs straight from the first to the last column line, a little past or short of them`);
@@ -449,6 +475,20 @@ const lines = d.geometry.baselines.length;
       const wpl = planDocument(wide, norm), wd = layoutDocument(wpl, write(wpl), settings('liniert'), opts), wt = wd.pages[0].tables[0];
       const fits = wd.pages[0].words.every((w) => wt.xs.some((x, j) => j < wt.xs.length - 1 && w.box[0] >= x && w.box[2] <= wt.xs[j + 1]));
       check(fits && Math.abs(wt.xs[4] - wd.geometry.right) < 1e-6, 'a word wider than its column is written smaller, inside its cell');
+      // descenders under the header and in the rows keep clear of the row lines (the pen is 0.25-0.35 mm wide)
+      const deep = doc(TB(['left', 'left', 'right'], [['Typ', 'Begriff', 'Jahr'], ['Python', 'gering', '1991'], ['Ruby', 'flüchtig', '1995'], ['Gogol', 'ziemlich', '2009']]));
+      const dpl = planDocument(deep, norm), ddd = layoutDocument(dpl, write(dpl), settings('liniert'), opts), dpg = ddd.pages[0];
+      const rowsH = dpg.strokes.filter((q, i) => dpg.styles[i].kind === 'grid' && Math.abs(q[q.length - 2] - q[1]) < Math.abs(q[q.length - 3] - q[0]));
+      let closest = Infinity;
+      for (const w of dpg.words) for (let k = w.strokes[0]; k < w.strokes[1]; k++) {
+        const q = dpg.strokes[k];
+        for (let i = 0; i < q.length; i += 3) for (const g of rowsH) for (let m = 3; m < g.length; m += 3) {
+          if ((q[i] - g[m - 3]) * (q[i] - g[m]) > 0) continue;
+          const t = (q[i] - g[m - 3]) / (g[m] - g[m - 3] || 1);
+          closest = Math.min(closest, Math.abs(q[i + 1] - (g[m - 2] + t * (g[m + 1] - g[m - 2]))));
+        }
+      }
+      check(closest >= 0.3, `liniert: the ink of descenders keeps 0.3 mm from the row lines (closest ${closest.toFixed(2)} mm)`);
     }
     // a tap on a word in a cell finds its piece; the piece's boxes are where its words are
     const ma = dd.pages[0].words.find((w) => w.text === 'Bio');
@@ -461,6 +501,9 @@ const lines = d.geometry.baselines.length;
   const tms = [...c.matchAll(/ ([\d.]+) Tm [\d.-]+ Tw \(([^)]*)\) Tj/g)].map((m) => [m[1], m[2].trim()]);
   const rowText = (t) => { const y = tms.find(([, s]) => s === t)[0]; return tms.filter(([yy]) => yy === y).map(([, s]) => s).join(' '); };
   check(rowText('Std') === 'Std Mo Di Mi Do Fr' && rowText('Posten') === 'Posten Menge Preis' && rowText('Hefte') === 'Hefte 4 3,96 \\200', `text layer: a table row in reading order (${rowText('Std')} / ${rowText('Hefte')})`);
+  // a wrapped cell's rows stay together, before the next cell's
+  const pvLine = pageLines(dl.pages.find((pg) => pg.words.some((w) => w.text === 'Photovoltaik'))).find((ws) => ws.some((w) => w.text === 'Photovoltaik')).map((w) => w.typed).join(' ');
+  check(pvLine === 'Photovoltaik Erzeugt Strom direkt aus Sonnenlicht und braucht kaum Wartung Liefert nachts keinen Strom und braucht viel Fläche', `text layer: a wrapped cell in one piece, then the next cell (${pvLine})`);
   check(json(dl) === json(layoutDocument(tp, tw, settings('liniert'), opts)), 'tables: same seed, same document');
   const dl2 = layoutDocument(tp, tw, settings('liniert', 9), opts), gridOf = (dd) => dd.pages[0].strokes.filter((_, i) => dd.pages[0].styles[i].kind === 'grid');
   check(json(gridOf(dl)) !== json(gridOf(dl2)) && new Set(gridOf(dl).map((q) => json(Array.from(q).map((v, i) => (i % 3 === 2 ? v : 0))))).size > 1, 'tables: another seed draws the grid differently; no two lines alike');

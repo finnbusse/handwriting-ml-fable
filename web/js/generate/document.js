@@ -9,7 +9,7 @@
 // Everything in a document is in millimetres, y pointing down, (0, 0) the top
 // left corner of the page.  Ink arrives in xh units (layout.js) and is scaled here.
 import { makeRandom } from '../engine/engine.js';
-import { splitPieces, straighten, toXh, levelledWords, wordLevel, strokeRanges, strokeSize, sizeScale, MAX_PIECE_CHARS, LEVEL_KEEP, SHORT_PIECE_CHARS } from './layout.js';
+import { splitPieces, straighten, toXh, levelledWords, wordLevel, strokeRanges, strokeSize, sizeScale, MAX_PIECE_CHARS, LEVEL_KEEP, SHORT_PIECE_CHARS, DEEP_CHARS } from './layout.js';
 import * as decor from './decor.js';
 
 // ---------- paper ----------
@@ -76,6 +76,7 @@ const LAYOUT_SALT = 0x5BD1E995;      // the layout's own random numbers, apart f
  *  createNormalizer); typed[] holds the piece's words as typed, for the PDF's text
  *  layer ("„Süße“" stays that, the network writes '"Süße"'). */
 export function planDocument(text, normalize = (t) => t) {
+  CELL_CUTS.clear();
   if (text && typeof text === 'object' && Array.isArray(text.blocks)) return planRich(text, normalize);
   // Word by word, so that every written word keeps its typed form.
   const lines = String(text).replace(/\r\n?/g, '\n').split('\n').map((line) => {
@@ -257,6 +258,19 @@ export const SIT_MAX = 2.5, SIT_OFF = 0.5;
 // lowest point stays more than RAISED_HEIGHT above the line is letters written a
 // line too high ('bes' over 'nbasen'): on 259 test pieces only that piece has one.
 export const TOP_MAX = 5, RAISED_HEIGHT = 1, RAISED_LENGTH = 2.5;
+// The layout cuts a table piece apart again at its cell borders ("1 Mathe"), so the
+// ink there must hold a real gap.  On 530 short-cell pieces written with the real
+// model (10 seeds), gaps between strokes inside a word were under 1.15 xh in 95 %
+// and under 1.68 in 99 %, gaps at word borders over 1.89 xh in 95 %; every cell
+// border the layout misplaced (3 of 580: "D" | "iMi", "5M" | "Ma", "Fr1" | "0 C")
+// lay at a gap under 1.45.  A table piece whose border gap is under CELL_GAP, or whose
+// words do not come apart at all, is flagged and written once more: with SPARE_WORD,
+// 52 of 880 pieces were flagged and 1 of 890 borders stayed without a real gap
+// (15 of 570 with neighbour pairs and no flag).
+export const CELL_GAP = 1.5;
+// The cell borders of the table pieces of the document planned last, by piece text:
+// the page mode hands preparePiece only the network's result, which carries the text.
+const CELL_CUTS = new Map();
 
 /** What the layout needs of a written piece (engine result in model units ->
  *  straightened, cut into levelled words, with its size estimate).  Done once per
@@ -287,6 +301,14 @@ export function preparePiece(result, xhModel) {
     const long = parts.length > 1 && [...word.text].length >= WORD_MIN_CHARS;
     return { text: word.text, points: new Float32Array(p), level, x0, x1, size: long ? wordCorrection(sizeEstimate(p, word.text) - estimate) : 1 };
   });
+  const cells = CELL_CUTS.get(piece.text);
+  if (cells) {
+    if (words.length !== piece.text.split(' ').length) flags.push(`Zellgrenze unklar: ${piece.text}`);
+    else for (const c of cells) {
+      const gap = Math.min(...words.slice(c).map((w) => w.x0)) - Math.max(...words.slice(0, c).map((w) => w.x1));
+      if (!(gap >= CELL_GAP)) { flags.push(`Zellgrenze ohne Lücke: ${words[c - 1].text} | ${words[c].text}`); break; }
+    }
+  }
   return { text: piece.text, ok: piece.ok !== false, problems: result.problems || [], flags, words, estimate };
 }
 
@@ -431,11 +453,13 @@ export function pieceBoxes(doc, index) {
 }
 
 /** The text of the document as laid out (for the PDF's text layer): per page, the
- *  lines with their words. */
+ *  lines with their words; a table row is one line, its cells in order, each cell's
+ *  rows one after the other. */
 export function pageLines(page) {
   const lines = new Map();
-  for (const w of page.words) { if (!lines.has(w.line)) lines.set(w.line, []); lines.get(w.line).push(w); }
-  return [...lines.entries()].sort((a, b) => a[0] - b[0]).map(([, ws]) => ws);
+  for (const w of page.words) { const key = w.trow !== undefined ? `t${w.trow}` : w.line; if (!lines.has(key)) lines.set(key, []); lines.get(key).push(w); }
+  for (const ws of lines.values()) if (ws[0].trow !== undefined) ws.sort((a, b) => a.cell - b.cell || a.line - b.line || a.x - b.x);
+  return [...lines.values()].sort((a, b) => a[0].line - b[0].line);
 }
 
 // ---------- documents with structure: headings, lists, boxes, styles ----------
@@ -452,6 +476,12 @@ const ARROWS = ['right', 'left', 'both', 'double'];
 const PARTS = ['center', 'right'];
 const partOf = (t) => ({ ...(t.part ? { part: t.part } : {}), ...(t.body ? { body: true } : {}), ...(t.cell !== undefined ? { cell: t.cell, sub: t.sub } : {}) });
 const ARROW_TEXT = { right: '->', left: '<-', both: '<->', double: '=>' };
+// A short table cell whose neighbours are short too is written followed by this word,
+// whose ink is dropped.  27 timetable cells x 10 seeds with the real model: the cell
+// border had no real gap (CELL_GAP) in 1 of 270 pieces "Mo Haus" against 9 of 270
+// pairs "Mo Di", and by eye 3-4 of 81 cells were misspelt against about 10 (pairs
+// wrote "3" as "ɔ", "En" as "tn", "Ek" as "Gh").
+const SPARE_WORD = 'Haus';
 // list markers in the PDF's text layer, in WinAnsi so that they copy as typed
 const MARKER_TEXT = { bullet: '-', check: '[ ]', checked: '[x]' };
 // A run of words in one style this long (characters, inner spaces included) gets
@@ -488,7 +518,8 @@ function tableRows(b) {
   const rows = (Array.isArray(b.rows) ? b.rows : []).filter((r) => r && typeof r === 'object' && Array.isArray(r.cells));
   const n = Math.min(64, Math.max(1, rows.reduce((m, r) => Math.max(m, r.cells.length), 0)));
   const spans = (cell, c, more) => (Array.isArray(cell) ? cell : []).filter((sp) => sp && typeof sp === 'object').map((sp) => { const { part, body, ...rest } = sp; return { ...rest, cell: c, ...more }; });
-  const out = rows.map((r) => r.cells.slice(0, 64).flatMap((cell, c) => spans(cell, c, r.head ? { bold: true } : {})));
+  // past 64 columns the cells go into the last one, a space apart
+  const out = rows.map((r) => r.cells.flatMap((cell, c) => spans(c >= 64 && Array.isArray(cell) ? [{ text: ' ' }, ...cell] : cell, Math.min(c, 63), r.head ? { bold: true } : {})));
   const caption = Array.isArray(b.caption) && b.caption.length > 0;
   if (caption) out.push(spans(b.caption.filter((sp) => !sp.br), 0, {}));
   return { n, head: rows.map((r) => !!r.head), rows: out, caption };
@@ -585,8 +616,16 @@ function planRich(doc, normalize) {
       seg.forEach((w, i) => { if (i === 0 || border[i]) chunks.push([]); chunks[chunks.length - 1].push(w); });
       const clen = (c) => c.reduce((s, w) => s + [...w.text].length, 0) + c.length - 1;
       // a chunk of 3 characters or fewer joins the next one (the last one the one before)
-      for (let c = 0; c < chunks.length && chunks.length > 1;) {
+      for (let c = 0; c < chunks.length && (chunks.length > 1 || table);) {
         if (clen(chunks[c]) > SHORT_PIECE_CHARS) { c++; continue; }
+        // in a table only a longer neighbour takes it in; a short cell between short
+        // ones (a timetable, a row of numbers) is written with SPARE_WORD
+        if (table) {
+          if (c + 1 < chunks.length && clen(chunks[c + 1]) > SHORT_PIECE_CHARS) chunks.splice(c, 2, [...chunks[c], ...chunks[c + 1]]);
+          else if (c > 0 && !chunks[c - 1].spare) chunks.splice(c - 1, 2, [...chunks[c - 1], ...chunks[c]]);
+          else chunks[c++].spare = true;
+          continue;
+        }
         if (c + 1 < chunks.length) chunks.splice(c, 2, [...chunks[c], ...chunks[c + 1]]);
         else { chunks.splice(c - 1, 2, [...chunks[c - 1], ...chunks[c]]); break; }
       }
@@ -599,7 +638,9 @@ function planRich(doc, normalize) {
           const n = t.split(' ').length, ws = seg.slice(wi, wi + n), pc = { index: pieces.length, text: t, para: k, typed: ws.map((w) => w.typed), block: bi, at: ws[0].at };
           const cuts = [];
           for (let j = 1; j < n; j++) if (arrowsBefore[wi + j] || partStart[wi + j] || (label && wi + j === 1)) cuts.push(j);
+          if (chunk.spare) { pc.text = `${t} ${SPARE_WORD}`; pc.spare = 1; cuts.push(n); }
           if (cuts.length) { pc.ats = ws.map((w) => w.at); pc.cuts = cuts; }
+          if (table && cuts.length) CELL_CUTS.set(pc.text, cuts);
           starts.add(wi);
           ws.forEach((_, j) => { where[wi + j] = [pieces.length, j]; });
           pieces.push(pc);
@@ -671,6 +712,14 @@ export const TABLE_SIZE = 0.8;
 // upper row's baseline, moved to stay GRID_CLEAR x-heights off the ink of both rows
 // when that ink leaves room; the top and bottom lines as far from their rows.
 export const GRID_SPLIT = 0.34, GRID_CLEAR = 0.3;
+// It lies at least GRID_FROM of the pitch under the upper row's last baseline and
+// GRID_TO above the lower row's first one, clear of the x-height of its letters.
+const GRID_FROM = 0.1, GRID_TO = 0.4;
+// A table is written at one of these shares of TABLE_SIZE, the one that weighs the
+// rows given an empty ruled line for its grid against the smaller writing (below):
+// at full size 8 of 12 proof documents needed such lines (19 of 46 rows of a long
+// blanko table, 8 of 15 of a liniert one written gross), so chosen 2 (1 of 5, 5 of 46).
+export const TABLE_FIT = [1, 0.9, 0.8, 0.7];
 // The line under the header row: drawn twice, this many x-heights apart.
 export const HEAD_GAP = 0.45;
 const NARROW = new Set([...'iljtfrI1.,:;!|\'']), WIDE = new Set([...'mwMW']);
@@ -858,7 +907,22 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
   // row as high as its tallest cell and never split by a page break (trow); the
   // header row stays with the next one (keep).
   const tables = [];
-  let trows = 0;
+  let trows = 0, tableRoom = 0, tableFit = 0;
+  // the height of a grid line between lo and hi: where the fewest ink points of the
+  // rows above it (`up`) and below it (`down`) come within GRID_CLEAR (and `half` the
+  // doubled line's gap) of it or lie on its other side (umlaut dots over the line),
+  // of those the nearest to `want`; { y, cost } with cost the number of such points
+  const gridSpot = (up, down, lo, hi, want, half) => {
+    const band = GRID_CLEAR * g.xh + half, a = up.filter((v) => v > lo - band), b = down.filter((v) => v < hi + band);
+    let best = want, cost = Infinity;
+    for (let y = lo; y <= hi + 1e-9; y += 0.05) {
+      let c = 0;
+      for (const v of a) if (v > y - band) c++;
+      for (const v of b) if (v < y + band) c++;
+      if (c < cost || (c === cost && Math.abs(y - want) < Math.abs(best - want))) { cost = c; best = y; }
+    }
+    return { y: best, cost };
+  };
   const flowTable = (blk, bi) => {
     const all = blk.lines, n = blk.columns.length, u = g.xh * TABLE_SIZE;
     if (!all.length) return;
@@ -885,53 +949,83 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
           list.push({ kind: 'word', w, wi: un.from, index, f, wide: (w.x1 - w.x0) * f, gap, at0: at, at1: at + nch, chars: line.chars.slice(at, at + nch), typed: pl.typed.slice(un.from, un.to).join(' '), ok: pc.ok, k, label: false, sub, cell: c });
           inkW += (w.x1 - w.x0) * f; inkChars += nch;
         }
-        if (it.to === unitsOf(index)[unitsOf(index).length - 1].to) { evens[index] = even; placed++; }
+        if (it.to === Math.min(unitsOf(index)[unitsOf(index).length - 1].to, pl.text.split(' ').length - (pl.spare || 0))) { evens[index] = even; placed++; }
       }
     });
     const caption = capK === null ? null : cells.pop()[0];
     const pad = TABLE_PAD * (inkChars ? inkW / inkChars : u);
-    const natural = new Array(n).fill(0);
-    for (const row of cells) row.forEach((list, c) => {
-      let w = 0, sub = -1;
-      for (const x of list) { w = x.sub !== sub ? x.wide : w + x.gap + x.wide; sub = x.sub; natural[c] = Math.max(natural[c], w); }
-    });
-    // a cell's words in rows of its column's width; a word wider than the column smaller
-    const wrap = (list, wd) => {
-      const p = Math.min(pad, wd / 4), inner = wd - 2 * p, out = [];
-      let cur = null, sub = -1, shrunk = 0;
-      for (const x of list) {
-        let { f, wide } = x;
-        if (x.kind === 'word' && wide > inner) { f *= inner / wide; wide = inner; shrunk++; }
-        if (!cur || x.sub !== sub || cur.w + x.gap + wide > inner + 1e-9) { cur = { units: [], w: 0 }; out.push(cur); sub = x.sub; cur.units.push({ ...x, f, wide, rel: 0 }); cur.w = wide; continue; }
-        cur.units.push({ ...x, f, wide, rel: cur.w + x.gap }); cur.w += x.gap + wide;
+    const head = !!plan.lines[ks[0]].head;
+    // The table with its writing at v of TABLE_SIZE: its columns, its cells in rows,
+    // and where its grid needs room.
+    const build = (v) => {
+      const sc = (list) => list.map((x) => ({ ...x, f: x.f * v, wide: x.wide * v, gap: x.gap * v }));
+      const cs = cells.map((row) => row.map(sc)), pd = pad * v;
+      const natural = new Array(n).fill(0);
+      for (const row of cs) row.forEach((list, c) => {
+        let w = 0, sub = -1;
+        for (const x of list) { w = x.sub !== sub ? x.wide : w + x.gap + x.wide; sub = x.sub; natural[c] = Math.max(natural[c], w); }
+      });
+      // a cell's words in rows of its column's width; a word wider than the column smaller
+      const wrap = (list, wd) => {
+        const p = Math.min(pd, wd / 4), inner = wd - 2 * p, out = [];
+        let cur = null, sub = -1, shrunk = 0;
+        for (const x of list) {
+          let { f, wide } = x;
+          if (x.kind === 'word' && wide > inner) { f *= inner / wide; wide = inner; shrunk++; }
+          if (!cur || x.sub !== sub || cur.w + x.gap + wide > inner + 1e-9) { cur = { units: [], w: 0 }; out.push(cur); sub = x.sub; cur.units.push({ ...x, f, wide, rel: 0 }); cur.w = wide; continue; }
+          cur.units.push({ ...x, f, wide, rel: cur.w + x.gap }); cur.w += x.gap + wide;
+        }
+        return { p, rows: out, shrunk };
+      };
+      // Too wide for the text: the columns narrower than an even share keep their width,
+      // the others share the rest evenly, by their width or by its square root, whichever
+      // writes the table in the fewest rows (a word written smaller counts half a row).
+      const W = g.right - g.left, want = natural.map((x) => x + 2 * pd);
+      let widths = want;
+      if (want.reduce((a, x) => a + x, 0) > W) {
+        const asc = [...want].sort((a, b) => a - b);
+        let cap = Infinity;
+        for (let i = 0, sum = 0; i < n; sum += asc[i], i++) if (sum + asc[i] * (n - i) >= W) { cap = (W - sum) / (n - i); break; }
+        const keep = want.map((x) => x <= cap), rest = W - want.reduce((a, x, c) => a + (keep[c] ? x : 0), 0);
+        const share = (pw) => { const t = want.reduce((a, x, c) => a + (keep[c] ? 0 : x ** pw), 0); return want.map((x, c) => (keep[c] ? x : (rest * x ** pw) / t)); };
+        const cost = (ws) => cs.reduce((a, row) => a + Math.max(1, ...row.map((list, c) => { const l = wrap(list, ws[c]); return l.rows.length + 0.5 * l.shrunk; })), 0);
+        let best = Infinity;
+        for (const ws of [want.map((x) => Math.min(x, cap)), share(1), share(0.5)]) { const c = cost(ws); if (c < best - 1e-9) { best = c; widths = ws; } }
       }
-      return { p, rows: out, shrunk };
+      const xs = [g.left];
+      for (const x of widths) xs.push(xs[xs.length - 1] + x);
+      const lays = cs.map((row) => row.map((list, c) => wrap(list, xs[c + 1] - xs[c])));
+      const capRows = caption ? wrap(sc(caption), xs[n] - xs[0]).rows : [];
+      // the ink of each row (and the caption): heights in mm under its first baseline
+      const hs = lays.map((lay) => Math.max(1, ...lay.map((l) => l.rows.length)));
+      const inkOf = (trs) => { const out = []; trs.forEach((units, t) => { for (const x of units) if (x.kind === 'word') for (let i = 1; i < x.w.points.length; i += 3) out.push((x.w.points[i] - x.w.level) * x.f + t * g.pitch); }); return out; };
+      const inks = lays.map((lay, r) => inkOf(Array.from({ length: hs[r] }, (_, t) => lay.flatMap((l) => (l.rows[t] ? l.rows[t].units : [])))));
+      if (capRows.length) inks.push(inkOf(capRows.map((tr) => tr.units)));
+      // A row whose ink leaves no room for a grid line clear of it and of the next row's
+      // gets an empty ruled line more; the line under the header is doubled where that
+      // fits, else drawn once, firmer.
+      const more = hs.map(() => 0);
+      let firm = false;
+      for (let r = 0; r + 1 < inks.length; r++) {
+        const b0 = hs[r] * g.pitch;
+        const clear = (half) => !gridSpot(inks[r], inks[r + 1].map((y) => y + b0), (hs[r] - 1 + GRID_FROM) * g.pitch, b0 - GRID_TO * g.pitch, b0 - (1 - GRID_SPLIT) * g.pitch, half).cost;
+        if (!(head && r === 0)) { if (!clear(0)) more[r] = 1; } else if (!clear((HEAD_GAP / 2) * g.xh)) { if (clear(0)) firm = true; else more[r] = 1; }
+      }
+      return { v, xs, lays, capRows, hs, more, firm, room: more.reduce((a, x) => a + x, 0) };
     };
-    // Too wide for the text: the columns narrower than an even share keep their width,
-    // the others share the rest evenly, by their width or by its square root, whichever
-    // writes the table in the fewest rows (a word written smaller counts half a row).
-    const W = g.right - g.left, want = natural.map((v) => v + 2 * pad);
-    let widths = want;
-    if (want.reduce((a, v) => a + v, 0) > W) {
-      const asc = [...want].sort((a, b) => a - b);
-      let cap = Infinity;
-      for (let i = 0, sum = 0; i < n; sum += asc[i], i++) if (sum + asc[i] * (n - i) >= W) { cap = (W - sum) / (n - i); break; }
-      const keep = want.map((v) => v <= cap), rest = W - want.reduce((a, v, c) => a + (keep[c] ? v : 0), 0);
-      const share = (pw) => { const t = want.reduce((a, v, c) => a + (keep[c] ? 0 : v ** pw), 0); return want.map((v, c) => (keep[c] ? v : (rest * v ** pw) / t)); };
-      const cost = (ws) => cells.reduce((a, row) => a + Math.max(1, ...row.map((list, c) => { const l = wrap(list, ws[c]); return l.rows.length + 0.5 * l.shrunk; })), 0);
-      let best = Infinity;
-      for (const ws of [want.map((v) => Math.min(v, cap)), share(1), share(0.5)]) { const c = cost(ws); if (c < best - 1e-9) { best = c; widths = ws; } }
-    }
-    const xs = [g.left];
-    for (const v of widths) xs.push(xs[xs.length - 1] + v);
-    const tb = { bi, xs, rows: [], caption: [], head: !!plan.lines[ks[0]].head };
+    // The whole table is written smaller (TABLE_FIT) where that needs fewer empty lines:
+    // an empty line in every fifth row costs as much as writing 20 % smaller.
+    let lay = null, best = Infinity;
+    for (const v of TABLE_FIT) { const t = build(v), c = t.room / t.hs.length + (1 - v); if (c < best - 1e-9) { best = c; lay = t; } if (!t.room) break; }
+    const { xs, lays, capRows, hs, more } = lay;
+    const tb = { bi, xs, rows: [], caption: [], head, firm: lay.firm };
+    if (lay.v < 1) tableFit++;
     ks.forEach((k, r) => {
-      const id = trows++;
-      const lay = cells[r].map((list, c) => wrap(list, xs[c + 1] - xs[c]));
-      const h = Math.max(1, ...lay.map((l) => l.rows.length)), group = [];
-      for (let t = 0; t < h; t++) {
+      const id = trows++, cl = lays[r], h = hs[r], group = [];
+      for (let t = 0; t < h + more[r]; t++) {
         const row = { kind: 'text', block: bi, k, box: null, size: TABLE_SIZE, heading: 0, keep: tb.head && r === 0, L: g.left, R: g.right, items: [], trow: id, last: t === h - 1 };
-        lay.forEach(({ p, rows: rs }, c) => {
+        if (t >= h) { row.spacer = true; tableRoom++; }
+        else cl.forEach(({ p, rows: rs }, c) => {
           const tr = rs[t];
           if (!tr) return;
           // where a hand starts a cell's row: a little after its line; a number column ends within a hair
@@ -946,10 +1040,10 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
     });
     if (caption) {
       // on the rows after the table's last one, which it never leaves (trow)
-      const { rows: rs } = wrap(caption, xs[n] - xs[0]), last = tb.rows[tb.rows.length - 1][0];
-      rs.forEach((tr, t) => {
+      const last = tb.rows[tb.rows.length - 1][0];
+      capRows.forEach((tr, t) => {
         const z = normal(TABLE_SALT, capK, t), x0 = (xs[0] + xs[n] - tr.w) / 2 + Math.max(-ALIGN_JITTER, Math.min(ALIGN_JITTER, 0.12 * z));
-        const row = { kind: 'text', block: bi, k: capK, box: null, size: TABLE_SIZE, heading: 0, keep: false, L: g.left, R: g.right, items: tr.units.map((x) => ({ ...x, x: x0 + x.rel })), trow: last.trow, caption: true, last: t === rs.length - 1 };
+        const row = { kind: 'text', block: bi, k: capK, box: null, size: TABLE_SIZE, heading: 0, keep: false, L: g.left, R: g.right, items: tr.units.map((x) => ({ ...x, x: x0 + x.rel })), trow: last.trow, caption: true, last: t === capRows.length - 1 };
         rows.push(row); tb.caption.push(row);
       });
     }
@@ -974,6 +1068,8 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
         else stats.uncut++;
       }
     }
+    // the spare word's ink goes (a unit that still holds it, left uncut, stays)
+    if (pl.spare) out = out.filter((un) => un.from < n - pl.spare);
     // A number label ("3.") sits on the line by the lowest point of its digits: the
     // network often writes it low or high, and sitLine reads the inner turns of a 3
     // or a 5 as letter bottoms (on proof pages it set "3." 2.7 xh too low).
@@ -988,8 +1084,26 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
       return Number.isFinite(low) && Math.abs(low - w.level) <= LABEL_SIT_MAX ? { ...un, w: { ...w, level: low } } : un;
     };
     if (pl.cuts && plan.blocks[pl.block].marker === 'number' && out[0].to === 1 && /^\d+[.)]?$/u.test(out[0].w.text)) out[0] = sitDigits(out[0]);
-    // so does a number in a table cell ("3", "12,50"); 7 and 9 may reach below the line in this hand
-    if (plan.blocks[pl.block].type === 'table') out = out.map((un) => (/^[\d.,:/]*\d[\d.,:/]*$/u.test(un.w.text) && !/[79]/u.test(un.w.text) ? sitDigits(un) : un));
+    // A number in a table cell ("3", "12,50") sits on the line by the median of the
+    // lowest points of its strokes at least 0.5 xh high: a comma's or a full stop's
+    // tail reaches below the line, and on 105 digit strokes written with three seeds a
+    // 7 or a 9 ended 0.07 xh (median) below the other digits, as good as on the line.
+    const sitNumber = (un) => {
+      const p = un.w.points, lows = [];
+      for (const [a, e] of strokeRanges(p)) {
+        let lo = Infinity, hi = -Infinity;
+        for (let i = a; i < e; i++) { lo = Math.min(lo, p[3 * i + 1]); hi = Math.max(hi, p[3 * i + 1]); }
+        if (hi - lo >= 0.5) lows.push(hi);
+      }
+      if (!lows.length) return un;
+      lows.sort((u, v) => u - v);
+      const low = (lows[(lows.length - 1) >> 1] + lows[lows.length >> 1]) / 2;
+      return Math.abs(low - un.w.level) <= LABEL_SIT_MAX ? { ...un, w: { ...un.w, level: low } } : un;
+    };
+    // So does a short word without a descender ("Mi", "mm", "C"): sitLine read a hook at
+    // the top of an M or a C as a letter bottom and set "Mi" 1.9 xh, "C" 2.3 xh too low
+    // on proof pages, so that a unit hung under its number.
+    if (plan.blocks[pl.block].type === 'table') out = out.map((un) => (/^[\d.,:/]*\d[\d.,:/]*$/u.test(un.w.text) || ([...un.w.text].length <= 3 && ![...un.w.text].some((c) => DEEP_CHARS.includes(c))) ? sitNumber(un) : un));
     unitCache.set(index, out);
     return out;
   }
@@ -1161,7 +1275,7 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
       if (it.kind === 'arrow') {
         const st = plan.styles[it.s] || {};
         addDeco(row.page, decor.arrow(rngFor(row.block), it.arrow, it.x, it.x + it.wide, y, uOf(it)), { color: st.color || null, bold: !!st.bold, kind: 'arrow' });
-        P.arrows.push({ text: ARROW_TEXT[it.arrow], typed: ARROW_TEXT[it.arrow], line: row.line, x: it.x, width: it.wide, baseline: y, block: row.block });
+        P.arrows.push({ text: ARROW_TEXT[it.arrow], typed: ARROW_TEXT[it.arrow], line: row.line, x: it.x, width: it.wide, baseline: y, block: row.block, ...(row.trow !== undefined && !row.caption ? { trow: row.trow, cell: it.cell } : {}) });
         continue;
       }
       const { w, f } = it, p = w.points, q = new Float32Array(p.length);
@@ -1200,7 +1314,7 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
       P.words.push({
         text: w.text, typed: it.typed, piece: it.index, word: it.wi, line: row.line, x: it.x, width: it.wide, baseline: y, box: [it.x, y0, it.x + it.wide, y1], ok: it.ok,
         block: row.block, frame: blk.box, size: it.sz || row.size, style: plan.styles[dominant(it.chars, it.chars.map((_, i) => plan.lines[it.k].sty[it.at0 + i]))], strokes: [from, P.strokes.length],
-        ...(it.label ? { label: true } : {}),
+        ...(it.label ? { label: true } : {}), ...(row.trow !== undefined && !row.caption ? { trow: row.trow, cell: it.cell } : {}),
       });
       if (pieces[it.index] === undefined) pieces[it.index] = { page: row.page, line: row.line, scale: evens[it.index] };
     }
@@ -1248,43 +1362,31 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
     const n = tb.xs.length - 1, p0 = g.pitch;
     for (const [p, list] of parts) {
       const ink = list.map((rs) => {
-        const ys = [];
+        const ys = [], text = rs.filter((row) => !row.spacer);
         for (const row of rs) for (const it of row.items) if (it.q) for (let i = 1; i < it.q.length; i += 3) ys.push(it.q[i]);
-        return { b0: g.baselines[rs[0].line], b1: g.baselines[rs[rs.length - 1].line], ys };
+        return { b0: g.baselines[rs[0].line], b1: g.baselines[(text.length ? text[text.length - 1] : rs[0]).line], ys };
       });
       const head = tb.head && list[0][0] === tb.rows[0][0];
-      // the line between two rows (or above the first, below the last): where the
-      // fewest points of their ink come within GRID_CLEAR of it, and of those the
-      // nearest to GRID_SPLIT of the pitch from the rows' baselines
-      const place = (ys, lo, hi, want, half) => {
-        const band = GRID_CLEAR * g.xh + half, near = ys.filter((v) => v > lo - band && v < hi + band);
-        let best = want, cost = Infinity;
-        for (let y = lo; y <= hi + 1e-9; y += 0.05) {
-          let c = 0;
-          for (const v of near) if (Math.abs(v - y) < band) c++;
-          if (c < cost || (c === cost && Math.abs(y - want) < Math.abs(best - want))) { cost = c; best = y; }
-        }
-        if (cost) touching++;
-        return best;
-      };
-      const ys = [place(ink[0].ys, ink[0].b0 - 1.2 * p0, ink[0].b0 - 0.4 * p0, ink[0].b0 - (1 - GRID_SPLIT) * p0, 0)];
+      const place = (...a) => { const { y, cost } = gridSpot(...a); if (cost) touching++; return y; };
+      const ys = [place([], ink[0].ys, ink[0].b0 - 1.2 * p0, ink[0].b0 - GRID_TO * p0, ink[0].b0 - (1 - GRID_SPLIT) * p0, 0)];
       for (let i = 1; i < ink.length; i++) {
         const a = ink[i - 1], b = ink[i];
-        ys.push(place([...a.ys, ...b.ys], a.b1 + 0.1 * p0, b.b0 - 0.4 * p0, b.b0 - (1 - GRID_SPLIT) * p0, head && i === 1 ? (HEAD_GAP / 2) * g.xh : 0));
+        ys.push(place(a.ys, b.ys, a.b1 + GRID_FROM * p0, b.b0 - GRID_TO * p0, b.b0 - (1 - GRID_SPLIT) * p0, head && i === 1 && !tb.firm ? (HEAD_GAP / 2) * g.xh : 0));
       }
       const z = ink[ink.length - 1], cap = tb.caption.filter((row) => row.page === p);
       const below = cap.length ? cap.flatMap((row) => row.items.flatMap((it) => (it.q ? Array.from(it.q).filter((_, i) => i % 3 === 1) : []))) : [];
-      ys.push(place([...z.ys, ...below], z.b1 + 0.1 * p0, cap.length ? g.baselines[cap[0].line] - 0.4 * p0 : z.b1 + p0, z.b1 + GRID_SPLIT * p0, 0));
+      ys.push(place(z.ys, below, z.b1 + GRID_FROM * p0, cap.length ? g.baselines[cap[0].line] - GRID_TO * p0 : z.b1 + p0, z.b1 + GRID_SPLIT * p0, 0));
       const style = { color: null, bold: false, kind: 'grid' }, rng = (i) => decor.decorRandom(s.seed, 200000 + tb.bi, 1000 * p + i);
       ys.forEach((y, i) => {
-        if (head && i === 1) for (const d of [-0.5, 0.5]) addDeco(p, decor.rulerLine(rng(900 + d * 2), tb.xs[0], y + d * HEAD_GAP * g.xh, tb.xs[n], y + d * HEAD_GAP * g.xh, g.xh), style);
+        if (head && i === 1 && tb.firm) addDeco(p, decor.rulerLine(rng(i), tb.xs[0], y, tb.xs[n], y, g.xh), { ...style, bold: true });
+        else if (head && i === 1) for (const d of [-0.5, 0.5]) addDeco(p, decor.rulerLine(rng(900 + d * 2), tb.xs[0], y + d * HEAD_GAP * g.xh, tb.xs[n], y + d * HEAD_GAP * g.xh, g.xh), style);
         else addDeco(p, decor.rulerLine(rng(i), tb.xs[0], y, tb.xs[n], y, g.xh), style);
       });
       tb.xs.forEach((x, j) => addDeco(p, decor.rulerLine(rng(500 + j), x, ys[0], x, ys[ys.length - 1], g.xh), style));
-      (pages[p].tables ||= []).push({ block: tb.bi, xs: tb.xs, ys, rows: list.map((rs) => rs.map((row) => row.line)) });
+      (pages[p].tables ||= []).push({ block: tb.bi, xs: tb.xs, ys, rows: list.map((rs) => rs.map((row) => row.line)), ...(head ? { head: tb.firm ? 'firm' : 'double' } : {}) });
     }
   }
-  if (tables.length) stats.gridTouching = touching;
+  if (tables.length) Object.assign(stats, { gridTouching: touching, gridRoom: tableRoom, gridFit: tableFit });
 
   // frames: one per box and page, around the ink of its rows
   pagesRows.forEach((list, p) => {

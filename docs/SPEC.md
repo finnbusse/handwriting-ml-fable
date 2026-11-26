@@ -661,14 +661,17 @@ seeds, positions and PDF bytes as its text (tested).
   cell; inline marks work in cells, block marks do not; the table ends at an empty
   line or a line without a pipe; a row with fewer cells is filled with empty ones,
   one with more adds columns, so nothing typed is lost). A line with pipes but no
-  delimiter row, or one whose delimiter row has another number of cells, is text.
+  delimiter row, or one whose delimiter row has another number of cells, is text;
+  a second delimiter row is dropped; past 64 columns the rest of a row goes into the
+  last column, with a note.
   LaTeX: `tabular` (`tabular*`, `tabularx`, `tabulary`, `longtable`) with
   `l c r` (`p{…}`, `m{…}`, `b{…}`, `X` as `l`; `|`, `@{…}`, `>{…}` dropped; `*{n}{…}`
   repeated), rows split at `\\`, cells at `&`; `\hline`, `\toprule`, `\midrule`,
   `\bottomrule`, `\cline` … are read and dropped (the grid is always drawn in full),
   and a rule after the first row makes it the header; `\newline` breaks a cell's
-  line; `\caption` inside `\begin{table}` is the table's caption wherever it
-  stands. What a table cannot show is written as lines of text, with a note: a table
+  line; `\caption` inside a `\begin{table}` that holds a tabular is the table's
+  caption wherever it stands (without one it stays text where it is typed, as
+  before tables). What a table cannot show is written as lines of text, with a note: a table
   inside a list item or a box, merged cells (`\multicolumn`, `\multirow`), a table
   in a table; `array` (mathematics) stays text as before. Model: `{ type: 'table',
   columns: ['left' | 'center' | 'right'], rows: [{ head?: true, cells: [[span]] }],
@@ -678,20 +681,37 @@ seeds, positions and PDF bytes as its text (tested).
   for the caption, `caption: true`), `head: true` on the header row, whose spans are
   written with the firmer stroke; every span, word and item carries its `cell` and
   `sub` (its text row inside the cell); a cell border and a break are piece and
-  item borders, and a cell of 3 characters or fewer is written with its neighbour
-  and cut apart again by the layout (`cuts`), as for arrows ("Mo Di", "1 De"). On
-  three seeds of a timetable the standard rule (a short cell joins its neighbour,
-  pieces of 5-6 characters) wrote visibly better than a whole run of short cells
-  as one piece ("Std Mo Di Mi Do Fr": its header came out garbled on all three, and
-  a merged "3Mu" put two cuts in the wrong place). Layout (`TABLE_*`, `GRID_*`):
+  item borders. A cell of 3 characters or fewer is written with a longer neighbour
+  and cut apart again by the layout (`cuts`, "1 Mathe"); between short neighbours
+  (a timetable, a row of numbers, a row "| Ja |") it is written followed by a
+  spare word, `Haus`, whose ink the layout drops (`spare: 1`, "Mo Haus"). Measured
+  with the real model on 27 timetable cells × 10 seeds: the cell border lay in no
+  real gap of the ink in 1 of 270 pieces with the spare word against 9 of 270
+  pairs ("Mo Di"), and by eye 3-4 of 81 cells were misspelt against about 10 (the
+  pairs wrote "3" as "ɔ", "En" as "tn", "Ek" as "Gh"); a whole run of short cells
+  as one piece garbled the header on three of three seeds. A cut between cells
+  must lie in a real gap (`CELL_GAP`, 1.5 x-heights: inside words 95 % of the gaps
+  between strokes are under 1.15 and 99 % under 1.68, at word borders 95 % over
+  1.89; every misplaced border seen, "D" | "iMi", "5M" | "Ma", "Fr1" | "0 C", lay
+  under 1.45): `preparePiece` flags a table piece whose border gap is smaller or
+  whose words do not come apart (`Zellgrenze …`), and the page writes it once more
+  as it does any flagged piece. Only the table pieces of the document planned last
+  are checked, so plain text and other documents are written as before. On 880
+  short-cell pieces with the real model 52 were flagged and 1 of 890 borders stayed
+  without a real gap after the retry (before: 15 of 570, unflagged). Layout (`TABLE_*`, `GRID_*`):
   a table is shown once all of it is written. Cells are written at 0.8 of body size
-  (`TABLE_SIZE`): at full size this hand's tall capitals and descenders fill the
+  (`TABLE_SIZE`), and the whole table at 0.9, 0.8 or 0.7 of that (`TABLE_FIT`)
+  where its ink leaves too few rows room for a clear grid line: a row with no
+  clear place for its line gets an empty ruled line more, and one such line in
+  every fifth row weighs as much as writing 20 % smaller. at full size this hand's tall capitals and descenders fill the
   8 mm pitch (a piece reaches a median 3.5 x-heights up and 1.5 down), and on the
   liniert proof tables 23 of 56 grid lines came within 0.3 x-heights of the ink
   (21 words touched a line), at 0.85 14 (10), at 0.8 9 (5) – a person writes
-  smaller in a table too. A number cell
-  ("3", "12,50") sits on the line by the lowest point of its digits, as a list
-  label does (7 and 9 may reach below the line in this hand, so not these). A
+  smaller in a table too. A number ("3", "12,50", "9,8") and a short word without
+  a descender ("Mi", "mm", "C") sit on the line by the median of the lowest points
+  of their strokes at least 0.5 x-heights tall: a comma's tail reaches below the
+  line, and the letter-bottom reading of plain text took a hook at the top of an M
+  or a C for a bottom and hung "Mi" and a unit 2 x-heights low. A
   column is as wide as its widest cell written on one row plus `TABLE_PAD` (one
   letter width of the table's own writing) at each side; the table starts at the
   left edge of the text and is never wider than it: then the columns narrower than
@@ -704,12 +724,16 @@ seeds, positions and PDF bytes as its text (tested).
   within 0.1 mm of the padding, centred ±0.15 mm. A horizontal grid line lies
   0.34 of the pitch under the baseline of the row above it (`GRID_SPLIT`), moved to
   where the fewest points of the two rows' ink come within 0.3 x-heights
-  (`GRID_CLEAR`), the nearest such place to 0.34; the top and bottom lines alike
-  against their row; `doc.stats.gridTouching` counts the lines that could not keep
-  that distance (on the proofs mostly a descender's tail, as in a notebook). The
-  line under the header is drawn twice, 0.45 x-heights apart (`HEAD_GAP`): next to
-  each other on proof pages the doubled line read as the header's line, a single
-  firmer one (1.5× in Fineliner) was hardly told apart. Vertical lines run at the
+  (`GRID_CLEAR`) or cross it, between 0.1 of the pitch under the upper row's last
+  baseline and 0.4 above the lower row's first (`GRID_FROM`, `GRID_TO`), the
+  nearest such place to 0.34; the top and bottom lines alike against their row;
+  `doc.stats` counts the lines that could not keep that distance (`gridTouching`),
+  the empty ruled lines added (`gridRoom`) and the tables written smaller
+  (`gridFit`). On 16 proof documents with the real model no ink came closer than
+  0.31 mm to a row line. The line under the header is drawn twice, 0.45 x-heights
+  apart (`HEAD_GAP`): next to each other on proof pages the doubled line read as
+  the header's line, a single firmer one (1.5× in Fineliner) was hardly told apart;
+  where the header's ink leaves room for one line only, it is drawn once, firmer. Vertical lines run at the
   column borders from the top to the bottom line. An empty line above and below a
   table; a LaTeX caption is written centred under the table on the next row. A
   table row never splits across pages and the header row keeps the row after it;
@@ -721,10 +745,12 @@ seeds, positions and PDF bytes as its text (tested).
   than short of it), seeded by the table's block, page and line, so no two lines
   are alike; drawn as ink of the chosen pen like every decoration (stroke kind
   `grid`; nothing new for the screen or the PDF). Words in cells are ordinary
-  words: a tap rewrites their piece (`wordAt`, `pieceBoxes`), and the text layer
-  holds the cells row by row in reading order. Per page `tables: [{ block, xs, ys,
-  rows }]` gives the column lines, the row lines and the ruled lines of every table
-  row on that page (only on pages with a table).
+  words: a tap rewrites their piece (`wordAt`, `pieceBoxes`; the columns follow the
+  new ink), and the text layer holds the cells row by row in reading order, a
+  wrapped cell's rows together before the next cell (words carry `trow` and `cell`).
+  Per page `tables: [{ block, xs, ys, rows, head? }]` gives the column lines, the
+  row lines and the ruled lines of every table row on that page, and how the
+  header line is drawn (`'double'` or `'firm'`; only on pages with a table).
 - Pages: as before (an empty line never opens a page), plus explicit page
   breaks; a heading moves on with the next row rather than stand alone at the
   bottom; a box that fits on a page is not split. While pieces are missing a

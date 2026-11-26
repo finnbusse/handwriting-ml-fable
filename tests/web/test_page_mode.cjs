@@ -420,8 +420,9 @@ async function table(browser, server) {
   const d = await dbg(page);
   L.check('table: written as a document with a table, all placed', d.format === 'markdown' && !!d.rich && d.rich.blocks.some((b) => b.type === 'table') && d.placed === d.total && d.pages === 1, JSON.stringify([d.format, d.placed, d.total, d.pages]));
   const grid = d.rich.pages[0].strokes.filter((s) => s.kind === 'grid'), verts = grid.filter((s) => s.box[3] - s.box[1] > 10);
-  // four row lines (the one under the header drawn twice) and three column lines
-  L.check('table: its grid is drawn, one stroke a line', grid.length === 5 + 3 && verts.length === 3, String(grid.length));
+  // four row lines and three column lines; the one under the header drawn twice, or once and firmer where its row leaves no room
+  const firm = grid.filter((s) => s.bold).length;
+  L.check('table: its grid is drawn, one stroke a line', ((grid.length === 5 + 3 && !firm) || (grid.length === 4 + 3 && firm === 1)) && verts.length === 3, `${grid.length} ${firm}`);
   const xs = verts.map((s) => (s.box[0] + s.box[2]) / 2).sort((a, b) => a - b), cells = d.words.filter((w) => d.rich.blocks[w.block].type === 'table');
   L.check('table: every word of a cell between two column lines', cells.length >= 6 && cells.every((w) => xs.some((x, i) => i < xs.length - 1 && w.box[0] > x && w.box[2] < xs[i + 1])), JSON.stringify(xs));
   const counts = [];
