@@ -1,0 +1,7 @@
+# BuildKit reads this for -f server/Dockerfile: send only what the image copies
+*
+!hw/
+!web/js/
+!server/
+server/data/
+**/__pycache__/

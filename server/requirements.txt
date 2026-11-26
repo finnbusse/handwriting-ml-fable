@@ -1,0 +1,6 @@
+# torch comes from the CPU-only index (server/Dockerfile); locally any torch that runs hw/ will do
+numpy==2.5.3
+mcp==2.3.0
+uvicorn==0.54.0
+starlette==1.7.0
+huggingface_hub==2.4.0
