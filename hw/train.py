@@ -11,11 +11,20 @@ What makes this work with little data
   * real recorded lines are mixed in with their true spacing
   * the alphabet is extended (umlauts, sharp s ...) without disturbing the
     known characters
-  * a held-out part decides when to stop
+  * a fixed, short budget of updates with a falling learning rate; what is
+    saved is a running average of the weights (steadier than any single step)
+  * held-out lines are judged after correcting for over-confidence: with
+    little data the network soon predicts too narrow a spread, which makes the
+    plain likelihood worse although the writing keeps getting better.  One
+    constant added to all predicted log standard deviations removes that; it
+    is folded into the saved weights, so the model writes at the writer's
+    letter size
 """
 from __future__ import annotations
 
 import argparse
+import collections
+import contextlib
 import json
 import math
 import os
@@ -68,6 +77,11 @@ class Corpus:
         self.composer = dataset.LineComposer(tw, gap_mean, gap_sd, max_points=max_points, seed=seed,
                                              special_chars=new_chars, special_share=special_share)
         self.train_real = self._real(tl)
+        self.train_lines = tl
+        self._line_words = {l.id: dataset.split_words(l) for l in tl}
+        self._pieces_of = collections.defaultdict(list)
+        for piece in self.train_real:
+            self._pieces_of[piece.meta.get("line", piece.id)].append(piece)
         self._queue: list[int] = []
         self.val_real = self._real(vl)
         self.val_lines = vl
@@ -93,20 +107,57 @@ class Corpus:
         toks = self.charset.encode(self.charset.normalize(ink.text))
         return seq, toks
 
+    def window(self, line: Ink) -> Ink | None:
+        """A fresh piece of a real line: consecutive words from a random start.
+
+        Cutting every line at the same places would show the network the same
+        few pieces a hundred times, nearly all of them starting at the start of
+        a sentence, while the page later asks for pieces from the middle of
+        running text.  A line offers many such windows; each draw takes
+        another one (the true line start in about a third of the draws)."""
+        words = self._line_words.get(line.id)
+        if not words or len(words) < 2:
+            return None
+        n = len(words)
+        rest = [sum(len(w.text) for w in words[k:]) + (n - k - 1) for k in range(n)]
+        starts = [k for k in range(n) if rest[k] >= 12] or [0]
+        k = 0 if self.rng.random() < 0.35 else int(self.rng.choice(starts))
+        target = int(self.rng.integers(12, 31))
+        picked, n_pts, n_chr = [], 0, 0
+        for w in words[k:]:
+            more = len(w.text) + (1 if picked else 0)
+            if picked and (n_pts + len(w) > self.max_points or n_chr + more > target):
+                break
+            picked.append(w)
+            n_pts, n_chr = n_pts + len(w), n_chr + more
+        if n_pts > self.max_points:
+            return None
+        pts = np.vstack([w.points for w in picked])
+        pts[:, 0] -= pts[:, 0].min()
+        return Ink(pts, text=" ".join(w.text for w in picked), id=f"{line.id}@{k}", source=line.source,
+                   kind="line", meta={"line": line.id})
+
     def epoch(self, n_items: int, real_share: float, max_repeat: int = 6):
-        """One epoch's worth of training lines: real lines (cut into pieces) and
-        lines composed of single words.  Real lines are what the result should
-        look like, so they get `real_share` of the epoch -- but no piece more
-        than `max_repeat` times, so that a small set of lines is not learnt by
-        heart.  All pieces are used equally often over the epochs."""
+        """One epoch's worth of training lines: pieces of real lines and lines
+        composed of single words.  Real lines are what the result should look
+        like, so they get `real_share` of the epoch -- but no more than
+        `max_repeat` draws per piece there is, so that a small set of lines is
+        not learnt by heart.  All lines are used equally often."""
         n_real = min(round(n_items * real_share), max_repeat * len(self.train_real))
         real = []
-        while len(real) < n_real:
+        while len(real) < n_real and self.train_lines:
             if not self._queue:
-                self._queue = [int(k) for k in self.rng.permutation(len(self.train_real))]
-            real.append(self.train_real[self._queue.pop()])
+                self._queue = [int(k) for k in self.rng.permutation(len(self.train_lines))]
+            line = self.train_lines[self._queue.pop()]
+            piece = self.window(line)
+            if piece is None:                       # a line whose words cannot be told apart: its fixed pieces
+                fixed = self._pieces_of.get(line.id)
+                if not fixed:
+                    continue
+                piece = fixed[int(self.rng.integers(len(fixed)))]
+            real.append(piece)
         items = [self.encode(i, True) for i in real]
-        items += [self.encode(self.composer.sample(), True) for _ in range(n_items - n_real)]
+        items += [self.encode(self.composer.sample(), True) for _ in range(n_items - len(real))]
         return items
 
     def validation(self):
@@ -196,7 +247,8 @@ def main(argv=None, hooks=None):
     ap.add_argument("--lines-only", action="store_true",
                     help="train on whole written lines only (October 2025 and the capture app), "
                          "without the early single-word and digit recordings")
-    ap.add_argument("--epochs", type=int, default=40)
+    ap.add_argument("--epochs", type=int, default=12,
+                    help="a fixed budget: with little data more rounds only learn the lines by heart")
     ap.add_argument("--epoch-items", type=int, default=960, help="training lines per epoch")
     ap.add_argument("--real-share", type=float, default=0.7,
                     help="share of an epoch taken from real written lines; the rest is composed of single words")
@@ -208,7 +260,10 @@ def main(argv=None, hooks=None):
                     help="learning-rate multiplier for the weights that read the newly added characters")
     ap.add_argument("--special-share", type=float, default=0.3,
                     help="share of composed words drawn from words with newly added characters")
-    ap.add_argument("--patience", type=int, default=8)
+    ap.add_argument("--patience", type=int, default=0,
+                    help="stop after this many epochs without a better held-out score (0 = run the whole budget)")
+    ap.add_argument("--ema", type=float, default=0.995,
+                    help="decay of the running average of the weights that is evaluated and saved (0 = off)")
     ap.add_argument("--sample-every", type=int, default=5)
     ap.add_argument("--threads", type=int, default=0)
     ap.add_argument("--seed", type=int, default=0)
@@ -259,17 +314,48 @@ def main(argv=None, hooks=None):
     def to_dev(batch):
         return [t.to(device) for t in batch]
 
+    SHIFTS = [0.05 * k for k in range(11)]      # constants tried for the spread correction
+
     @torch.no_grad()
     def evaluate_dev(items):
+        """Mean NLL per point, one value per entry of SHIFTS."""
         if not items:
-            return float("nan")
+            return np.full(len(SHIFTS), np.nan)
         model.eval()
-        total, n = 0.0, 0
+        total, n = np.zeros(len(SHIFTS)), 0
         for b in batches(items, 48):
             x, xl, tk, tl = to_dev(b)
-            total += float(model.nll(x, xl, tk, tl).sum())
+            total += model.nll_spread(x, xl, tk, tl, SHIFTS).sum(dim=1).cpu().numpy()
             n += int(xl.sum())
         return total / max(n, 1)
+
+    def validate():
+        """(val_real, val_composed, shift) at the spread correction that suits the held-out real lines best."""
+        r, c = evaluate_dev(val_real), evaluate_dev(val_comp)
+        k = int(np.nanargmin(c if np.isnan(r).all() else r))
+        return float(r[k]), float(c[k]), SHIFTS[k]
+
+    ema = None                                   # name -> running average of that parameter
+
+    @contextlib.contextmanager
+    def exported(shift: float = 0.0):
+        """The weights as they are judged and saved: the running average of the
+        training weights, with the spread correction folded into the output
+        layer (exact, because log sd = W h + b)."""
+        params = dict(model.named_parameters())
+        backup = {n: p.detach().clone() for n, p in params.items()}
+        with torch.no_grad():
+            if ema is not None:
+                for n, p in params.items():
+                    p.copy_(ema[n])
+            if shift:
+                model.mixture.sd.bias.add_(shift)
+        try:
+            yield
+        finally:
+            with torch.no_grad():
+                for n, p in params.items():
+                    p.copy_(backup[n])
 
     opt = torch.optim.Adam(model.parameters(), lr=args.lr)
     # The appended characters (umlauts, sharp s ...) start as copies of similar
@@ -295,19 +381,31 @@ def main(argv=None, hooks=None):
         # real lines are what we want to imitate; composed lines keep the score stable
         return v_comp if math.isnan(v_real) else 0.75 * v_real + 0.25 * v_comp
 
+    shift = 0.0
+
     def sampler(path):
-        progress_sheet(model, charset, mu, std, meta, corpus, path)
+        with exported(shift):
+            progress_sheet(model, charset, mu, std, meta, corpus, path)
 
     rng = np.random.default_rng(args.seed + 1)
+    if args.ema > 0:
+        ema = {n: p.detach().clone() for n, p in model.named_parameters()}
     if resumed:
         history, best, best_epoch = resumed["history"], resumed["best"], resumed["best_epoch"]
         t0 = time.time() - 60 * resumed.get("minutes", 0)
         print(f"resuming after epoch {start} (best epoch {best_epoch})")
+        # last/model.pt holds the averaged weights; the raw training weights are next to it when the run
+        # is continued on the same machine
+        raw = os.path.join(args.resume_from, "last", "raw.pt")
+        if os.path.exists(raw):
+            model.load_state_dict(load_state(raw))
     else:
-        v_real, v_comp = evaluate_dev(val_real), evaluate_dev(val_comp)
-        print(f"epoch  0 | before training | val real {v_real:.4f} | val composed {v_comp:.4f}")
-        history = [dict(epoch=0, val_real=v_real, val_composed=v_comp, score=score_of(v_real, v_comp))]
+        v_real, v_comp, shift = validate()
+        print(f"epoch  0 | before training | val real {v_real:.4f} | val composed {v_comp:.4f} | spread +{shift:.2f}")
+        history = [dict(epoch=0, val_real=v_real, val_composed=v_comp, score=score_of(v_real, v_comp),
+                        sd_shift=shift)]
         best, best_epoch, t0 = float("inf"), 0, time.time()
+    n_updates = start * steps_per_epoch
     info = dict(out=args.out, epochs=args.epochs, counts=corpus.counts, history=history, sample=sampler)
     stopped = bool(hooks and hooks.started(dict(info, epoch=start, best_epoch=best_epoch)))
 
@@ -330,36 +428,57 @@ def main(argv=None, hooks=None):
                 for (W, rows), b in zip(boosted, before):
                     W[rows] = b + args.new_char_boost * (W[rows] - b)
             sched.step()
+            if ema is not None:
+                n_updates += 1
+                d = min(args.ema, (1 + n_updates) / (10 + n_updates))     # follows quickly at first
+                with torch.no_grad():
+                    for n, p in model.named_parameters():
+                        ema[n].mul_(d).add_(p.detach(), alpha=1 - d)
             run += float(nll.detach().sum())
             pts += int(xl.sum())
-        v_real, v_comp = evaluate_dev(val_real), evaluate_dev(val_comp)
+        with exported():
+            v_real, v_comp, shift = validate()
         score = score_of(v_real, v_comp)
         flag = ""
-        if score < best:
-            best, best_epoch, flag = score, epoch, " *"
-            save("best", {"epoch": epoch, "val_real": v_real, "val_composed": v_comp})
+        extra = {"epoch": epoch, "val_real": v_real, "val_composed": v_comp, "sd_shift": shift}
+        with exported(shift):
+            if score < best:
+                best, best_epoch, flag = score, epoch, " *"
+                save("best", extra)
+            save("last", extra)
+        torch.save(model.state_dict(), os.path.join(args.out, "last", "raw.pt"))
         history.append(dict(epoch=epoch, train=run / pts, val_real=v_real, val_composed=v_comp, score=score,
-                            seconds=time.time() - t_ep))
+                            sd_shift=shift, seconds=time.time() - t_ep))
         print(f"epoch {epoch:2d} | train {run / pts:.4f} | val real {v_real:.4f} | val composed {v_comp:.4f}"
-              f" | {time.time() - t_ep:.0f}s | lr {sched.get_last_lr()[0]:.1e}{flag}", flush=True)
-        save("last", {"epoch": epoch})
+              f" | spread +{shift:.2f} | {time.time() - t_ep:.0f}s | lr {sched.get_last_lr()[0]:.1e}{flag}", flush=True)
         with open(os.path.join(args.out, "history.json"), "w") as f:
             json.dump(history, f, indent=1)
         with open(os.path.join(args.out, "train_state.json"), "w") as f:
             json.dump(dict(epoch=epoch, epochs=args.epochs, best=best, best_epoch=best_epoch,
                            minutes=(time.time() - t0) / 60), f)
         if args.sample_every and epoch % args.sample_every == 0:
-            sample_sheet(model, charset, mu, std, meta, corpus, os.path.join(args.out, f"samples_{epoch:03d}.png"))
+            with exported(shift):
+                sample_sheet(model, charset, mu, std, meta, corpus, os.path.join(args.out, f"samples_{epoch:03d}.png"))
         if hooks and hooks.epoch(dict(info, epoch=epoch, best_epoch=best_epoch, minutes=(time.time() - t0) / 60)):
             print("stop requested, stopping")
             stopped = True
             break
-        if epoch - best_epoch >= args.patience:
+        if args.patience and epoch - best_epoch >= args.patience:
             print(f"no improvement for {args.patience} epochs, stopping")
             break
         if args.max_minutes and (time.time() - t0) / 60 > args.max_minutes:
             print("time limit reached, stopping")
             break
+    # The held-out lines cannot tell epochs apart whose scores differ by less than about 0.01 (two standard
+    # errors).  Among those the last one has seen the rare characters most often, so it is the one to keep.
+    last = history[-1]
+    if not stopped and last["epoch"] != best_epoch and last.get("score", float("inf")) <= best + 0.01:
+        shutil.copytree(os.path.join(args.out, "last"), os.path.join(args.out, "best"), dirs_exist_ok=True)
+        raw = os.path.join(args.out, "best", "raw.pt")
+        if os.path.exists(raw):
+            os.remove(raw)
+        print(f"epoch {last['epoch']} is within 0.01 of the best epoch {best_epoch}: keeping epoch {last['epoch']}")
+        best_epoch = last["epoch"]
     print(f"best epoch {best_epoch}, score {best:.4f}, total {(time.time() - t0) / 60:.1f} min")
     result = dict(best_epoch=best_epoch, best=best, epoch=history[-1]["epoch"], stopped=stopped,
                   minutes=(time.time() - t0) / 60)

@@ -12,7 +12,7 @@ import zlib
 
 import numpy as np
 
-from . import prep
+from . import prep, sources
 from .ink import Ink, to_offsets
 
 MAX_POINTS = 700          # the base model was trained on sequences cut at 700 points
@@ -36,10 +36,12 @@ def apply_exclusions(inks: list[Ink], excl: dict) -> tuple[list[Ink], dict]:
 
 
 DIGIT_RATIO = 0.8        # digits are about as tall as capitals: 0.8 x the ascender height
-SESSION_XH_TOLERANCE = 0.15   # a line's x-height may differ this much from its session's median
+SESSION_MIN_LINES = 8         # a capture session needs this many lines to have a letter size of its own
+WORD_XH_POWER = 0.3           # how far a single word may move away from its source's typical letter size
+RARE_CHAR_COUNT = 8           # a line with a character rarer than this is never held out
 MAX_HEIGHT_WORD = 9.0         # x-heights; taller recordings are measured wrongly or scribbles
 MAX_HEIGHT_LINE = 12.0        # a line adds baseline drift and tall brackets
-PREP_VERSION = 7         # bump when the preparation changes (invalidates the cache)
+PREP_VERSION = 8         # bump when the preparation changes (invalidates the cache)
 
 
 def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
@@ -67,31 +69,40 @@ def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
             ratios.append(float(np.median(hi)) / xh)
     tall_ratio = float(np.median(ratios)) if ratios else 2.4
 
-    # 3. per-ink x-height -> xh units.  Lines of one capture session are written
-    #    on the same sheet in one go, so their x-heights agree closely.  The
-    #    estimate of a single line depends on which letters it happens to hold,
-    #    so it is kept within a narrow band around the session's median.
+    # 3. per-ink x-height -> xh units.  The estimate from one line or word is
+    #    noisy: it depends on which letters happen to be in it (measured on 120
+    #    capture lines: a third of them land more than 15 % off).  People do not
+    #    change their letter size from one line to the next, so
+    #      - every line of a recording session gets the session's median; small
+    #        sessions borrow the median of all lines of the same source;
+    #      - a single word keeps only a small part of its own deviation from the
+    #        typical size of its source.
     sizes = {}
     for ink in inks:
         a, b, h = geo[ink.id]
         ratio = tall_ratio * (DIGIT_RATIO if ink.text.replace(" ", "").isdigit() else 1.0)
         sizes[ink.id] = prep.fit_xheight(h, ink.text, ratio)
-    sessions = collections.defaultdict(list)
+    ok = lambda v: bool(np.isfinite(v) and v > 0)
+    by_session, by_source = collections.defaultdict(list), collections.defaultdict(list)
     for ink in inks:
-        if ink.kind == "line" and ink.meta.get("session") and np.isfinite(sizes[ink.id]) and sizes[ink.id] > 0:
-            sessions[(ink.source, ink.meta["session"])].append(sizes[ink.id])
+        if ok(sizes[ink.id]):
+            by_source[(ink.source, ink.kind)].append(sizes[ink.id])
+            if ink.kind == "line":
+                by_session[(ink.source, ink.meta.get("session") or "")].append(sizes[ink.id])
     resized = 0
     for ink in inks:
-        group = sessions.get((ink.source, ink.meta.get("session"))) if ink.kind == "line" else None
-        if group and len(group) >= 4:
-            med = float(np.median(group))
-            own = sizes[ink.id]
-            if not np.isfinite(own) or own <= 0:
-                sizes[ink.id] = med
+        own = sizes[ink.id]
+        source = by_source.get((ink.source, ink.kind), [])
+        if ink.kind == "line":
+            group = by_session.get((ink.source, ink.meta.get("session") or ""), [])
+            if len(group) < SESSION_MIN_LINES:
+                group = source
+            if len(group) >= SESSION_MIN_LINES:
+                sizes[ink.id] = float(np.median(group))
                 resized += 1
-            elif abs(own / med - 1.0) > SESSION_XH_TOLERANCE:
-                sizes[ink.id] = float(np.clip(own, med * (1 - SESSION_XH_TOLERANCE), med * (1 + SESSION_XH_TOLERANCE)))
-                resized += 1
+        elif len(source) >= 30:
+            med = float(np.median(source))
+            sizes[ink.id] = med * (own / med) ** WORD_XH_POWER if ok(own) else med
 
     out, dropped = [], collections.Counter()
     for ink in inks:
@@ -126,7 +137,7 @@ def has_final_period(ink: Ink) -> bool:
     for s in prep.stroke_slices(ink.points):
         seg = ink.points[s, :2]
         (x0, y0), (x1, y1) = seg.min(axis=0), seg.max(axis=0)
-        if x1 - x0 < 0.45 and y1 - y0 < 0.45 and -0.6 < (y0 + y1) / 2 < 0.5:
+        if x1 - x0 < 0.45 and y1 - y0 < 0.45 and -1.0 < (y0 + y1) / 2 < 1.5:    # dots sit up to 0.8 x-heights low
             dots.append((x0 + x1) / 2)
         else:
             rest_right = max(rest_right, x1)
@@ -204,9 +215,11 @@ def calibrate(raw: list[Ink], base_stats: dict, verbose: bool = True) -> tuple[l
     step, hint = base_stats["step_median_xh"], None
     for _ in range(5):
         inks, hint = resample_all(norm, step, hint)
-        ref = [i for i in inks if i.kind == "word" and not i.text.isdigit()]
-        if len(ref) < 50:                # a corpus of whole lines only
-            ref = [i for i in inks if i.kind == "line"]
+        # Real lines are the reference whenever there are enough of them, so that
+        # every recipe (with or without the single words) sees the same lines.
+        ref = [i for i in inks if i.kind == "line"]
+        if len(ref) < 50:
+            ref = [i for i in inks if i.kind == "word" and not i.text.isdigit()] or ref
         ppc = points_per_char(ref)
         if abs(ppc / target_ppc - 1.0) < 0.02:
             break
@@ -302,11 +315,21 @@ def stable_fraction(key: str) -> float:
 
 def split(inks: list[Ink], val_fraction: float = 0.08, val_lines: int | None = None):
     """Hold out whole *texts* (so a word written several times never straddles
-    the split) and some real lines (8 %, at least 4) to measure against."""
-    lines = sorted([i for i in inks if i.kind == "line"], key=lambda i: stable_fraction(i.text))
+    the split) and some real lines (8 %, at least 4) to measure against.
+
+    Held-out lines come from the capture app only (older lines are written a
+    little differently and would blur the measurement), and never contain a
+    character that is rare in the corpus: with two examples of a capital
+    umlaut, holding one out would take half of what there is to learn from."""
+    lines = [i for i in inks if i.kind == "line"]
+    counts = collections.Counter(c for i in lines for c in i.text if not c.isspace())
+    capture = [i for i in lines if i.source in sources.CAPTURE_SOURCES]
+    eligible = [i for i in (capture if len(capture) >= 30 else lines)
+                if all(counts[c] >= RARE_CHAR_COUNT for c in i.text if not c.isspace())]
+    eligible.sort(key=lambda i: stable_fraction(i.text))
     if val_lines is None:
         val_lines = max(4, round(val_fraction * len(lines)))
-    val_line_ids = {i.id for i in lines[:val_lines]} if len(lines) >= 3 * val_lines else set()
+    val_line_ids = {i.id for i in eligible[:val_lines]} if len(lines) >= 3 * val_lines else set()
     train, val = [], []
     for ink in inks:
         if ink.kind == "line":

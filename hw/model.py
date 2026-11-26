@@ -16,7 +16,7 @@ point t-1 (zeros for t=0) and it predicts the distribution of point t.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import torch
 import torch.nn as nn
@@ -182,6 +182,18 @@ class SynthesisNetwork(nn.Module):
         lp = params.log_prob(points)
         mask = torch.arange(points.shape[1], device=points.device)[None, :] < lengths[:, None]
         return -(lp * mask).sum(dim=1)
+
+    def nll_spread(self, points: Tensor, lengths: Tensor, tokens: Tensor, text_len: Tensor,
+                   shifts: list[float]) -> Tensor:
+        """NLL per sequence for several constants added to every predicted log
+        standard deviation; shape (len(shifts), B).  One forward pass."""
+        params = self.forward(points, tokens, text_len)
+        mask = torch.arange(points.shape[1], device=points.device)[None, :] < lengths[:, None]
+        out = []
+        for s in shifts:
+            p = replace(params, log_sd1=params.log_sd1 + s, log_sd2=params.log_sd2 + s)
+            out.append(-(p.log_prob(points) * mask).sum(dim=1))
+        return torch.stack(out)
 
     # --------------------------------------------------------------- sampling
     @torch.no_grad()
