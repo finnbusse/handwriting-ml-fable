@@ -7,6 +7,12 @@
 import { normalizeLook, lookColors, toPolylines, penGroups, docWordXh, rulingColor, FUELLER_LEVELS } from './render.js';
 import { fuellerWidth, pencilTone, hexRgb, TONES } from '../capture/ink.js';
 import { pageLines } from './document.js';
+import { inkColor, markerColor } from './decor.js';
+
+// Bold ("pressed harder"): the line this much wider per pen, Bleistift also this
+// many tone levels darker.  Chosen by looking at proof pages.
+const BOLD = { fineliner: 1.5, fueller: 1.4, bleistift: 1.3 };
+const BOLD_TONE = 2;
 
 const PT = 72 / 25.4;                   // points per mm
 const f2 = (v) => { const r = Math.round(v * 100) / 100; return Object.is(r, -0) ? '0' : String(r); };   // 0.01 pt
@@ -60,45 +66,66 @@ function pageContent(doc, pageIndex, l, colors, textLayer, gstates) {
     for (const x of xs) out.push(`${X(x)} 0 m ${X(x)} ${f2(H)} l`);
     out.push('S');
   }
-  // Ink: word arrays in the page's x-heights (as the screen draws them), xh -> mm -> pt.
-  const xh = g.xh, P = (v) => v * xh;
-  const words = page.strokes.map((q) => docWordXh(q, xh));
-  const lw = l.width * xh;                                   // mm
-  out.push(`1 J 1 j ${rgb(l.pen === 'bleistift' ? colors.graphite : colors.ink)} RG`);
-  if (l.pen === 'fineliner') {
-    out.push(`${f2(lw * PT)} w`);
-    for (const points of words) {
-      const path = [];
-      for (const line of toPolylines(points)) {
-        const p = line.map(([x, y]) => [P(x), P(y)]);
-        path.push(`${X(p[0][0])} ${Y(p[0][1])} m`);
-        if (p.length === 1) { path.push(`${X(p[0][0] + 0.004)} ${Y(p[0][1])} l`); continue; }
-        // The screen's curve: quadratic pieces through the midpoints, as cubics.
-        let ax = p[0][0], ay = p[0][1];
-        for (let i = 1; i < p.length - 1; i++) {
-          const [cx, cy] = p[i], bx = (cx + p[i + 1][0]) / 2, by = (cy + p[i + 1][1]) / 2;
-          path.push(`${X(ax + (2 / 3) * (cx - ax))} ${Y(ay + (2 / 3) * (cy - ay))} ${X(bx + (2 / 3) * (cx - bx))} ${Y(by + (2 / 3) * (cy - by))} ${X(bx)} ${Y(by)} c`);
-          ax = bx; ay = by;
-        }
-        const last = p[p.length - 1];
-        path.push(`${X(last[0])} ${Y(last[1])} l`);
-      }
-      if (path.length) out.push(path.join('\n'), 'S');
+  // Highlighter bands under the ink, translucent: multiplied on light paper so the
+  // ruling shows through, screened on dark paper so the band lightens it.
+  if (page.bands && page.bands.length) {
+    for (const band of page.bands) {
+      const m = markerColor(band.color, colors.dark), pts = band.points, path = [];
+      for (let i = 0; i < pts.length; i += 2) path.push(`${X(pts[i])} ${Y(pts[i + 1])} ${i ? 'l' : 'm'}`);
+      out.push(`/${gstates.band(m)} gs ${rgb(m.color)} rg`, path.join('\n'), 'h f');
     }
-  } else {
-    for (const { key, runs } of penGroups(words, l)) {
-      if (l.pen === 'fueller') out.push(`${f2(fuellerWidth(lw, key / FUELLER_LEVELS) * PT)} w`);
-      else { out.push(`${f2(lw * PT)} w /${gstates(key)} gs`); }
-      const path = [];
-      for (const { dot, pts } of runs) {
-        path.push(`${X(P(pts[0][0]))} ${Y(P(pts[0][1]))} m`);
-        if (dot) path.push(`${X(P(pts[0][0]) + 0.004)} ${Y(P(pts[0][1]))} l`);
-        for (let i = 1; i < pts.length; i++) path.push(`${X(P(pts[i][0]))} ${Y(P(pts[i][1]))} l`);
-      }
-      out.push(path.join('\n'), 'S');
-    }
-    if (l.pen === 'bleistift') out.push('/GN gs');
+    out.push('/GB gs');
   }
+  // Ink: word arrays in the page's x-heights (as the screen draws them), xh -> mm -> pt,
+  // one group per ink colour and weight (a document without styles is one group).
+  const xh = g.xh, P = (v) => v * xh;
+  const base = l.pen === 'bleistift' ? colors.graphite : colors.ink;
+  const groups = new Map();
+  page.strokes.forEach((q, i) => {
+    const st = page.styles && page.styles[i], key = st ? `${st.color || ''}|${st.bold ? 1 : 0}` : '|0';
+    if (!groups.has(key)) groups.set(key, { color: inkColor(st && st.color, colors.dark, base), bold: !!(st && st.bold), words: [] });
+    groups.get(key).words.push(docWordXh(q, xh));
+  });
+  let first = true;
+  for (const { color, bold, words } of groups.values()) {
+    const lw = l.width * xh * (bold ? BOLD[l.pen] : 1);    // mm
+    out.push(first ? `1 J 1 j ${rgb(color)} RG` : `${rgb(color)} RG`);
+    first = false;
+    if (l.pen === 'fineliner') {
+      out.push(`${f2(lw * PT)} w`);
+      for (const points of words) {
+        const path = [];
+        for (const line of toPolylines(points)) {
+          const p = line.map(([x, y]) => [P(x), P(y)]);
+          path.push(`${X(p[0][0])} ${Y(p[0][1])} m`);
+          if (p.length === 1) { path.push(`${X(p[0][0] + 0.004)} ${Y(p[0][1])} l`); continue; }
+          // The screen's curve: quadratic pieces through the midpoints, as cubics.
+          let ax = p[0][0], ay = p[0][1];
+          for (let i = 1; i < p.length - 1; i++) {
+            const [cx, cy] = p[i], bx = (cx + p[i + 1][0]) / 2, by = (cy + p[i + 1][1]) / 2;
+            path.push(`${X(ax + (2 / 3) * (cx - ax))} ${Y(ay + (2 / 3) * (cy - ay))} ${X(bx + (2 / 3) * (cx - bx))} ${Y(by + (2 / 3) * (cy - by))} ${X(bx)} ${Y(by)} c`);
+            ax = bx; ay = by;
+          }
+          const last = p[p.length - 1];
+          path.push(`${X(last[0])} ${Y(last[1])} l`);
+        }
+        if (path.length) out.push(path.join('\n'), 'S');
+      }
+    } else {
+      for (const { key, runs } of penGroups(words, l)) {
+        if (l.pen === 'fueller') out.push(`${f2(fuellerWidth(lw, key / FUELLER_LEVELS) * PT)} w`);
+        else { out.push(`${f2(lw * PT)} w /${gstates(bold ? Math.min(key + BOLD_TONE, TONES - 1) : key)} gs`); }
+        const path = [];
+        for (const { dot, pts } of runs) {
+          path.push(`${X(P(pts[0][0]))} ${Y(P(pts[0][1]))} m`);
+          if (dot) path.push(`${X(P(pts[0][0]) + 0.004)} ${Y(P(pts[0][1]))} l`);
+          for (let i = 1; i < pts.length; i++) path.push(`${X(P(pts[i][0]))} ${Y(P(pts[i][1]))} l`);
+        }
+        out.push(path.join('\n'), 'S');
+      }
+    }
+  }
+  if (l.pen === 'bleistift') out.push('/GN gs');
   // Text layer: every word invisible (render mode 3) on its baseline, stretched to its
   // width.  Its space is widened (word spacing) to reach the next word: text tools read a
   // gap of 2 em without a glyph as a column break and would put every word on a line.
@@ -111,7 +138,18 @@ function pageContent(doc, pageIndex, l, colors, textLayer, gstates) {
     const size = fits.length ? fits[fits.length >> 1] : xh * PT / 0.523;
     const space = (HELV[32] / 1000) * size;
     out.push(`BT 3 Tr /F1 ${f2(size)} Tf`);
-    for (const line of pageLines(page)) {
+    const extra = [...(page.arrows || []), ...(page.markers || [])];
+    const lines = extra.length
+      ? pageLines({ words: [...page.words, ...extra] }).map((ws) => ws.slice().sort((a, b) => a.x - b.x))
+      : pageLines(page);
+    for (const line0 of lines) {
+      // a list label goes with its first word: text tools read the column the labels
+      // leave as a table and would put every label on a line of its own
+      const line = [];
+      for (let i = 0; i < line0.length; i++) {
+        const w = line0[i], n = line0[i + 1];
+        if (w.label && n) { line.push({ typed: `${w.typed ?? w.text} ${n.typed ?? n.text}`, x: w.x, width: n.x + n.width - w.x, baseline: n.baseline }); i++; } else line.push(w);
+      }
       line.forEach((w, i) => {
         const bytes = winAnsi(w.typed ?? w.text), adv = em(w) * size;
         const sx = adv > 0 ? (w.width * PT) / adv : 1;
@@ -157,6 +195,8 @@ export async function pdfBytes(doc, { look, title = 'Handschrift', date = new Da
   // so overlapping pieces do not pile up, as on the screen.
   const used = new Set();
   const gstate = (key) => { used.add(key); return `G${key}`; };
+  const bands = new Map();                // highlighter opacity and blend -> name
+  gstate.band = ({ alpha, blend }) => { const k = `${f2(alpha)} /${blend}`; if (!bands.has(k)) bands.set(k, `M${bands.size}`); return bands.get(k); };
   const blend = colors.dark ? '/Lighten' : '/Darken';
   const kids = [];
   const streamObj = async (content) => {
@@ -170,7 +210,8 @@ export async function pdfBytes(doc, { look, title = 'Handschrift', date = new Da
   const contents = [];
   for (let i = 0; i < pageCount; i++) contents.push(doc.pages[i] ? pageContent(doc, i, l, colors, text, gstate) : '');
   const gsDict = [...used].sort((a, b) => a - b).map((k) => `/G${k} << /CA ${f2(pencilTone(Math.min(k, TONES - 1)))} /BM ${blend} >>`).join(' ');
-  const resources = `<< /Font << /F1 ${font} 0 R >> /ExtGState << ${gsDict} /GN << /CA 1 /BM /Normal >> >> >>`;
+  const bandDict = bands.size ? [...bands].map(([k, name]) => ` /${name} << /ca ${k.split(' ')[0]} /BM ${k.split(' ')[1]} >>`).join('') + ' /GB << /ca 1 /BM /Normal >>' : '';
+  const resources = `<< /Font << /F1 ${font} 0 R >> /ExtGState << ${gsDict} /GN << /CA 1 /BM /Normal >>${bandDict} >> >>`;
   const mediaBox = `[0 0 ${f2(doc.page.width * PT)} ${f2(doc.page.height * PT)}]`;
   for (const content of contents) {
     const c = add(await streamObj(content));
