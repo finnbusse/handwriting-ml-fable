@@ -57,11 +57,23 @@ SAMPLE_TEXTS = [
 
 
 # ----------------------------------------------------------------------- data
+# Length aimed at for a piece of a real line, in characters (lowest, highest);
+# a piece also ends at max_points, which is about 31 characters.  The pieces
+# have to be at least as long as what is written later.  With 12-30 (half of
+# the pieces under 18 characters, 15 % with 24 or more) the network wrote short
+# pieces well and let the pen slide off the line in 3.5-5 % of the pieces of
+# 24-27 characters; a network trained on fixed pieces of up to 34 characters
+# (55 % with 24 or more) did so in 1.5 %.  20-44 gives a median of 24
+# characters and 56 % with 24 or more.
+WINDOW_CHARS = (20, 44)
+
+
 class Corpus:
     def __init__(self, inks: list[Ink], report: dict, charset: Charset, mu, std, seed: int = 0,
                  max_points: int = dataset.MAX_POINTS, long_points: int = 1250, special_share: float = 0.3,
-                 train_all: bool = False):
+                 train_all: bool = False, window_chars: tuple[int, int] = WINDOW_CHARS):
         self.charset, self.mu, self.std = charset, mu, std
+        self.window_chars = window_chars
         self.xh_model = report["xh_model"]
         self.max_points, self.long_points = max_points, long_points
         self.rng = np.random.default_rng(seed)
@@ -118,15 +130,19 @@ class Corpus:
         few pieces a hundred times, nearly all of them starting at the start of
         a sentence, while the page later asks for pieces from the middle of
         running text.  A line offers many such windows; each draw takes
-        another one (the true line start in about a third of the draws)."""
+        another one (the true line start in about a third of the draws).
+
+        The length aimed at is drawn from `window_chars`; see WINDOW_CHARS for
+        why the pieces must not be short."""
         words = self._line_words.get(line.id)
         if not words or len(words) < 2:
             return None
         n = len(words)
         rest = [sum(len(w.text) for w in words[k:]) + (n - k - 1) for k in range(n)]
-        starts = [k for k in range(n) if rest[k] >= 12] or [0]
+        lo, hi = self.window_chars
+        starts = [k for k in range(n) if rest[k] >= lo] or [0]
         k = 0 if self.rng.random() < 0.35 else int(self.rng.choice(starts))
-        target = int(self.rng.integers(12, 31))
+        target = int(self.rng.integers(lo, hi + 1))
         picked, n_pts, n_chr = [], 0, 0
         for w in words[k:]:
             more = len(w.text) + (1 if picked else 0)
@@ -251,6 +267,8 @@ def main(argv=None, hooks=None):
     ap.add_argument("--lines-only", action="store_true",
                     help="train on whole written lines only (October 2025 and the capture app), "
                          "without the early single-word and digit recordings")
+    ap.add_argument("--window-chars", type=int, nargs=2, default=list(WINDOW_CHARS), metavar=("LOW", "HIGH"),
+                    help="length aimed at for a piece of a real line, in characters")
     ap.add_argument("--level-words", action="store_true",
                     help="set every word of the recorded lines on the line before training (dataset.level_words)")
     ap.add_argument("--epochs", type=int, default=12,
@@ -311,7 +329,7 @@ def main(argv=None, hooks=None):
     if args.level_words:
         inks = [dataset.level_words(i) if i.kind == "line" else i for i in inks]
     corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share,
-                    train_all=args.train_all)
+                    train_all=args.train_all, window_chars=tuple(args.window_chars))
     val_real, val_comp = corpus.validation()
     print("data:", json.dumps({**corpus.counts, "gap_xh": [round(g, 2) for g in corpus.gap],
                                "xh_model": round(report["xh_model"], 1), "excluded": report["excluded"],
@@ -320,7 +338,8 @@ def main(argv=None, hooks=None):
     meta = {"charset": charset.chars, "mu": mu, "std": std, "xh_model": report["xh_model"],
             "step_xh": report["step_xh"], "gap_xh": list(corpus.gap), "tall_ratio": report["tall_ratio"],
             "base": os.path.basename(os.path.normpath(args.base)), "data": report["counts"],
-            "writer": args.writer, "lines_only": bool(args.lines_only), "level_words": bool(args.level_words)}
+            "writer": args.writer, "lines_only": bool(args.lines_only), "level_words": bool(args.level_words),
+            "window_chars": list(args.window_chars)}
 
     def save(name: str, extra: dict):
         Synthesizer(model, charset, mu, std, dict(meta)).save(os.path.join(args.out, name), extra)
