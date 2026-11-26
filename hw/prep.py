@@ -178,22 +178,28 @@ DOT_MAX_LENGTH = 0.5     # xh; longer short strokes are the bars of t and f, das
 DOT_MIN_HEIGHT = 1.15    # xh above the baseline: clear of the small letters
 
 
-def dot_strokes(ink: Ink) -> int:
-    """How many dots a written line has (ink in xh units): very short strokes
-    well above the small letters, that is the dots of i, j, ä, ö and ü.
+def dot_slices(ink: Ink) -> list[slice]:
+    """The strokes of a written line that are dots (ink in xh units): very
+    short strokes well above the small letters, that is the dots of i, j, ä, ö
+    and ü.
 
-    On the writer's own lines the count equals i + j + 2 x umlauts in 83 % of
-    the lines, is higher in 16 % (the upper dot of a colon between tall digits,
-    small parts of digits and capitals) and lower in 1 %."""
+    On the writer's own lines their number equals i + j + 2 x umlauts in 83 %
+    of the lines, is higher in 16 % (the upper dot of a colon between tall
+    digits, small parts of digits and capitals) and lower in 1 %."""
     a, b, _ = baseline(ink.copy(kind="line"))
-    n = 0
+    out = []
     for s in stroke_slices(ink.points):
         seg = ink.points[s, :2]
         length = float(np.hypot(*np.diff(seg, axis=0).T).sum()) if len(seg) > 1 else 0.0
         height = float(np.mean((a * seg[:, 0] + b) - seg[:, 1]))
         if length < DOT_MAX_LENGTH and height > DOT_MIN_HEIGHT:
-            n += 1
-    return n
+            out.append(s)
+    return out
+
+
+def dot_strokes(ink: Ink) -> int:
+    """How many dots a written line has (see dot_slices)."""
+    return len(dot_slices(ink))
 
 
 DEEP_CHARS = "gjpqyfzßJGYQ,;()[]/§79!?@"  # may reach well below the baseline, depending on the hand

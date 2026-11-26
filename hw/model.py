@@ -157,13 +157,16 @@ class SynthesisNetwork(nn.Module):
 
     # --------------------------------------------------------------- training
     def forward(self, points: Tensor, tokens: Tensor, text_len: Tensor,
-                return_attention: bool = False):
+                return_attention: bool = False, inputs: Tensor | None = None):
         """Teacher-forced pass.  points (B,T,3) are the *targets*; inputs are the
-        same sequence shifted right by one.  Returns MixtureParams over (B,T)."""
+        same sequence shifted right by one, unless `inputs` (B,T,3) gives what
+        the network is to see before each target (see hw/train.py: jittered).
+        Returns MixtureParams over (B,T)."""
         B, T, _ = points.shape
         onehot = self.onehot(tokens, text_len)
         u = torch.arange(tokens.shape[1], device=points.device, dtype=points.dtype)
-        inputs = torch.cat([points.new_zeros(B, 1, 3), points[:, :-1]], dim=1)
+        if inputs is None:
+            inputs = torch.cat([points.new_zeros(B, 1, 3), points[:, :-1]], dim=1)
         state = self.initial_state(B, points.device)
         hs, phis = [], []
         for t in range(T):

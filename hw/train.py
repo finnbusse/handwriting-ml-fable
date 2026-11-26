@@ -37,8 +37,9 @@ import time
 
 import numpy as np
 import torch
+from torch import Tensor
 
-from . import dataset, sources
+from . import dataset, prep, sources
 from .base import ensure_base
 from .config import MAIN_WRITER
 from .charset import BASE_CHARSET, DEFAULT_CHARSET, EXTRA_CHARS, Charset
@@ -71,9 +72,11 @@ WINDOW_CHARS = (20, 44)
 class Corpus:
     def __init__(self, inks: list[Ink], report: dict, charset: Charset, mu, std, seed: int = 0,
                  max_points: int = dataset.MAX_POINTS, long_points: int = 1250, special_share: float = 0.3,
-                 train_all: bool = False, window_chars: tuple[int, int] = WINDOW_CHARS):
+                 train_all: bool = False, window_chars: tuple[int, int] = WINDOW_CHARS,
+                 augment: tuple[float, float] = (1.0, 1.0), dot_weight: float = 1.0):
         self.charset, self.mu, self.std = charset, mu, std
         self.window_chars = window_chars
+        self.augment, self.dot_weight = augment, dot_weight
         self.xh_model = report["xh_model"]
         self.max_points, self.long_points = max_points, long_points
         self.rng = np.random.default_rng(seed)
@@ -117,11 +120,25 @@ class Corpus:
         return out
 
     def encode(self, ink: Ink, augment: bool, limit: int | None = None):
-        pts = dataset.augment(ink.points, self.rng) if augment else ink.points
+        """(points, tokens) for the network; training items of a corpus with a
+        dot weight carry a third entry, the weight of every point in the loss."""
+        pts = dataset.augment(ink.points, self.rng, *self.augment) if augment else ink.points
         seq = dataset.to_model(ink.copy(points=pts), self.xh_model, self.mu, self.std,
                                max_points=limit or max(self.max_points, len(ink)))
         toks = self.charset.encode(self.charset.normalize(ink.text))
+        if augment and self.dot_weight != 1.0:
+            return seq, toks, self.point_weights(ink)[:len(seq)]
         return seq, toks
+
+    def point_weights(self, ink: Ink) -> np.ndarray:
+        """1 for every point, `dot_weight` for the dots of i, j, ä, ö, ü: the
+        points of every dot stroke (the first one is the jump to the dot) and
+        the jump back.  Whether to go back for a dot is one decision in
+        hundreds of points, and the one the network gets wrong most often."""
+        w = np.ones(len(ink.points), dtype=np.float32)
+        for s in prep.dot_slices(ink):
+            w[s.start:s.stop + 1] = self.dot_weight
+        return w
 
     def window(self, line: Ink) -> Ink | None:
         """A fresh piece of a real line: consecutive words from a random start.
@@ -185,8 +202,9 @@ class Corpus:
                 [self.encode(i, False) for i in self.val_composed])
 
 
-def batches(items, batch_size: int, rng=None, bucket: int = 8):
-    """Group sequences of similar length; yields padded tensors."""
+def batches(items, batch_size: int, rng=None, bucket: int = 8, weights: bool = False):
+    """Group sequences of similar length; yields padded tensors (with
+    `weights` a fifth one: the weight of every point in the loss)."""
     order = np.arange(len(items))
     if rng is not None:
         rng.shuffle(order)
@@ -203,10 +221,34 @@ def batches(items, batch_size: int, rng=None, bucket: int = 8):
         T, U = max(len(s) for s in seqs), max(len(t) for t in toks)
         x = torch.zeros(len(g), T, 3)
         tk = torch.zeros(len(g), U, dtype=torch.long)
+        w = torch.ones(len(g), T) if weights else None
         for b, (s, t) in enumerate(zip(seqs, toks)):
             x[b, : len(s)] = torch.from_numpy(s)
             tk[b, : len(t)] = torch.tensor(t)
-        yield (x, torch.tensor([len(s) for s in seqs]), tk, torch.tensor([len(t) for t in toks]))
+            if weights and len(items[g[b]]) > 2:
+                w[b, : len(s)] = torch.from_numpy(items[g[b]][2])
+        out = (x, torch.tensor([len(s) for s in seqs]), tk, torch.tensor([len(t) for t in toks]))
+        yield out + (w,) if weights else out
+
+
+def jittered(x: Tensor, sd: float, generator=None) -> tuple[Tensor, Tensor]:
+    """(inputs, targets) for training against drift.
+
+    Teacher forcing shows the network a pen that is always exactly where the
+    writer's was, so it never learns what to do when its own pen is a little
+    off, and free-running errors add up.  Here the pen position the network
+    sees is the true one plus a small random error at every point (`sd`, in
+    units of the offset normalisation), and the target is the step from that
+    wrong position to the true next one: the network is taught to steer back.
+    With e(t) the error at point t: input offset x(t) + e(t) - e(t-1), target
+    x(t+1) - e(t)."""
+    eps = sd * torch.randn(x.shape[0], x.shape[1], 2, generator=generator).to(x.device)
+    prev = torch.cat([eps.new_zeros(x.shape[0], 1, 2), eps[:, :-1]], dim=1)       # e(t-1)
+    seen, target = x.clone(), x.clone()
+    seen[..., :2] += eps - prev
+    target[..., :2] -= prev
+    inputs = torch.cat([x.new_zeros(x.shape[0], 1, 3), seen[:, :-1]], dim=1)
+    return inputs, target
 
 
 @torch.no_grad()
@@ -269,6 +311,14 @@ def main(argv=None, hooks=None):
                          "without the early single-word and digit recordings")
     ap.add_argument("--window-chars", type=int, nargs=2, default=list(WINDOW_CHARS), metavar=("LOW", "HIGH"),
                     help="length aimed at for a piece of a real line, in characters")
+    ap.add_argument("--augment", type=float, nargs=2, default=[1.0, 1.0], metavar=("SHAPE", "PLACE"),
+                    help="strength of the random changes to every training piece: width and slant, size and rotation "
+                         "(1 1 = as always, 0 0 = none)")
+    ap.add_argument("--dot-weight", type=float, default=1.0,
+                    help="weight in the loss of the dots of i, j, ä, ö, ü and of the pen jumps to and from them")
+    ap.add_argument("--input-noise", type=float, default=0.0,
+                    help="train against drift: random error of the pen position the network sees, in units of the "
+                         "offset normalisation (see jittered)")
     ap.add_argument("--level-words", action="store_true",
                     help="set every word of the recorded lines on the line before training (dataset.level_words)")
     ap.add_argument("--epochs", type=int, default=12,
@@ -329,7 +379,8 @@ def main(argv=None, hooks=None):
     if args.level_words:
         inks = [dataset.level_words(i) if i.kind == "line" else i for i in inks]
     corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share,
-                    train_all=args.train_all, window_chars=tuple(args.window_chars))
+                    train_all=args.train_all, window_chars=tuple(args.window_chars),
+                    augment=tuple(args.augment), dot_weight=args.dot_weight)
     val_real, val_comp = corpus.validation()
     print("data:", json.dumps({**corpus.counts, "gap_xh": [round(g, 2) for g in corpus.gap],
                                "xh_model": round(report["xh_model"], 1), "excluded": report["excluded"],
@@ -339,7 +390,8 @@ def main(argv=None, hooks=None):
             "step_xh": report["step_xh"], "gap_xh": list(corpus.gap), "tall_ratio": report["tall_ratio"],
             "base": os.path.basename(os.path.normpath(args.base)), "data": report["counts"],
             "writer": args.writer, "lines_only": bool(args.lines_only), "level_words": bool(args.level_words),
-            "window_chars": list(args.window_chars)}
+            "window_chars": list(args.window_chars), "augment": list(args.augment),
+            "dot_weight": args.dot_weight, "input_noise": args.input_noise}
 
     def save(name: str, extra: dict):
         Synthesizer(model, charset, mu, std, dict(meta)).save(os.path.join(args.out, name), extra)
@@ -424,6 +476,7 @@ def main(argv=None, hooks=None):
             progress_sheet(model, charset, mu, std, meta, corpus, path)
 
     rng = np.random.default_rng(args.seed + 1)
+    noise_gen = torch.Generator().manual_seed(args.seed + 2)
     if args.ema > 0:
         ema = {n: p.detach().clone() for n, p in model.named_parameters()}
     if resumed:
@@ -451,10 +504,13 @@ def main(argv=None, hooks=None):
         model.train()
         items = corpus.epoch(args.epoch_items, args.real_share)
         run, pts, t_ep = 0.0, 0, time.time()
-        for b in batches(items, args.batch, rng):
-            x, xl, tk, tl = to_dev(b)
-            nll = model.nll(x, xl, tk, tl)
-            loss = nll.sum() / xl.sum()
+        for b in batches(items, args.batch, rng, weights=True):
+            x, xl, tk, tl, w = to_dev(b)
+            inputs, target = jittered(x, args.input_noise, noise_gen) if args.input_noise > 0 else (None, x)
+            mask = (torch.arange(x.shape[1], device=device)[None, :] < xl[:, None]).float()
+            per_point = -model.forward(target, tk, tl, inputs=inputs).log_prob(target) * mask
+            nll = per_point.sum(dim=1)                       # what is reported: every point counts once
+            loss = (per_point * w).sum() / xl.sum()
             opt.zero_grad(set_to_none=True)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)

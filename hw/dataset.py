@@ -445,14 +445,16 @@ def measure_gaps(lines: list[Ink]) -> tuple[float, float]:
 
 
 # ------------------------------------------------------------------- to tensors
-def augment(points: np.ndarray, rng) -> np.ndarray:
-    """Small random changes that keep the hand recognisable: size, width,
-    slant and a hint of rotation."""
+def augment(points: np.ndarray, rng, shape: float = 1.0, place: float = 1.0) -> np.ndarray:
+    """Small random changes that keep the hand recognisable: width and slant
+    (scaled by `shape`), size and a hint of rotation (scaled by `place`; these
+    two change how large a piece is and whether it runs uphill, which is what
+    makes pieces of one page differ)."""
     p = points.copy()
-    s = float(np.exp(rng.normal(0.0, 0.05)))
-    sx = float(np.exp(rng.normal(0.0, 0.04)))
-    shear = float(rng.normal(0.0, 0.05))
-    rot = float(rng.normal(0.0, 0.015))
+    s = float(np.exp(rng.normal(0.0, 0.05 * place)))
+    sx = float(np.exp(rng.normal(0.0, 0.04 * shape)))
+    shear = float(rng.normal(0.0, 0.05 * shape))
+    rot = float(rng.normal(0.0, 0.015 * place))
     x, y = p[:, 0] * s * sx, p[:, 1] * s
     x = x - shear * y                                  # y is down: positive shear leans right
     p[:, 0] = x * np.cos(rot) - y * np.sin(rot)
