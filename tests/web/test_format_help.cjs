@@ -49,10 +49,10 @@ async function desktop(browser, server) {
   await page.click('#pg-format');
   L.check('a second click closes it, the focus is back on the button', !(await shown(page)) && (await focused(page)) === 'pg-format');
   await page.click('#pg-format');
-  await page.mouse.click(400, 120);   // the pages
+  { const st = await page.locator('#pg-stage').boundingBox(); await page.mouse.click(st.x + st.width / 2, st.y + 20); }   // the pages
   L.check('a click outside closes it', !(await shown(page)));
   await page.click('#pg-format');
-  await page.click('#pg-text');
+  await page.click('#pg-text', { position: { x: 40, y: 20 } });   // the panel lies over the lower part of the text
   L.check('a click into the text field closes it and leaves the focus there', !(await shown(page)) && (await focused(page)) === 'pg-text');
 
   // ---- keyboard ----
@@ -112,7 +112,7 @@ async function desktop(browser, server) {
   await page.keyboard.press('Escape');
   await page.click('#pg-format');
   L.check('the way back survives closing the panel', await page.isVisible('#pg-example-undo'));
-  await page.click('#pg-text');
+  await page.click('#pg-text', { position: { x: 40, y: 20 } });
   await page.keyboard.press('End');
   await page.keyboard.type(' und mehr');
   await page.click('#pg-format');

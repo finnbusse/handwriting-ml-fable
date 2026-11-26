@@ -12,8 +12,9 @@ import {
 import { lookColors, drawDocumentPage, BOLD } from './render.js';
 import { documentToPDF, pdfFileName } from './pdf.js';
 import { createEnginePool, poolSize } from './engine-client.js';
-import { parseMarkup, plainText } from './markup.js';
+import { parseMarkup, plainText, detectFormat } from './markup.js';
 import { createFormatHelp } from './format-help.js';
+import { createEditor } from './editor-tools.js';
 
 export const PAGE_DEFAULTS = Object.freeze({ text: '', paper: 'liniert', size: 'mittel', textLayer: true, format: 'auto' });
 const FORMATS = ['auto', 'markdown', 'latex', 'text'];
@@ -653,10 +654,11 @@ export function createPageView(deps) {
         if (FORMATS.includes(v.format)) P.settings.format = v.format;
       }
     } catch (_) { /* defaults */ }
+    const editor = createEditor({ text: el.text, root: $('gen'), format: () => (P.settings.format === 'auto' ? detectFormat(el.text.value) : P.settings.format) });
     const help = createFormatHelp({
       text: el.text,
       getFormat: () => P.settings.format,
-      setFormat: (f) => { if (FORMATS.includes(f)) { P.settings.format = f; save(); detect(); } },
+      setFormat: (f) => { if (FORMATS.includes(f)) { P.settings.format = f; save(); detect(); editor.refresh(); } },
       onText: () => { autosize(); save(); detect(); },
     });
     help.refresh();
@@ -668,8 +670,6 @@ export function createPageView(deps) {
     el.text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); write(); } });
     // maxlength cuts a long paste without a word: say so
     el.text.addEventListener('input', () => { note(el.text.maxLength > 0 && el.text.value.length >= el.text.maxLength ? `Der Text ist auf ${el.text.maxLength.toLocaleString('de-DE')} Zeichen gekürzt.` : ''); autosize(); save(); detectSoon(); });
-    // Away from the keyboard the field shows two lines: from the start, not a line cut in half.
-    el.text.addEventListener('blur', () => { el.text.scrollTop = 0; });
     el.pdf.addEventListener('click', downloadPdf);
     el.share.addEventListener('click', sharePdf);
     el.redo.addEventListener('click', rewrite);

@@ -669,3 +669,89 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
   /* the short progress fits beside the tools; the longer hint when done may take two lines */
   .gen-status:has(> #pg-busy:not([hidden])) { flex-basis: 110px; }
 }
+
+/* ---------- Seite: the editor ----------
+   Wide (900 px and up): the text on the left over the full height, the pages on the
+   right, one bar under both: under the text what belongs to it, under the pages what
+   belongs to them.  Stil and Formatierung open over their own half without moving
+   anything.  Narrow: pages above, the text below, as before; the mark tools take the
+   status row's place while the text has the focus, so they cost the text no line.
+   --pg-kb (the on-screen keyboard's height) and --pg-vh (what is visible above it) come
+   from editor-tools.js. */
+.gen[data-mode="seite"] { margin-bottom: var(--pg-kb, 0px); }
+.pg-marks { display: flex; min-height: 48px; margin: 0 -8px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.pg-marks::-webkit-scrollbar { display: none; }
+.pg-marks .gen-tool { flex: none; font-size: 14px; padding: 0 10px; }
+.pg-marks .gen-tool::before { inset: 8px 0; }
+.pg-marks [data-tool="bold"] { font-weight: 700; }
+.pg-marks [data-tool="underline"] { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.pg-fmt-row .pg-editor-btn, .pg-fmt-row .pg-size-btn { display: none; padding: 0; justify-content: center; }
+.pg-fmt-row .pg-size-btn { margin-left: -6px; }
+/* a switch for the layout, not a panel: no "open" shade */
+.pg-fmt-row .pg-editor-btn[aria-expanded]:not(:hover)::before { background: none; }
+
+@media (max-width: 899.98px) {
+  .pg-marks { display: none; }
+  .gen-dock:has(#pg-text:focus, #pg-marks:focus-within) > .pg-marks:not([hidden]) { display: flex; }
+  .gen-dock:has(#pg-text:focus, #pg-marks:focus-within):has(> .pg-marks:not([hidden])) > .gen-row { display: none; }
+  .pg-fmt-row .pg-size-btn { display: inline-flex; }
+  /* small: two lines away from the keyboard, more while typing; large: half of what is visible */
+  .pg-composer #pg-text { max-height: min(calc(var(--pg-vh, 100dvh) * .3), 220px); }
+  .gen[data-field="big"] .pg-composer #pg-text { height: calc(var(--pg-vh, 100dvh) * .5) !important; max-height: none; padding-bottom: 11px; margin-bottom: 0; }
+}
+@media (max-width: 560px) {
+  /* a phone with the keyboard open needs every row for the text */
+  .gen[data-mode="seite"][data-kb] > .gen-modes { display: none; }
+}
+
+@media (min-width: 900px) {
+  .gen[data-mode="seite"] {
+    --pg-ed: clamp(320px, 40%, 560px);
+    display: grid; max-width: none; column-gap: 28px;
+    grid-template-columns: [ed] var(--pg-ed) [doc] minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;      /* switch, text, marks, note, characters, bar */
+  }
+  .gen[data-mode="seite"] > .gen-modes { grid-column: 1 / -1; grid-row: 1; }
+  .gen[data-mode="seite"] > .gen-stage, .gen[data-mode="seite"] > .pg-stage { grid-column: doc; grid-row: 2 / 6; }
+  .gen[data-mode="seite"]:has(> .gen-dock[hidden]) > .gen-stage { grid-column: 1 / -1; }
+  .gen[data-mode="seite"] .pg-pages { max-width: var(--gen-column); margin: 0 auto; }
+  .gen[data-mode="seite"] > .gen-dock:not([hidden]), .gen[data-mode="seite"] > .gen-dock > .pg-composer { display: contents; }
+
+  .gen[data-mode="seite"] .gen-dock #pg-text {
+    grid-column: ed; grid-row: 2; height: auto !important; max-height: none; min-height: 0;
+    margin: 4px 0 0; padding: 14px 18px; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; transition: border-color .15s, box-shadow .15s;
+  }
+  .gen[data-mode="seite"] .gen-dock #pg-text:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .gen[data-mode="seite"] .pg-marks { grid-column: ed; grid-row: 3; margin: 2px 0 0 -8px; }      /* ends with its column: nothing peeks past a panel */
+  .gen[data-mode="seite"] #pg-note { grid-column: ed; grid-row: 4; }
+  .gen[data-mode="seite"] #pg-chars { grid-column: ed; grid-row: 5; }
+  /* the bar: Schreiben at the right end of the text's half, the rest of the half before it
+     ("Abbrechen", the wider of the two, measures 132 px) */
+  .gen[data-mode="seite"] .gen-row, .gen[data-mode="seite"] .pg-fmt-row, .gen[data-mode="seite"] .pg-composer > .gen-go { grid-row: 6; margin-top: 6px; }
+  .gen[data-mode="seite"] .gen-row { grid-column: doc; }
+  .gen[data-mode="seite"] .pg-fmt-row { grid-column: ed; margin: 6px 144px 0 -8px; min-width: 0; flex-wrap: wrap; height: 48px; overflow: hidden; }
+  .gen[data-mode="seite"] .pg-composer > .gen-go { grid-column: ed; justify-self: end; align-self: center; }
+  .gen[data-mode="seite"] .pg-fmt-row .pg-editor-btn { display: inline-flex; }
+  /* the detected format sits after the button; where the half is too narrow it wraps out of sight */
+  .gen[data-mode="seite"] .pg-detected { margin-left: 0; padding: 0 4px; line-height: 48px; }
+
+  /* Stil and Formatierung: over their own half, above the bar, scrolling inside themselves */
+  .gen[data-mode="seite"] #gen-style, .gen[data-mode="seite"] #pg-format-panel {
+    grid-row: 2 / 6; align-self: end; position: relative; z-index: 4;
+    max-height: min(calc(100% - 10px), 420px); margin: 0 0 6px; padding: 6px 18px 12px; overflow-y: auto; overscroll-behavior: contain;
+    background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 14px 34px rgba(20, 26, 38, .18);
+  }
+  .gen[data-mode="seite"] #gen-style { grid-column: doc; }
+  .gen[data-mode="seite"] #pg-format-panel { grid-column: ed; }
+  /* the text's half is as narrow as a phone: the reference in one column */
+  .gen[data-mode="seite"] .pg-fmt-top .gen-opt { grid-template-columns: minmax(0, 1fr); flex-basis: 100%; }
+  .gen[data-mode="seite"] .pg-fmt-top .gen-opt-l { display: none; }
+  .gen[data-mode="seite"] .pg-ref { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  .gen[data-mode="seite"] .pg-ref dt { white-space: pre-wrap; margin-top: 8px; }
+  .gen[data-mode="seite"] .pg-ref dt:first-child { margin-top: 0; }
+
+  /* the text put away: the pages over the full width, Schreiben stays in the bar */
+  .gen[data-mode="seite"][data-editor="hidden"] { grid-template-columns: [ed] auto [doc] minmax(0, 1fr); }
+  .gen[data-mode="seite"][data-editor="hidden"] :is(#pg-text, .pg-marks, #pg-note, #pg-chars, #pg-format, #pg-detected, #pg-format-panel) { display: none; }
+}

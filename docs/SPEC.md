@@ -432,6 +432,54 @@ text layer. Mode, text, paper, letter size and the text-layer switch are stored
 (`kv: generateMode`, `kv: page`); the written pages live until the tab is
 reloaded.
 
+- Layout (`styles.css`, `editor-tools.js`). From 900 CSS px wide (a tablet in
+  landscape, a desktop) the page mode fills the window under the tab bar in two
+  columns: the text field on the left over the full height (40 % of the width, 320–560
+  px), scrolling inside itself; the pages on the right (at most 880 px wide, centred),
+  scrolling inside their column; the page itself does not scroll. One bar runs under
+  both: under the text a switch that hides it, Formatierung, the detected format (it
+  wraps out of sight where the half is too narrow) and Schreiben / Abbrechen at its right
+  end; under the pages the status line, Stil, Teilen, PDF herunterladen. Formatierung
+  and Stil open over their own half, above the bar, without moving anything, and scroll
+  inside themselves. With the text hidden the pages take the width and the bar keeps
+  the switch and Schreiben; hidden or not is kept on the device (`localStorage
+  hw.pageEditor`). Narrower (a tablet in portrait, a phone) the pages stay above and
+  the text below; a switch at the end of the Formatierung row makes the field half the
+  visible height and small again (kept too), and a paste that overflows the small field
+  while it has the focus makes it large by itself. Away from the keyboard the small
+  field shows its first two lines.
+- On-screen keyboard: it shortens the visual viewport, not the layout, so
+  `editor-tools.js` reads `visualViewport` and sets `--pg-kb` (the height below what is
+  visible) and `--pg-vh` (what is visible); the page mode ends above the keyboard, the
+  large field is half of what is visible, the caret's line is scrolled back into the
+  field, and on a phone the Zettel/Seite switch steps aside while the keyboard is open.
+  Schreiben stays on screen in both layouts (tested with a visual viewport of 420 px at
+  1280 × 800 and 360 × 740, 960 px at 800 × 1280).
+- Mark tools: one slim row of quiet words that scrolls sideways (wide: under the field;
+  narrow: in the status row's place while the text has the focus, so it takes no line
+  from the text). Überschrift, Liste, Kästchen, Merkkasten and Mitte act on every line
+  the selection touches; kräftig, unterstreichen, markieren and Farbe on the selection
+  (spaces at its ends left out, each line on its own, a list marker or heading never
+  inside) or, at a caret, on its word (none: an empty pair with the caret inside); Pfeil
+  and Datum are put in at the caret with a space either side. A second tap takes a mark
+  off (a pair just put in at the caret too); Kästchen goes empty → ticked → none, Farbe
+  rot → blau → grün → none. Markdown (and Automatisch on a text read as Markdown) gets
+  `# `, `- `, `- [ ] `, `> `, `{mitte} `, `**…**`, `*…*`, `==…==`, `[…]{rot}`, `->`,
+  `{datum}`; LaTeX gets `\section{…}`, `\item `, `\item[$\square$] ` /
+  `\item[$\checkmark$] `, `\begin{framed}`, `\begin{center}`, `\textbf{…}`,
+  `\underline{…}`, `\hl{…}`, `\textcolor{red}{…}`, `$\rightarrow$`, `\today{}`; "Nur
+  Text" has no row. Every change goes in through the browser's own editing
+  (`execCommand('insertText')` on the part that changed), so it fires the same input
+  event typing does and Strg+Z takes it back; the focus and the on-screen keyboard stay
+  in the text. The text operations are pure functions (`applyTool`, `listKey`), tested
+  in Node.
+- Keys: on a list or check-list line Tab and Shift+Tab move it one level in or out (two
+  spaces, at most two levels in); Enter goes on with the list (the next number or
+  letter, an empty box after a ticked one, the same indent and box) and on an empty item
+  ends it; Enter on a row of a box goes on with the box the same way. Shift+Enter is a
+  plain line break; Strg+Enter writes. Enter is taken as an edit (`beforeinput`), so
+  on-screen keyboards behave the same.
+
 - Workers: `engine-client.js: createEnginePool`, hardwareConcurrency − 1, at
   most 4, 2 with deviceMemory ≤ 4 and 1 with ≤ 2; each worker holds its own
   copy of the model, read on its own thread from one Blob of `model.bin`.

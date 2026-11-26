@@ -13,7 +13,7 @@ const SHELL = [
   'js/generate/layout.js', 'js/generate/page-writer.js', 'js/generate/render.js',
   'js/generate/model-store.js', 'js/generate/engine-client.js', 'js/generate/view.js',
   'js/generate/document.js', 'js/generate/pdf.js', 'js/generate/page-view.js', 'js/generate/paint-worker.js',
-  'js/generate/markup.js', 'js/generate/decor.js', 'js/generate/format-help.js',
+  'js/generate/markup.js', 'js/generate/decor.js', 'js/generate/format-help.js', 'js/generate/editor-tools.js',
   'js/capture/ink.js', 'js/capture/look.js',
   'js/library.js', 'library.css',
   'training.css', 'js/training/view.js', 'js/training/state.js', 'js/training/github.js', 'js/training/github-settings.js', 'js/training/curve.js',

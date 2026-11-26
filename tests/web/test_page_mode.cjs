@@ -122,8 +122,9 @@ async function tablet(browser, server) {
   L.check('Seite: pages instead of the sheet, its own text field and tools', await page.isVisible('#pg-stage') && await page.isHidden('#gen-stage') && await page.isVisible('#pg-text') && await page.isHidden('#gen-text') && await page.isHidden('#gen-again') && await page.isVisible('#pg-pdf'));
   L.check('Seite: the switch says which mode is on', (await page.getAttribute('.gen-modes [data-mode="seite"]', 'aria-checked')) === 'true' && (await page.getAttribute('.gen-modes [data-mode="zettel"]', 'aria-checked')) === 'false');
   L.check('empty: one ruled A4 page and a hint, PDF not yet', (await page.$$('#pg-pages .pg-page')).length === 1 && (await inked(page)) > 50 && await page.isVisible('#pg-empty') && await page.isDisabled('#pg-pdf'));
-  const box = await page.evaluate(() => { const r = document.querySelector('#pg-pages .pg-page').getBoundingClientRect(); return [r.width, r.height]; });
-  L.check('the page is A4 and fills the column', Math.abs(box[1] / box[0] - 297 / 210) < 0.01 && box[0] > 800, JSON.stringify(box));
+  // (at 1280 px the text sits beside the pages: the column is the right part of the window)
+  const box = await page.evaluate(() => { const r = document.querySelector('#pg-pages .pg-page').getBoundingClientRect(); return [r.width, r.height, document.getElementById('pg-pages').clientWidth]; });
+  L.check('the page is A4 and fills the column', Math.abs(box[1] / box[0] - 297 / 210) < 0.01 && Math.abs(box[0] - box[2]) < 1 && box[0] > 600, JSON.stringify(box));
   await page.click('#pg-write');
   L.check('no text: asked for one, nothing starts', /Bitte tippe/.test(await page.textContent('#pg-note')) && (await dbg(page)).phase === 'idle');
 

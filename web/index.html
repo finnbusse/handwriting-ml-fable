@@ -40,6 +40,7 @@
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></symbol>
     <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7.5 8.5 12 4l4.5 4.5"/><path d="M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12"/></symbol>
     <symbol id="i-shrink" viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/></symbol>
+    <symbol id="i-panel" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M9.5 5v14"/></symbol>
   </defs>
 </svg>
 
@@ -254,6 +255,20 @@
             <button class="gen-tool" id="pg-pdf" data-only="seite" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg><span class="pg-long">PDF herunterladen</span><span class="pg-short">PDF</span></button>
           </div>
         </div>
+        <!-- Seite: marks for a touch keyboard, on the selection or the current line (editor-tools.js) -->
+        <div class="pg-marks" id="pg-marks" data-only="seite" role="toolbar" aria-label="Auszeichnen">
+          <button class="gen-tool" type="button" data-tool="heading">Überschrift</button>
+          <button class="gen-tool" type="button" data-tool="list">Liste</button>
+          <button class="gen-tool" type="button" data-tool="check">Kästchen</button>
+          <button class="gen-tool" type="button" data-tool="bold">kräftig</button>
+          <button class="gen-tool" type="button" data-tool="underline">unterstreichen</button>
+          <button class="gen-tool" type="button" data-tool="mark">markieren</button>
+          <button class="gen-tool" type="button" data-tool="color">Farbe</button>
+          <button class="gen-tool" type="button" data-tool="arrow">Pfeil</button>
+          <button class="gen-tool" type="button" data-tool="box">Merkkasten</button>
+          <button class="gen-tool" type="button" data-tool="center">Mitte</button>
+          <button class="gen-tool" type="button" data-tool="date">Datum</button>
+        </div>
 
         <!-- Stil: the look of the sheet (the same options as when recording), then the finer controls -->
         <div class="gen-style" id="gen-style" hidden>
@@ -329,8 +344,10 @@
         </div>
         <!-- Formatierung: what to type for headings, lists, marks; the format; an example (format-help.js) -->
         <div class="pg-fmt-row" data-only="seite">
+          <button class="gen-tool pg-editor-btn" id="pg-editor-btn" type="button" aria-controls="pg-text" aria-expanded="true" aria-label="Text ausblenden"><svg class="ic" aria-hidden="true"><use href="#i-panel"/></svg></button>
           <button class="gen-tool" id="pg-format" type="button" aria-expanded="false" aria-controls="pg-format-panel">Formatierung</button>
           <span class="pg-detected" id="pg-detected"></span>
+          <button class="gen-tool pg-size-btn" id="pg-size-btn" type="button" aria-controls="pg-text" aria-label="Textfeld vergrößern"><svg class="ic" aria-hidden="true"><use href="#i-expand"/></svg></button>
         </div>
         <div class="pg-fmt" id="pg-format-panel" data-only="seite" role="region" aria-label="Formatierung" hidden>
           <div class="pg-fmt-top">
