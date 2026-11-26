@@ -92,8 +92,7 @@ same(parseMarkup('# **x** -> y', 'text').blocks, [P([T('# **x** -> y')])], "'tex
 same(parseMarkup('', 'auto').blocks, [], 'empty text');
 same(parseMarkup(null).blocks, [], 'null');
 same(md('```\n**nicht fett**\n  - kein Punkt\n```'), [P([T('**nicht fett**')], [T('- kein Punkt')])], 'a code block is written as typed');
-check(parseMarkup('| a | b |\n|---|---|', 'markdown').notes.includes('Markdown: Tabellen werden als Zeilen geschrieben'), 'a table gets a note');
-same(md('| Stoff | Menge |\n|:--|--:|\n| Wasser | viel |').map((b) => b.lines.map((l) => l.map((sp) => sp.text).join(''))), [['Stoff  Menge', 'Wasser  viel']], 'a table: one line per row, cells apart, no pipes, no |---| line');
+check(parseMarkup('| a | b |\n| c | d |', 'markdown').notes.includes('Markdown: Tabellen werden als Text geschrieben'), 'pipe lines without a delimiter row get a note');
 const link = parseMarkup('Siehe [die Quelle](https://x.de/a_b) und ![Bild](b.png).', 'markdown');
 same(link.blocks, [P([T('Siehe die Quelle und .')])], 'links keep their text, images go');
 check(link.notes.length === 2, `links and images are named in notes (${link.notes})`);
@@ -162,7 +161,7 @@ same(unknown.notes, ['LaTeX: \\frac wird nicht unterstützt', 'LaTeX: \\foo wird
 same(tex('$\\alpha + \\beta$ und $\\varphi$').blocks, [P([T('alpha + beta und phi')])], 'Greek letters in math by their names');
 same(L('\\"a\\"o\\"u\\ss{} Stra\\ss e \\\'e \\c{c} 50\\,\\% \\& \\$ \\{x\\} -- ---'), [P([T('äöüß Straße é ç 50 % & $ {x} – —')])], 'accents, escapes, dashes');
 same(L('% nur Kommentar\nText % am Ende\nweiter 100\\% sicher'), [P([T('Text weiter 100% sicher')])], 'comments');
-same(L('\\begin{tabular}{|l|r|}\\hline a & b \\\\ c & d\\end{tabular}'), [P([T('a b')], [T('c d')])], 'a table as text');
+same(L('\\begin{array}{cc} a & b \\\\ c & d\\end{array}'), [P([T('a b')], [T('c d')])], 'an array (mathematics) stays text');
 
 const small = `\\documentclass[12pt,a4paper]{article}
 \\usepackage[ngerman]{babel}
@@ -216,6 +215,50 @@ check(tex('\\newcommand{\\R}{x} a').notes.includes('LaTeX: \\newcommand wird nic
 same(tex('\\title{T}\\date{}\\maketitle').blocks, [{ type: 'heading', level: 1, lines: [[T('T')]] }], '\\date{} writes no date line');
 same(L('"a stays'), [P([T('"a stays')])], 'without German babel a " is a quote mark');
 
+// 9b. tables
+{
+  const TB = (columns, rows, more = {}) => ({ type: 'table', columns, rows, ...more });
+  const tb = (t) => md(t).filter((b) => b.type === 'table').map(({ lines, ...rest }) => rest);
+  same(tb('| Wort | Zahl | Mitte |\n|:---|---:|:-:|\n| Haus | 12 | x |\n| Baum | 3 | y |'), [TB(['left', 'right', 'center'], [
+    { head: true, cells: [[T('Wort')], [T('Zahl')], [T('Mitte')]] }, { cells: [[T('Haus')], [T('12')], [T('x')]] }, { cells: [[T('Baum')], [T('3')], [T('y')]] }])], 'Markdown table: header, alignments from the colons');
+  same(tb('Wort | Zahl\n--- | ---\nHaus | 12'), [TB(['left', 'left'], [{ head: true, cells: [[T('Wort')], [T('Zahl')]] }, { cells: [[T('Haus')], [T('12')]] }])], 'leading and trailing pipes are optional');
+  same(tb('| a \\| b | c |\n|---|---|\n| `x|y` | \\\\|'), [TB(['left', 'left', 'left'], [{ head: true, cells: [[T('a | b')], [T('c')], []] }, { cells: [[T('`x')], [T('y`')], [T('\\')]] }])], 'an escaped pipe stays in its cell; an escaped backslash before a pipe does not escape it');
+  same(tb('| A | B |\n|---|---|\n| **fett** ==gelb== | [rot]{rot} -> {datum} |\n| ~~weg~~ *unter* | a<br>b<BR/>c |'), [TB(['left', 'left'], [
+    { head: true, cells: [[T('A')], [T('B')]] },
+    { cells: [[T('fett', { bold: true }), T(' '), T('gelb', { mark: 'gelb' })], [T('rot', { color: 'rot' }), T(' '), A('right'), T(' 26.11.2026')]] },
+    { cells: [[T('weg', { strike: true }), T(' '), T('unter', { underline: true })], [T('a'), T('', { br: true }), T('b'), T('', { br: true }), T('c')]] }])], 'inline marks, arrows and {datum} in cells; <br> breaks the line inside a cell');
+  same(tb('| a | b | c |\n|---|---|---|\n| 1 |\n| 1 | 2 | 3 | 4 |\n|  | x |  |'), [TB(['left', 'left', 'left', 'left'], [
+    { head: true, cells: [[T('a')], [T('b')], [T('c')], []] }, { cells: [[T('1')], [], [], []] }, { cells: [[T('1')], [T('2')], [T('3')], [T('4')]] }, { cells: [[], [T('x')], [], []] }])], 'missing cells are empty, a ragged row adds a column (nothing typed is lost)');
+  same(md('Ein Satz davor\n| a | b |\n|---|---|\n| c | d |\nDanach ohne Pipe').map((b) => b.type), ['paragraph', 'table', 'paragraph'], 'a table directly after a paragraph; a line without a pipe ends it');
+  same(md('# Titel\n| a | b |\n|---|---|\n\n| c | d |').map((b) => b.type), ['heading', 'table', 'blank', 'paragraph'], 'a table directly after a heading; an empty line ends it');
+  same(md('Preis | Menge im Satz\nnoch ein Satz'), [P([T('Preis | Menge im Satz')], [T('noch ein Satz')])], '"a | b" in a sentence is no table');
+  same(md('| a | b |'), [P([T('| a | b |')])], 'a single line with pipes and no delimiter row is no table');
+  same(md('| a | b |\n|---|---|---|'), [P([T('| a | b |')], [T('|---|---|---|')])], 'a delimiter row with another number of cells is no table');
+  same(md('| a |\n| --- |\n| b |').filter((b) => b.type === 'table').length, 1, 'one column');
+  same(md('| |\n|---|\n| |'), [], 'a table without any text writes nothing');
+  const inBox = parseMarkup('> | a | b |\n> |---|---|', 'markdown'), inList = parseMarkup('- Punkt\n  | a | b |\n  |---|---|', 'markdown');
+  check(inBox.blocks.every((b) => b.type !== 'table') && inBox.notes.join() === 'Markdown: Tabellen in Listen oder Kästen werden als Text geschrieben', `a table in a box is written as lines, with a note (${inBox.notes})`);
+  check(inList.blocks.length === 1 && inList.blocks[0].type === 'item' && inList.blocks[0].lines.length === 3 && inList.notes.length === 1, 'a table in a list item is written as its lines, with a note');
+  check(plainText(parseMarkup('| a | b |\n|---|---|\n| c |  |\n| -> | x<br>y |', 'markdown')) === 'a | b\nc\n→ | x y', 'plainText: a table row by row, its cells " | " apart');
+  same(md('| a | b |\n|---|---|\n| **c** | d |')[0].lines, [[T('a'), T(' '), T('b')], [T('c', { bold: true }), T(' '), T('d')]], 'a table\'s lines: its rows\' words, for code that reads only lines');
+  const ttb = (t) => tex(t).blocks.map((b) => { if (b.type !== 'table') return b; const { lines, ...rest } = b; return rest; });
+  same(ttb('\\begin{tabular}{|l|c|r|}\\hline Ware & Größe & Preis \\\\ \\hline Brot & \\textbf{groß} & 2,50 \\\\ Milch & & 1 \\\\ \\hline\\end{tabular}'), [TB(['left', 'center', 'right'], [
+    { head: true, cells: [[T('Ware')], [T('Größe')], [T('Preis')]] }, { cells: [[T('Brot')], [T('groß', { bold: true })], [T('2,50')]] }, { cells: [[T('Milch')], [], [T('1')]] }])], 'LaTeX tabular: l c r, | and \\hline read and dropped, the first row a header when a rule follows it');
+  same(ttb('\\begin{tabular}{lr} a & b \\\\ c & d \\end{tabular}')[0].rows[0].head, undefined, 'no rule after the first row: no header');
+  same(ttb('\\begin{tabular}{p{3cm}*{2}{c}@{}X} \\toprule a & b & c & d\\\\ \\midrule e\\newline f & g & h & i \\\\ \\bottomrule \\end{tabular}'), [TB(['left', 'center', 'center', 'left'], [
+    { head: true, cells: [[T('a')], [T('b')], [T('c')], [T('d')]] }, { cells: [[T('e'), T('', { br: true }), T('f')], [T('g')], [T('h')], [T('i')]] }])], 'p{…}, *{n}{…}, @{}, X; booktabs rules; \\newline breaks the line in a cell');
+  const cap = tex('Davor.\n\\begin{table}[h]\\centering\\caption{Preise im Kiosk}\\begin{tabular}{lr} Brot & 2 \\\\ \\end{tabular}\\end{table}\nDanach.');
+  same(cap.blocks.map((b) => b.type), ['paragraph', 'table', 'paragraph'], 'a table environment: its tabular a table');
+  same(cap.blocks[1].caption, [T('Preise im Kiosk')], '\\caption in a table environment is the table\'s caption, wherever it stands');
+  check(cap.notes.length === 0, `a tabular gets no note (${cap.notes})`);
+  same(tex('\\begin{table}\\caption{Nur Titel}\\end{table}').blocks, [{ type: 'paragraph', align: 'center', lines: [[T('Nur Titel')]] }], 'a caption without a tabular: a centred line');
+  const merged = tex('\\begin{tabular}{ll} \\multicolumn{2}{c}{Kopf} \\\\ a & b \\end{tabular}');
+  check(merged.blocks.every((b) => b.type !== 'table') && merged.notes.includes('LaTeX: Tabellen mit verbundenen Zellen (\\multicolumn, \\multirow) werden als Text geschrieben'), `merged cells: written as lines, with a note (${merged.notes})`);
+  const nested = tex('\\begin{itemize}\\item \\begin{tabular}{ll} a & b \\end{tabular}\\end{itemize}');
+  check(nested.blocks.every((b) => b.type !== 'table') && nested.notes.some((n) => /in Listen, Kästen/.test(n)), 'a tabular in a list: written as text, with a note');
+  check(plainText(cap) === 'Davor.\nBrot | 2\nPreise im Kiosk\nDanach.', `plainText: rows, then the caption (${JSON.stringify(plainText(cap))})`);
+}
+
 // 10. detection
 for (const [t, want] of [['\\begin{itemize}', 'latex'], ['\\section{A}', 'latex'], ['\\textbf{a} und \\emph{b}', 'latex'], ['nur \\textbf{a}', 'markdown'], ['# Titel\n**x**', 'markdown'], ['Ganz normaler Text.', 'markdown'], ['C:\\Users\\Max', 'markdown'], ['\\documentclass{article}\\usepackage{x}', 'latex']])
   check(detectFormat(t) === want, `detectFormat(${JSON.stringify(t)}) = ${detectFormat(t)}, want ${want}`);
@@ -228,13 +271,18 @@ for (const t of ['Liebe Grüße aus dem Urlaub!\n\nDas Wetter ist herrlich.', 'e
 
 // 12. fuzzing: random mark soup never throws and keeps the words
 const rnd = (() => { let x = 12345; return () => ((x = Math.imul(x ^ (x >>> 15), 0x2C1B3C6D) + 0x9E3779B9 | 0) >>> 0) / 4294967296; })();
-const MD_TOKENS = ['ab', 'Wort', '12', ' ', ' ', '  ', '\n', '\n\n', '*', '**', '_', '__', '==', '~~', '[', ']', '{rot}', '{grün}', '{mitte}', '{rechts}', '{datum}', '-', '->', '<-', '=>', '<->', '>', '#', '# ', '- ', '1. ', '  - ', '\\', '`', '{', '}', '\t', '\r', '---', '===', '[ ] ', '„', '€', 'ü', '→'];
+const MD_TOKENS = ['ab', 'Wort', '12', ' ', ' ', '  ', '\n', '\n\n', '*', '**', '_', '__', '==', '~~', '[', ']', '{rot}', '{grün}', '{mitte}', '{rechts}', '{datum}', '-', '->', '<-', '=>', '<->', '>', '#', '# ', '- ', '1. ', '  - ', '\\', '`', '{', '}', '\t', '\r', '---', '===', '[ ] ', '„', '€', 'ü', '→',
+  '|', ' | ', '\n|', '|\n', '\n|---|---|\n', '\n| :-- | --: |\n', ':-:', '<br>', '\\|'];
 const TEX_TOKENS = ['ab', 'Wort', ' ', '\n', '\n\n', '\\textbf{', '\\emph{', '{', '}', '}', '$', '\\\\', '%', '\\foo', '\\item ', '\\begin{itemize}', '\\end{itemize}', '\\begin{enumerate}', '\\end{enumerate}',
-  '\\section{', '\\fbox{', '\\begin{center}', '\\end{center}', '~', '--', '\\"', '"a', '\\color{red}', '\\textcolor{blue}{', '\\[', '\\]', '\\rightarrow', '\\newpage', '\\hline', '[', ']', '\\', '\\item[', '\\verb|', '\\begin{verbatim}', '\\end{verbatim}', '\\hfill '];
-const VALID_TYPES = new Set(['paragraph', 'heading', 'item', 'rule', 'pagebreak', 'blank']);
+  '\\section{', '\\fbox{', '\\begin{center}', '\\end{center}', '~', '--', '\\"', '"a', '\\color{red}', '\\textcolor{blue}{', '\\[', '\\]', '\\rightarrow', '\\newpage', '\\hline', '[', ']', '\\', '\\item[', '\\verb|', '\\begin{verbatim}', '\\end{verbatim}', '\\hfill ',
+  '\\begin{tabular}{l|cr}', '\\end{tabular}', '&', ' & ', '\\\\ \\hline ', '\\multicolumn{2}{c}{', '\\begin{table}', '\\end{table}', '\\caption{', '\\newline '];
+const VALID_TYPES = new Set(['paragraph', 'heading', 'item', 'rule', 'pagebreak', 'blank', 'table']);
+const validSpan = (s) => typeof s.text === 'string' && (s.arrow || s.br ? s.text === '' : s.text.length > 0);
+const validTable = (b) => Array.isArray(b.columns) && b.columns.every((c) => ['left', 'center', 'right'].includes(c)) && Array.isArray(b.rows) && b.rows.length > 0
+  && b.rows.every((r) => Array.isArray(r.cells) && r.cells.length === b.columns.length && r.cells.every((c) => Array.isArray(c) && c.every(validSpan))) && Array.isArray(b.lines) && b.lines.length > 0;
 const alnum = (t) => (t.match(/[\p{L}\p{N}]/gu) ?? []).join('');
 const isSub = (small, big) => { let k = 0; for (const c of big) if (c === small[k]) k++; return k === small.length; };
-let thrown = 0, bad = 0, fallbacks = 0, lost = 0;
+let thrown = 0, bad = 0, fallbacks = 0, lost = 0, tables = 0;
 for (let r = 0; r < 3000; r++) {
   const latex = r % 3 === 2, tokens = latex ? TEX_TOKENS : MD_TOKENS;
   let t = '';
@@ -242,19 +290,22 @@ for (let r = 0; r < 3000; r++) {
   let doc;
   try { doc = parseMarkup(t, latex ? 'latex' : 'markdown', { today }); } catch (e) { thrown++; if (thrown < 3) console.log('threw on', JSON.stringify(t), e.message); continue; }
   if (doc.format === 'text') fallbacks++;
+  tables += doc.blocks.filter((b) => b.type === 'table').length;
   const ok = Array.isArray(doc.blocks) && Array.isArray(doc.notes) && doc.blocks.every((b) => VALID_TYPES.has(b.type) && Array.isArray(b.lines)
+    && (b.type !== 'table' || validTable(b))
     && (['rule', 'pagebreak', 'blank'].includes(b.type) ? b.lines.length === 0 : b.lines.length > 0 && b.lines.every((l) => l.length > 0 && l.every((s) => typeof s.text === 'string' && (s.arrow ? s.text === '' : s.text.length > 0))))
     && (b.type !== 'item' || (b.level >= 1 && b.level <= 3 && ['bullet', 'number', 'check', 'checked'].includes(b.marker))) && (b.type !== 'heading' || [1, 2, 3].includes(b.level)));
   if (!ok) { bad++; if (bad < 3) console.log('bad model for', JSON.stringify(t), canon(doc.blocks)); }
   if (!latex) {
     // Every letter and digit written was typed, in order ({datum} as typed or as the date); none is lost but the colour, alignment and date words in braces.
-    const out = alnum(plainText(doc)), typed = alnum(t.replace(/\{datum\}/g, '{datum26.11.2026}')), must = alnum(t.replace(/\{(rot|grün|mitte|rechts|datum)\}/g, ''));
+    const out = alnum(plainText(doc)), typed = alnum(t.replace(/\{datum\}/g, '{datum26.11.2026}')), must = alnum(t.replace(/\{(rot|grün|mitte|rechts|datum)\}|<br>/g, ''));
     if (!isSub(out, typed) || out.length < must.length) { lost++; if (lost < 3) console.log('words changed for', JSON.stringify(t), '->', JSON.stringify(plainText(doc))); }
   }
 }
 check(thrown === 0 && fallbacks === 0, `fuzz: never throws, never falls back to plain text (${thrown} thrown, ${fallbacks} fallbacks)`);
 check(bad === 0, `fuzz: always a valid model (${bad} bad)`);
 check(lost === 0, `fuzz: Markdown keeps every letter and digit in order (${lost} changed)`);
+check(tables > 100, `fuzz: tables among the cases (${tables})`);
 
 // 13. speed: 40,000 characters
 const essayBig = (essay + '\n\n').repeat(Math.ceil(40000 / (essay.length + 2))).slice(0, 40000);
@@ -266,7 +317,9 @@ const texSoup = Array.from({ length: 8000 }, () => TEX_TOKENS[Math.floor(rnd() *
 const timing = {};
 for (const [name, t, f] of [['essay', essayBig, 'auto'], ['soup', soup, 'markdown'], ['one_line', oneLine, 'markdown'], ['latex', texBig, 'latex'], ['latex_soup', texSoup, 'latex'], ['backticks', '`a'.repeat(20000), 'markdown'], ['braces', '{'.repeat(40000), 'latex'],
   ['nested_braces', '{'.repeat(20000) + 'x' + '}'.repeat(20000), 'latex'], ['nested_bold', '\\textbf{'.repeat(5000), 'latex'], ['quotes', '``x'.repeat(13000), 'latex'],
-  ['dollars', '$a'.repeat(20000), 'latex'], ['deep_box', '> '.repeat(20000), 'markdown'], ['links', '[a](b'.repeat(8000), 'markdown'], ['items', '- a\n  - b\n'.repeat(4000), 'markdown']]) {
+  ['dollars', '$a'.repeat(20000), 'latex'], ['deep_box', '> '.repeat(20000), 'markdown'], ['links', '[a](b'.repeat(8000), 'markdown'], ['items', '- a\n  - b\n'.repeat(4000), 'markdown'],
+  ['table', ('| Wort | **12** | a\\|b |\n|---|--:|:-:|\n' + '| Haus | 3,50 € | ==x== |\n'.repeat(2000)).slice(0, 40000), 'markdown'], ['pipes', 'a | b | '.repeat(5000), 'markdown'],
+  ['tabular', ('\\begin{tabular}{lcr}' + 'a & \\textbf{b} & c \\\\ \\hline '.repeat(1300) + '\\end{tabular}').slice(0, 40000), 'latex']]) {
   check(parseMarkup(t, f).format === f || f === 'auto', `${name}: parsed, not the plain-text fallback`);
   const t0 = performance.now();
   for (let k = 0; k < 5; k++) parseMarkup(t, f);

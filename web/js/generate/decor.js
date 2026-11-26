@@ -164,6 +164,22 @@ export function rule(rng, x0, x1, y, u) {
   return [toStroke(handLine(rng, x0, y, x1, y, u, { ends: 0.5, slope: 0.25, bow: 1.8, wobble: 1.5 }))];
 }
 
+// A line drawn along a ruler ends a little past its mark more often than short of
+// it (the pen runs over the crossing): ends in u, mean, sd and range.
+const RULER_END = [0.1, 0.14, -0.12, 0.45];
+
+/** A table's grid line from (x0, y0) to (x1, y1), drawn along a ruler: straight, in
+ *  one stroke, its ends a little past or short of their marks, the faint waver of a
+ *  pen held against the edge. */
+export function rulerLine(rng, x0, y0, x1, y1, u) {
+  const L = Math.hypot(x1 - x0, y1 - y0);
+  if (L < 1e-6) return [toStroke([[x0, y0]])];
+  const tx = (x1 - x0) / L, ty = (y1 - y0) / L;
+  const end = () => clamp(RULER_END[0] + RULER_END[1] * rng.normal(), RULER_END[2], RULER_END[3]) * u;
+  const e0 = end(), e1 = end();
+  return [toStroke(handLine(rng, x0 - tx * e0, y0 - ty * e0, x1 + tx * e1, y1 + ty * e1, u, { ends: 0, slope: 0.05, wobble: 0.25, bow: 0.15, ease: 0.45, limit: 0.12 }))];
+}
+
 /** A frame: four lines (top, right, bottom, left) whose corners do not quite close;
  *  the first one starts with the small hook of a pen set down while moving. */
 export function frame(rng, x0, y0, x1, y1, u) {

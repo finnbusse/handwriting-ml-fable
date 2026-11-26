@@ -7,7 +7,7 @@ import path from 'node:path';
 import zlib from 'node:zlib';
 import { fileURLToPath } from 'node:url';
 import { HandwritingModel, makeRandom, writePiece } from '../../web/js/engine/engine.js';
-import { planDocument, pieceSeed, preparePiece, layoutDocument, relayoutDocument, TITLE_FIT } from '../../web/js/generate/document.js';
+import { planDocument, pieceSeed, preparePiece, layoutDocument, relayoutDocument, wordAt, pieceBoxes, TITLE_FIT } from '../../web/js/generate/document.js';
 import { pdfBytes } from '../../web/js/generate/pdf.js';
 import * as decor from '../../web/js/generate/decor.js';
 
@@ -367,10 +367,130 @@ check(json(relayoutDocument(d, plan, written, opts)) === json(d), 'a relayout wi
   check(json(pl) === json(layoutDocument(pp, pw, settings('liniert'), opts)), 'parts: same seed, same document');
 }
 
-// 3. pagination (lines of one text again and again)
 const filler = (n) => Array.from({ length: n }, () => P('Das Wetter ist heute schön'));
 const lay = (dc) => { const p = planDocument(dc, norm); return layoutDocument(p, write(p), settings('liniert'), opts); };
 const lines = d.geometry.baselines.length;
+
+// 2h. tables: short cells written with a neighbour and cut apart again; columns as
+//     wide as their writing; every word in its cell and on a ruling; the grid clear
+//     of the ink; a row never split by a page break
+{
+  const cell = (text, o = {}) => (text ? [sp(text, o)] : []);
+  const TB = (columns, rows) => ({ type: 'table', columns, rows: rows.map((cells, r) => ({ ...(r ? {} : { head: true }), cells: cells.map((c) => (Array.isArray(c) ? c : cell(c))) })), lines: [] });
+  const timetable = TB(['center', 'left', 'left', 'left', 'left', 'left'], [['Std', 'Mo', 'Di', 'Mi', 'Do', 'Fr'], ['1', 'De', 'Ma', 'En', 'Bio', 'Ma'], ['2', 'De', 'Ma', '', 'Bio', 'Ku'], ['3', 'Mu', '', 'Ma', 'De', 'ja'], ['4', 'En', 'Ge', 'Sp', '', '']]);
+  const compare = TB(['left', 'left', 'left'], [['Verfahren', 'Vorteile', 'Nachteile'],
+    ['Photovoltaik', [sp('Erzeugt Strom direkt aus Sonnenlicht und braucht '), sp('kaum Wartung', { mark: 'gelb' })], 'Liefert nachts keinen Strom und braucht viel Fläche'],
+    ['Windkraft', [sp('Sehr '), sp('günstig', { bold: true }), sp(' pro Kilowattstunde')], 'Hängt stark vom Wetter ab und ist manchmal laut']]);
+  const numbers = TB(['left', 'right', 'right'], [['Posten', 'Menge', 'Preis'], ['Hefte', '4', '3,96 €'], ['Füller', '1', '12,50 €'], ['Lineal', '1', '1,20 €'], [[sp('Summe', { bold: true })], [], [sp('17,66 €', { bold: true })]]]);
+  const td = doc(P('Vorher ein Satz'), timetable, P('Dazwischen'), compare, numbers, P('Danach ein Satz'));
+  const tp = planDocument(td, norm), tw = write(tp);
+  const tLines = tp.lines.filter((l) => tp.blocks[l.block].type === 'table');
+  // planning: every cell a piece border; a short cell never a piece of its own
+  check(alone(tp), `tables: no piece of 3 characters or fewer next to other text (${tp.pieces.filter((p) => [...p.text].length <= 3).map((p) => p.text)})`);
+  check(tLines.every((l) => l.items.every((it) => Number.isInteger(it.cell) && it.sub === 0)), 'tables: every item knows its cell');
+  check(tLines.every((l) => l.items.every((it, i) => !i || it.cell >= l.items[i - 1].cell)) && tLines.every((l) => l.items.every((it, i) => !i || it.piece !== l.items[i - 1].piece || it.cell !== l.items[i - 1].cell || it.sub !== l.items[i - 1].sub ? true : false)), 'tables: a cell border is an item border');
+  const shortCells = tp.pieces.filter((p) => tp.blocks[p.block].type === 'table' && p.cuts);
+  check(shortCells.length >= 8 && shortCells.every((p) => p.cuts.every((c) => c > 0 && c < p.text.split(' ').length)), `tables: short cells written with a neighbour and cut apart (${shortCells.map((p) => `${p.text}/${p.cuts}`).join(' | ')})`);
+  check(tLines[0].head && !tLines[1].head && tp.pieces.filter((p) => tp.lines[p.para] === tLines[0]).every((p) => p.text.length), 'tables: the header row is marked');
+  const headStyle = tp.styles[tLines[0].sty[0]];
+  check(headStyle && headStyle.bold, 'tables: the header is written with the firmer stroke');
+  for (const paper of ['liniert', 'kariert', 'blanko']) {
+    const dd = layoutDocument(tp, tw, settings(paper), opts), gg = dd.geometry;
+    // (on kariert the comparison and the numbers go on on a second page)
+    const tabs = dd.pages.flatMap((p) => (p.tables || []).map((t) => ({ ...t, pg: p })));
+    check(dd.complete && tabs.length === 3, `${paper}: three tables (${tabs.length} parts on ${dd.pages.length} pages)`);
+    for (const t of tabs) {
+      const pg = t.pg;
+      const ws = pg.words.filter((w) => w.block === t.block), n = t.xs.length - 1;
+      check(t.xs.every((x, i) => !i || x > t.xs[i - 1] + 1) && Math.abs(t.xs[0] - gg.left) < 1e-9 && t.xs[n] <= gg.right + 1e-9, `${paper} table ${t.block}: columns side by side, from the left edge, inside the text width (${t.xs.map((x) => x.toFixed(1))})`);
+      check(t.ys.every((y, i) => !i || y > t.ys[i - 1]), `${paper} table ${t.block}: grid lines top to bottom`);
+      // every word inside its cell: between two column lines, between the grid lines of its row, on a ruling
+      const bad = ws.filter((w) => {
+        const c = t.xs.findIndex((x, j) => j < n && w.box[0] >= x && w.box[2] <= t.xs[j + 1]);
+        const r = t.rows.findIndex((ls) => ls.includes(w.line));
+        return c < 0 || r < 0 || !(w.baseline > t.ys[r] && w.baseline < t.ys[r + 1]) || !gg.baselines.some((y) => near(y, w.baseline));
+      });
+      check(!bad.length, `${paper} table ${t.block}: every word inside its cell and on a ruling (${bad.map((w) => w.text)})`);
+      if (gg.ruling.ys.length) check(ws.every((w) => gg.ruling.ys.some((y) => near(y, w.baseline))), `${paper} table ${t.block}: on the ruled lines`);
+      // the grid clear of the ink: no point of the cells near a column line, hardly any near a row line
+      let nearV = 0, nearH = 0, all = 0;
+      for (const w of ws) for (let k = w.strokes[0]; k < w.strokes[1]; k++) {
+        const q = pg.strokes[k];
+        for (let i = 0; i < q.length; i += 3) { all++; if (t.xs.some((x) => Math.abs(q[i] - x) < 0.3)) nearV++; if (t.ys.some((y) => Math.abs(q[i + 1] - y) < 0.1)) nearH++; }
+      }
+      check(nearV === 0 && nearH <= 0.002 * all, `${paper} table ${t.block}: the grid clear of the ink (${nearV} points at column lines, ${nearH} of ${all} at row lines)`);
+    }
+    // the drawn grid: one ruler line per row border and column line, the header line twice
+    const grid = dd.pages.flatMap((pg) => pg.strokes.map((q, i) => [xs(q), pg.styles[i], pg]).filter(([, st]) => st.kind === 'grid'));
+    check(grid.length === tabs.reduce((a, t) => a + t.ys.length + 1 + t.xs.length, 0) && grid.every(([, st]) => !st.color && !st.bold), `${paper}: the grid drawn in ink, one stroke a line (${grid.length})`);
+    for (const t of tabs) for (const y of t.ys) {
+      const h = grid.filter(([b, , pg]) => pg === t.pg && b.yhi - b.ylo < 1 && Math.abs((b.ylo + b.yhi) / 2 - y) < 0.6);
+      check(h.length >= 1 && h.every(([b]) => b.lo < t.xs[0] + 0.5 && b.lo > t.xs[0] - 1.2 && b.hi > t.xs[t.xs.length - 1] - 0.5 && b.hi < t.xs[t.xs.length - 1] + 1.2 && b.yhi - b.ylo < 0.5), `${paper}: the row line at ${y.toFixed(1)} runs straight from the first to the last column line, a little past or short of them`);
+    }
+    const [, cmpT, numT] = tabs;
+    // the comparison wraps its long cells; its short first column keeps its width
+    const cmpWords = cmpT.pg.words.filter((w) => w.block === cmpT.block), rowsOf2 = new Set(cmpWords.filter((w) => w.x > cmpT.xs[1] && w.x < cmpT.xs[2]).map((w) => w.line));
+    check(cmpT.rows[1].length >= 2 && rowsOf2.size >= 3, `${paper}: long cells wrap onto several rows (${cmpT.rows.map((r) => r.length)})`);
+    check(Math.abs(cmpT.xs[cmpT.xs.length - 1] - gg.right) < 1e-6, `${paper}: a table too wide for the text is as wide as the text`);
+    const v = cmpWords.find((w) => w.text === 'Photovoltaik');
+    check(v && cmpT.xs[1] - cmpT.xs[0] < v.width + 4 * gg.xh, `${paper}: a column of short cells keeps its natural width (${(cmpT.xs[1] - cmpT.xs[0]).toFixed(1)} mm for ${v && v.width.toFixed(1)})`);
+    // right-aligned numbers end at the same x within a hair
+    const nums = numT.pg.words.filter((w) => w.block === numT.block && w.x > numT.xs[2] && /€/.test(w.text));
+    const ends = nums.map((w) => w.x + w.width);
+    check(nums.length === 4 && Math.max(...ends) - Math.min(...ends) <= 0.15, `${paper}: right-aligned prices end within 0.15 mm (${ends.map((x) => x.toFixed(2))})`);
+    // an empty line above and below a table
+    const before = dd.pages[0].words.find((w) => w.text === 'Vorher'), endLine = numT.rows.at(-1).at(-1);
+    const after = dd.pages.flatMap((p, pi) => p.words.filter((w) => w.text === 'Danach').map((w) => ({ pi, line: w.line })))[0];
+    const sameP = dd.pages.indexOf(numT.pg) === after.pi;
+    check(tabs[0].rows[0][0] === before.line + 2 && (sameP ? after.line === endLine + 2 : after.line === 0 && endLine >= gg.baselines.length - 2), `${paper}: an empty line above and below a table (${tabs[0].rows[0][0]} after ${before.line}; ${after.line} after ${endLine})`);
+    // a word wider than its column is written smaller
+    if (paper === 'liniert') {
+      const wide = doc(TB(['left', 'left', 'left', 'left'], [['Donaudampfschifffahrt', 'Gesellschaftskapitän', 'Bundesverfassungsgericht', 'Rechtsschutzversicherung'], ['Eisenbahnverkehr', 'Wissenschaftsministerium', 'Arbeitsunfähigkeit', 'Landwirtschaftsbetrieb']]));
+      const wpl = planDocument(wide, norm), wd = layoutDocument(wpl, write(wpl), settings('liniert'), opts), wt = wd.pages[0].tables[0];
+      const fits = wd.pages[0].words.every((w) => wt.xs.some((x, j) => j < wt.xs.length - 1 && w.box[0] >= x && w.box[2] <= wt.xs[j + 1]));
+      check(fits && Math.abs(wt.xs[4] - wd.geometry.right) < 1e-6, 'a word wider than its column is written smaller, inside its cell');
+    }
+    // a tap on a word in a cell finds its piece; the piece's boxes are where its words are
+    const ma = dd.pages[0].words.find((w) => w.text === 'Bio');
+    const hit = wordAt(dd, 0, ma.x + ma.width / 2, ma.baseline - 0.5);
+    check(hit && hit.piece === ma.piece && pieceBoxes(dd, ma.piece).some((b) => b.box[0] <= ma.x + 1e-6 && b.box[2] >= ma.x + ma.width - 1e-6), `${paper}: a tap on a cell word finds its piece`);
+  }
+  // the text layer: the cells row by row in reading order
+  const dl = layoutDocument(tp, tw, settings('liniert'), opts);
+  const c = Buffer.from(await pdfBytes(dl, { look: { pen: 'fineliner', scheme: 'dark_on_light' }, compress: false })).toString('latin1');
+  const tms = [...c.matchAll(/ ([\d.]+) Tm [\d.-]+ Tw \(([^)]*)\) Tj/g)].map((m) => [m[1], m[2].trim()]);
+  const rowText = (t) => { const y = tms.find(([, s]) => s === t)[0]; return tms.filter(([yy]) => yy === y).map(([, s]) => s).join(' '); };
+  check(rowText('Std') === 'Std Mo Di Mi Do Fr' && rowText('Posten') === 'Posten Menge Preis' && rowText('Hefte') === 'Hefte 4 3,96 \\200', `text layer: a table row in reading order (${rowText('Std')} / ${rowText('Hefte')})`);
+  check(json(dl) === json(layoutDocument(tp, tw, settings('liniert'), opts)), 'tables: same seed, same document');
+  const dl2 = layoutDocument(tp, tw, settings('liniert', 9), opts), gridOf = (dd) => dd.pages[0].strokes.filter((_, i) => dd.pages[0].styles[i].kind === 'grid');
+  check(json(gridOf(dl)) !== json(gridOf(dl2)) && new Set(gridOf(dl).map((q) => json(Array.from(q).map((v, i) => (i % 3 === 2 ? v : 0))))).size > 1, 'tables: another seed draws the grid differently; no two lines alike');
+  // partly written: a table appears only once all of it is written
+  const part = tw.slice(), first = tp.pieces.find((p) => tp.blocks[p.block].type === 'table');
+  part[first.index + 3] = undefined;
+  const ph = layoutDocument(tp, part, settings('liniert'), { ...opts, typical: dl.typical });
+  check(!ph.complete && ph.pages[0].words.every((w) => tp.blocks[w.block].type !== 'table') && !ph.pages[0].tables, 'partly written: the table waits for all of its cells');
+  // a table that crosses a page break: no row split, the grid closed on both pages, the header not repeated
+  const many = TB(['right', 'left', 'left'], [['Nr.', 'Stadt', 'Land'], ...Array.from({ length: 14 }, (_, i) => [String(i + 1), ['Berlin', 'Paris', 'Wien'][i % 3], ['Deutschland', 'Frankreich', 'Österreich'][i % 3]])]);
+  many.rows[5].cells[2] = [sp('Frankreich mit einer langen Erklärung, die in ihrer Zelle umbricht und mehrere Zeilen braucht')];
+  const bd = lay(doc(...filler(lines - 12), many, P('Danach ein Satz')));
+  const parts = bd.pages.map((p) => (p.tables || [])[0]).filter(Boolean);
+  check(bd.pages.length === 2 && parts.length === 2, `page break: the table goes on on the next page (${bd.pages.length} pages)`);
+  if (parts.length === 2) {
+    const [a, b] = parts;
+    check(a.rows.flat().every((l) => l < lines) && b.rows[0][0] === 0, 'page break: the second part starts at the top of the next page');
+    check(a.ys.length === a.rows.length + 1 && b.ys.length === b.rows.length + 1 && a.ys[a.ys.length - 1] > bd.geometry.baselines[a.rows.at(-1).at(-1)] && b.ys[0] < bd.geometry.baselines[0], 'page break: the grid closed at the bottom of the first part and the top of the second');
+    const words0 = bd.pages[1].words.filter((w) => w.block === bd.pages[1].words[0].block);
+    check(!words0.some((w) => w.text === 'Stadt'), 'page break: the header row is not repeated');
+    // every table row on one page, the wrapped one too: 15 rows in all, none counted on both pages
+    check(a.rows.length + b.rows.length === 15 && [...a.rows, ...b.rows].some((r) => r.length >= 2), `page break: no table row is split (${a.rows.map((r) => r.length)} / ${b.rows.map((r) => r.length)})`);
+  }
+  // a header row is not left alone at the bottom of a page
+  const hb = lay(doc(...filler(lines - 3), many));
+  const hp = hb.pages.map((p) => (p.tables || [])[0]).filter(Boolean);
+  check(hp.length >= 1 && hb.pages[0].words.every((w) => w.text !== 'Stadt') || hp[0].rows.length >= 2, 'the header row stays with the row after it');
+}
+
+// 3. pagination (lines of one text again and again)
 {
   const hd = lay(doc(...filler(lines - 2), H(2, 'Abschnitt'), P('Text danach hier')));
   const hw = hd.pages.flatMap((p, i) => p.words.filter((w) => w.text === 'Abschnitt').map((w) => [i, w.line]))[0];

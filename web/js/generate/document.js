@@ -445,11 +445,12 @@ export function pageLines(page) {
 // rich: true; layoutDocument then lays it out with layoutRich below.  A document of
 // plain paragraphs gives the same pieces, seeds and positions as its text would.
 
-const BLOCK_TYPES = ['paragraph', 'heading', 'item', 'rule', 'pagebreak', 'blank'];
+const BLOCK_TYPES = ['paragraph', 'heading', 'item', 'rule', 'pagebreak', 'blank', 'table'];
+const COLUMN_ALIGNS = ['left', 'center', 'right'];
 const MARKERS = ['bullet', 'number', 'check', 'checked'];
 const ARROWS = ['right', 'left', 'both', 'double'];
 const PARTS = ['center', 'right'];
-const partOf = (t) => ({ ...(t.part ? { part: t.part } : {}), ...(t.body ? { body: true } : {}) });
+const partOf = (t) => ({ ...(t.part ? { part: t.part } : {}), ...(t.body ? { body: true } : {}), ...(t.cell !== undefined ? { cell: t.cell, sub: t.sub } : {}) });
 const ARROW_TEXT = { right: '->', left: '<-', both: '<->', double: '=>' };
 // list markers in the PDF's text layer, in WinAnsi so that they copy as typed
 const MARKER_TEXT = { bullet: '-', check: '[ ]', checked: '[x]' };
@@ -480,6 +481,19 @@ function dominant(chars, ids) {
   return best;
 }
 
+/** A table block's rows as span lists: every span marked with its cell, a line break
+ *  in a cell kept as { br }, the header row's spans firmer; the caption, if any, a
+ *  last row of one cell.  { n, rows, head, caption }. */
+function tableRows(b) {
+  const rows = (Array.isArray(b.rows) ? b.rows : []).filter((r) => r && typeof r === 'object' && Array.isArray(r.cells));
+  const n = Math.min(64, Math.max(1, rows.reduce((m, r) => Math.max(m, r.cells.length), 0)));
+  const spans = (cell, c, more) => (Array.isArray(cell) ? cell : []).filter((sp) => sp && typeof sp === 'object').map((sp) => { const { part, body, ...rest } = sp; return { ...rest, cell: c, ...more }; });
+  const out = rows.map((r) => r.cells.slice(0, 64).flatMap((cell, c) => spans(cell, c, r.head ? { bold: true } : {})));
+  const caption = Array.isArray(b.caption) && b.caption.length > 0;
+  if (caption) out.push(spans(b.caption.filter((sp) => !sp.br), 0, {}));
+  return { n, head: rows.map((r) => !!r.head), rows: out, caption };
+}
+
 function planRich(doc, normalize) {
   const styles = [{}], ids = new Map([[styleKey({}), 0]]);
   const sid = (sp) => { const s = cleanStyle(sp); const k = styleKey(s); if (!ids.has(k)) { ids.set(k, styles.length); styles.push(s); } return ids.get(k); };
@@ -494,22 +508,30 @@ function planRich(doc, normalize) {
       type, level: Math.min(3, Math.max(1, Math.round(Number(b.level) || 1))),
       marker: type === 'item' ? (MARKERS.includes(b.marker) ? b.marker : 'bullet') : null,
       align: b.align === 'center' || b.align === 'right' ? b.align : 'left',
-      box: Number.isFinite(b.box) ? b.box : null, lines: [],
+      box: Number.isFinite(b.box) && type !== 'table' ? b.box : null, lines: [],
     };
     blocks.push(blk);
-    const rows = ['rule', 'pagebreak', 'blank'].includes(type) ? [null] : (Array.isArray(b.lines) && b.lines.length ? b.lines : [[]]);
-    for (const spans of rows) {
+    // a table: one line per row, its spans the cells' in order, each marked with its cell
+    const table = type === 'table' ? tableRows(b) : null;
+    if (table) blk.columns = Array.from({ length: table.n }, (_, c) => (COLUMN_ALIGNS.includes(b.columns?.[c]) ? b.columns[c] : 'left'));
+    const rows = table ? table.rows : ['rule', 'pagebreak', 'blank'].includes(type) ? [null] : (Array.isArray(b.lines) && b.lines.length ? b.lines : [[]]);
+    for (const [ri, spans] of rows.entries()) {
       const k = lines.length;
       const line = { block: bi, kind: spans === null ? type : 'text', chars: [], sty: [], items: [] };
+      if (table && table.head[ri]) line.head = true;
+      if (table && table.caption && ri === rows.length - 1) line.caption = true;
       blk.lines.push(k); lines.push(line); paragraphs.push([]);
       if (spans === null) continue;
       // words (split at spaces and arrows) with the style of every character
       // (and the part of the line it stands in: a part border is a word border)
       const toks = [];
-      let cur = null, prevPart = '';
+      let cur = null, prevPart = '', cell = -1, sub = 0;
       for (const sp of Array.isArray(spans) ? spans : []) {
         if (!sp || typeof sp !== 'object') continue;
-        const part = PARTS.includes(sp.part) ? { part: sp.part } : {};
+        // a cell border and a line break in a cell are word borders
+        if (table && sp.cell !== cell) { cell = sp.cell; sub = 0; cur = null; }
+        if (table && sp.br) { sub++; cur = null; continue; }
+        const part = table ? { cell, sub } : PARTS.includes(sp.part) ? { part: sp.part } : {};
         if (sp.body && type === 'heading') part.body = true;
         const pk = `${part.part || ''}|${part.body ? 1 : 0}`;
         if (pk !== prevPart) { cur = null; prevPart = pk; if (pk !== '|0') line.parts = true; }
@@ -532,7 +554,7 @@ function planRich(doc, normalize) {
         const n = [...parts.join('')].length;
         const cs = per.length === n ? per : new Array(n).fill(dominant([...t.typed], t.cs));
         let at = 0;
-        for (const p of parts) { const m = [...p].length; items.push({ text: p, typed: parts.length === 1 ? t.typed : p, cs: cs.slice(at, at + m), part: t.part, body: t.body }); at += m; }
+        for (const p of parts) { const m = [...p].length; items.push({ text: p, typed: parts.length === 1 ? t.typed : p, cs: cs.slice(at, at + m), part: t.part, body: t.body, ...(table ? { cell: t.cell, sub: t.sub } : {}) }); at += m; }
       }
       items.forEach((it, i) => {
         if (i > 0) { const p = items[i - 1]; line.chars.push(' '); line.sty.push(between(p.arrow ? p.s : p.cs[p.cs.length - 1], it.arrow ? it.s : it.cs[0])); }
@@ -547,7 +569,7 @@ function planRich(doc, normalize) {
       // A part border is a piece border as an arrow is, a part of 3 characters or
       // fewer ("7b") written with its neighbour and cut off again by the layout.
       const border = new Array(seg.length + 1).fill(false), runs = [];
-      const partStart = seg.map((w, i) => i > 0 && (w.part !== seg[i - 1].part || w.body !== seg[i - 1].body));
+      const partStart = seg.map((w, i) => i > 0 && (w.part !== seg[i - 1].part || w.body !== seg[i - 1].body || w.cell !== seg[i - 1].cell || w.sub !== seg[i - 1].sub));
       for (let i = 1; i < seg.length; i++) if (arrowsBefore[i] || partStart[i]) border[i] = true;
       for (let i = 0; i < seg.length;) {
         let j = i;
@@ -603,7 +625,7 @@ function planRich(doc, normalize) {
     }
   }
   // Trailing empty lines and page breaks write nothing.
-  const empty = (l) => l.kind === 'blank' || l.kind === 'pagebreak' || (l.kind === 'text' && !l.items.length && blocks[l.block].type !== 'item');
+  const empty = (l) => l.kind === 'blank' || l.kind === 'pagebreak' || (l.kind === 'text' && !l.items.length && blocks[l.block].type !== 'item' && blocks[l.block].type !== 'table');
   while (lines.length && empty(lines[lines.length - 1])) { lines.pop(); paragraphs.pop(); }
   for (const blk of blocks) blk.lines = blk.lines.filter((k) => k < lines.length);
   return { rich: true, format: doc.format || 'markdown', paragraphs, pieces, lines, blocks, styles, stats, notes: Array.isArray(doc.notes) ? doc.notes.slice() : [] };
@@ -636,7 +658,21 @@ export const PART_GAP = 3;
 // body size, when it would not fit centred at its full size: on a notebook page date
 // and title belong on one line, and a long title is simply written less large.
 export const TITLE_FIT = [1.3, 1.15, 1];
-const ARROW_SALT = 0x68E31DA4, MARK_SALT = 0x1B873593;
+const ARROW_SALT = 0x68E31DA4, MARK_SALT = 0x1B873593, TABLE_SALT = 0x2F8A61C3;
+// Tables.  A cell keeps this many letter widths of the table's own writing to its
+// lines at each side.
+export const TABLE_PAD = 1;
+// Cells are written at this share of the body size, as a person writes smaller in
+// a table: at full size this hand's capitals and descenders fill the pitch, and of
+// the 56 grid lines of the seven liniert proof tables 23 came within GRID_CLEAR of
+// the ink (21 words touched one), at 0.85 14 (10), at 0.8 9 (5).
+export const TABLE_SIZE = 0.8;
+// A horizontal grid line between two rows lies this share of the pitch under the
+// upper row's baseline, moved to stay GRID_CLEAR x-heights off the ink of both rows
+// when that ink leaves room; the top and bottom lines as far from their rows.
+export const GRID_SPLIT = 0.34, GRID_CLEAR = 0.3;
+// The line under the header row: drawn twice, this many x-heights apart.
+export const HEAD_GAP = 0.45;
 const NARROW = new Set([...'iljtfrI1.,:;!|\'']), WIDE = new Set([...'mwMW']);
 const charWeight = (c) => (c === ' ' ? 1.6 : NARROW.has(c) ? 0.55 : WIDE.has(c) ? 1.5 : /\p{Lu}/u.test(c) ? 1.2 : 1);
 
@@ -815,6 +851,111 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
     });
   };
 
+  // A table, shown once all of it is written: its columns are as wide as their widest
+  // cell plus TABLE_PAD at each side, the widest giving way when the table would be
+  // wider than the text, their words wrapping inside them (a word wider than its
+  // column written smaller).  Every text row of a cell is a row of the page, a table
+  // row as high as its tallest cell and never split by a page break (trow); the
+  // header row stays with the next one (keep).
+  const tables = [];
+  let trows = 0;
+  const flowTable = (blk, bi) => {
+    const all = blk.lines, n = blk.columns.length, u = g.xh * TABLE_SIZE;
+    if (!all.length) return;
+    // the caption (LaTeX's \caption) is written centred under the table, on the next line
+    const capK = plan.lines[all[all.length - 1]].caption ? all[all.length - 1] : null, ks = capK === null ? all : all.slice(0, -1);
+    for (const k of all) for (const it of plan.lines[k].items) if (it.piece !== undefined && !written[it.piece]) { stop = true; return; }
+    const cells = all.map(() => Array.from({ length: n }, () => []));
+    let inkW = 0, inkChars = 0;
+    all.forEach((k, r) => {
+      const line = plan.lines[k];
+      for (const it of line.items) {
+        const c = Math.min(n - 1, it.cell || 0), sub = it.sub || 0, list = cells[r][c];
+        if (it.arrow) { list.push({ kind: 'arrow', arrow: it.arrow, s: it.s, at0: it.at, at1: it.at + 1, wide: decor.ARROW_LENGTH[it.arrow] * u, f: 1, gap: gapMm(normal(ARROW_SALT, k, it.at)) * TABLE_SIZE, k, sub, cell: c }); continue; }
+        const index = it.piece, pc = written[index], pl = plan.pieces[index];
+        const z = makeRandom(pieceSeed(s.seed ^ LAYOUT_SALT, index, 0)).normal();
+        const even = sizeCorrection(pc.estimate, typ), scale = unit * even * TABLE_SIZE;
+        let prevEnd = null;
+        for (const un of unitsOf(index)) {
+          if (un.from < it.from || un.from >= it.to) continue;
+          const w = un.w, f = scale * w.size, nch = [...w.text].length;
+          const gap = prevEnd === null ? gapMm(z) * TABLE_SIZE : g.xh * even * TABLE_SIZE * Math.min(1.8 * gapXh[0], Math.max(0.5 * gapXh[0], w.x0 - prevEnd));
+          prevEnd = w.x1;
+          const at = pl.ats ? pl.ats[un.from] : pl.at + [...pl.text.split(' ').slice(0, un.from).join(' ')].length + (un.from ? 1 : 0);
+          list.push({ kind: 'word', w, wi: un.from, index, f, wide: (w.x1 - w.x0) * f, gap, at0: at, at1: at + nch, chars: line.chars.slice(at, at + nch), typed: pl.typed.slice(un.from, un.to).join(' '), ok: pc.ok, k, label: false, sub, cell: c });
+          inkW += (w.x1 - w.x0) * f; inkChars += nch;
+        }
+        if (it.to === unitsOf(index)[unitsOf(index).length - 1].to) { evens[index] = even; placed++; }
+      }
+    });
+    const caption = capK === null ? null : cells.pop()[0];
+    const pad = TABLE_PAD * (inkChars ? inkW / inkChars : u);
+    const natural = new Array(n).fill(0);
+    for (const row of cells) row.forEach((list, c) => {
+      let w = 0, sub = -1;
+      for (const x of list) { w = x.sub !== sub ? x.wide : w + x.gap + x.wide; sub = x.sub; natural[c] = Math.max(natural[c], w); }
+    });
+    // a cell's words in rows of its column's width; a word wider than the column smaller
+    const wrap = (list, wd) => {
+      const p = Math.min(pad, wd / 4), inner = wd - 2 * p, out = [];
+      let cur = null, sub = -1, shrunk = 0;
+      for (const x of list) {
+        let { f, wide } = x;
+        if (x.kind === 'word' && wide > inner) { f *= inner / wide; wide = inner; shrunk++; }
+        if (!cur || x.sub !== sub || cur.w + x.gap + wide > inner + 1e-9) { cur = { units: [], w: 0 }; out.push(cur); sub = x.sub; cur.units.push({ ...x, f, wide, rel: 0 }); cur.w = wide; continue; }
+        cur.units.push({ ...x, f, wide, rel: cur.w + x.gap }); cur.w += x.gap + wide;
+      }
+      return { p, rows: out, shrunk };
+    };
+    // Too wide for the text: the columns narrower than an even share keep their width,
+    // the others share the rest evenly, by their width or by its square root, whichever
+    // writes the table in the fewest rows (a word written smaller counts half a row).
+    const W = g.right - g.left, want = natural.map((v) => v + 2 * pad);
+    let widths = want;
+    if (want.reduce((a, v) => a + v, 0) > W) {
+      const asc = [...want].sort((a, b) => a - b);
+      let cap = Infinity;
+      for (let i = 0, sum = 0; i < n; sum += asc[i], i++) if (sum + asc[i] * (n - i) >= W) { cap = (W - sum) / (n - i); break; }
+      const keep = want.map((v) => v <= cap), rest = W - want.reduce((a, v, c) => a + (keep[c] ? v : 0), 0);
+      const share = (pw) => { const t = want.reduce((a, v, c) => a + (keep[c] ? 0 : v ** pw), 0); return want.map((v, c) => (keep[c] ? v : (rest * v ** pw) / t)); };
+      const cost = (ws) => cells.reduce((a, row) => a + Math.max(1, ...row.map((list, c) => { const l = wrap(list, ws[c]); return l.rows.length + 0.5 * l.shrunk; })), 0);
+      let best = Infinity;
+      for (const ws of [want.map((v) => Math.min(v, cap)), share(1), share(0.5)]) { const c = cost(ws); if (c < best - 1e-9) { best = c; widths = ws; } }
+    }
+    const xs = [g.left];
+    for (const v of widths) xs.push(xs[xs.length - 1] + v);
+    const tb = { bi, xs, rows: [], caption: [], head: !!plan.lines[ks[0]].head };
+    ks.forEach((k, r) => {
+      const id = trows++;
+      const lay = cells[r].map((list, c) => wrap(list, xs[c + 1] - xs[c]));
+      const h = Math.max(1, ...lay.map((l) => l.rows.length)), group = [];
+      for (let t = 0; t < h; t++) {
+        const row = { kind: 'text', block: bi, k, box: null, size: TABLE_SIZE, heading: 0, keep: tb.head && r === 0, L: g.left, R: g.right, items: [], trow: id, last: t === h - 1 };
+        lay.forEach(({ p, rows: rs }, c) => {
+          const tr = rs[t];
+          if (!tr) return;
+          // where a hand starts a cell's row: a little after its line; a number column ends within a hair
+          const z = normal(TABLE_SALT, k, 64 * t + c), a = blk.columns[c];
+          const x0 = a === 'right' ? xs[c + 1] - p - tr.w - Math.min(0.1, 0.04 * Math.abs(z))
+            : a === 'center' ? (xs[c] + xs[c + 1] - tr.w) / 2 + Math.max(-0.15, Math.min(0.15, 0.08 * z)) : xs[c] + p + Math.max(-0.2, Math.min(0.2, 0.1 * z));
+          for (const x of tr.units) row.items.push({ ...x, x: x0 + x.rel });
+        });
+        rows.push(row); group.push(row);
+      }
+      tb.rows.push(group);
+    });
+    if (caption) {
+      // on the rows after the table's last one, which it never leaves (trow)
+      const { rows: rs } = wrap(caption, xs[n] - xs[0]), last = tb.rows[tb.rows.length - 1][0];
+      rs.forEach((tr, t) => {
+        const z = normal(TABLE_SALT, capK, t), x0 = (xs[0] + xs[n] - tr.w) / 2 + Math.max(-ALIGN_JITTER, Math.min(ALIGN_JITTER, 0.12 * z));
+        const row = { kind: 'text', block: bi, k: capK, box: null, size: TABLE_SIZE, heading: 0, keep: false, L: g.left, R: g.right, items: tr.units.map((x) => ({ ...x, x: x0 + x.rel })), trow: last.trow, caption: true, last: t === rs.length - 1 };
+        rows.push(row); tb.caption.push(row);
+      });
+    }
+    tables.push(tb);
+  };
+
   // What of a written piece is placed on its own: its words, or, where the network
   // wrote it as one, the whole piece cut again only where the plan needs a border
   // (an arrow, a list label) at the clearest gap in the ink near where the letters
@@ -836,16 +977,19 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
     // A number label ("3.") sits on the line by the lowest point of its digits: the
     // network often writes it low or high, and sitLine reads the inner turns of a 3
     // or a 5 as letter bottoms (on proof pages it set "3." 2.7 xh too low).
-    if (pl.cuts && plan.blocks[pl.block].marker === 'number' && out[0].to === 1 && /^\d+[.)]?$/u.test(out[0].w.text)) {
-      const w = out[0].w, p = w.points, size = strokeSize(p);
+    const sitDigits = (un) => {
+      const w = un.w, p = w.points, size = strokeSize(p);
       let low = -Infinity;
       for (const [a, e] of strokeRanges(p)) {
         let len = 0, y = -Infinity;
         for (let i = a; i < e; i++) { if (i > a) len += Math.hypot(p[3 * i] - p[3 * i - 3], p[3 * i + 1] - p[3 * i - 2]); y = Math.max(y, p[3 * i + 1]); }
         if (len >= 0.3 * size) low = Math.max(low, y);                  // not the full stop
       }
-      if (Number.isFinite(low) && Math.abs(low - w.level) <= LABEL_SIT_MAX) out[0] = { ...out[0], w: { ...w, level: low } };
-    }
+      return Number.isFinite(low) && Math.abs(low - w.level) <= LABEL_SIT_MAX ? { ...un, w: { ...w, level: low } } : un;
+    };
+    if (pl.cuts && plan.blocks[pl.block].marker === 'number' && out[0].to === 1 && /^\d+[.)]?$/u.test(out[0].w.text)) out[0] = sitDigits(out[0]);
+    // so does a number in a table cell ("3", "12,50"); 7 and 9 may reach below the line in this hand
+    if (plan.blocks[pl.block].type === 'table') out = out.map((un) => (/^[\d.,:/]*\d[\d.,:/]*$/u.test(un.w.text) && !/[79]/u.test(un.w.text) ? sitDigits(un) : un));
     unitCache.set(index, out);
     return out;
   }
@@ -910,6 +1054,8 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
     const last = lastText(), lastBlk = last && plan.blocks[last.block];
     if (lastBlk && lastBlk.type === 'heading' && lastBlk.level === 1 && blk.type !== 'blank') space(1);       // a title stands apart from what follows
     if (blk.type === 'heading' && (blk.level === 1 || (blk.level === 2 && !(lastBlk && lastBlk.type === 'heading')))) space(1);
+    if (blk.type !== 'blank' && (blk.type === 'table' || (lastBlk && lastBlk.type === 'table'))) space(1);         // an empty line above and below a table
+    if (blk.type === 'table') { flowTable(blk, bi); continue; }
     blk.lines.forEach((k, li) => {
       if (stop) return;
       const line = plan.lines[k];
@@ -929,6 +1075,7 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
     let e = r;
     for (;;) {
       if (rows[e].box !== null && rows[e].kind !== 'break') while (e + 1 < rows.length && rows[e + 1].box === rows[e].box) e++;
+      if (rows[e].trow !== undefined) while (e + 1 < rows.length && rows[e + 1].trow === rows[e].trow) e++;
       if (!rows[e].keep) return e;
       let n = e + 1;
       while (n < rows.length && rows[n].kind === 'blank') n++;
@@ -939,7 +1086,7 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     if (row.kind === 'break') { cur = null; continue; }
-    if (r > chainUntil && row.kind !== 'blank' && (row.keep || row.box !== null)) {
+    if (r > chainUntil && row.kind !== 'blank' && (row.keep || row.box !== null || row.trow !== undefined)) {
       let e = chainEnd(r);
       if (e - r + 1 > nLines && row.keep) { e = r; while (rows[e].keep && e + 1 < rows.length) e++; }
       if (e - r + 1 <= nLines) { if (cur && line + (e - r + 1) > nLines) cur = null; chainUntil = e; }
@@ -1063,7 +1210,7 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
       const out = [];
       let cur = null, prev = null;
       for (const it of seq) {
-        if (cur && prev && prev.part !== it.part) { out.push(cur); cur = null; }        // a run ends with its part
+        if (cur && prev && (prev.part !== it.part || prev.cell !== it.cell)) { out.push(cur); cur = null; }        // a run ends with its part, its cell
         if (cur && prev) for (let o = prev.at1; o < it.at0; o++) if ((styleAt(row.k, o)[attr] || null) !== cur.v) { out.push(cur); cur = null; break; }
         for (let o = it.at0; o < it.at1; o++) {
           const v = styleAt(row.k, o)[attr] || null;
@@ -1087,6 +1234,57 @@ function layoutRich(plan, written, settings, { gapXh, sizeByBias, typical }) {
     if (!(row.heading === 1 || row.heading === 2) || row.parts) for (const r of runs('underline')) if (!row.heading || r.a[0].body) addDeco(row.page, decor.underline(rngFor(row.block), r.x0, r.x1, y, uOf(r.a[0])), { color: r.color, bold: false, kind: 'underline' });
     for (const r of runs('strike')) addDeco(row.page, decor.strike(rngFor(row.block), r.x0, r.x1, y, uOf(r.a[0])), { color: r.color, bold: false, kind: 'strike' });
   }
+
+  // tables: per page the grid around the rows on it, closed at the top and the bottom
+  let touching = 0;
+  for (const tb of tables) {
+    const parts = new Map();
+    for (const group of tb.rows) for (const row of group) {
+      if (row.page === undefined) continue;
+      if (!parts.has(row.page)) parts.set(row.page, []);
+      const list = parts.get(row.page), last = list[list.length - 1];
+      if (last && last[0].trow === row.trow) last.push(row); else list.push([row]);
+    }
+    const n = tb.xs.length - 1, p0 = g.pitch;
+    for (const [p, list] of parts) {
+      const ink = list.map((rs) => {
+        const ys = [];
+        for (const row of rs) for (const it of row.items) if (it.q) for (let i = 1; i < it.q.length; i += 3) ys.push(it.q[i]);
+        return { b0: g.baselines[rs[0].line], b1: g.baselines[rs[rs.length - 1].line], ys };
+      });
+      const head = tb.head && list[0][0] === tb.rows[0][0];
+      // the line between two rows (or above the first, below the last): where the
+      // fewest points of their ink come within GRID_CLEAR of it, and of those the
+      // nearest to GRID_SPLIT of the pitch from the rows' baselines
+      const place = (ys, lo, hi, want, half) => {
+        const band = GRID_CLEAR * g.xh + half, near = ys.filter((v) => v > lo - band && v < hi + band);
+        let best = want, cost = Infinity;
+        for (let y = lo; y <= hi + 1e-9; y += 0.05) {
+          let c = 0;
+          for (const v of near) if (Math.abs(v - y) < band) c++;
+          if (c < cost || (c === cost && Math.abs(y - want) < Math.abs(best - want))) { cost = c; best = y; }
+        }
+        if (cost) touching++;
+        return best;
+      };
+      const ys = [place(ink[0].ys, ink[0].b0 - 1.2 * p0, ink[0].b0 - 0.4 * p0, ink[0].b0 - (1 - GRID_SPLIT) * p0, 0)];
+      for (let i = 1; i < ink.length; i++) {
+        const a = ink[i - 1], b = ink[i];
+        ys.push(place([...a.ys, ...b.ys], a.b1 + 0.1 * p0, b.b0 - 0.4 * p0, b.b0 - (1 - GRID_SPLIT) * p0, head && i === 1 ? (HEAD_GAP / 2) * g.xh : 0));
+      }
+      const z = ink[ink.length - 1], cap = tb.caption.filter((row) => row.page === p);
+      const below = cap.length ? cap.flatMap((row) => row.items.flatMap((it) => (it.q ? Array.from(it.q).filter((_, i) => i % 3 === 1) : []))) : [];
+      ys.push(place([...z.ys, ...below], z.b1 + 0.1 * p0, cap.length ? g.baselines[cap[0].line] - 0.4 * p0 : z.b1 + p0, z.b1 + GRID_SPLIT * p0, 0));
+      const style = { color: null, bold: false, kind: 'grid' }, rng = (i) => decor.decorRandom(s.seed, 200000 + tb.bi, 1000 * p + i);
+      ys.forEach((y, i) => {
+        if (head && i === 1) for (const d of [-0.5, 0.5]) addDeco(p, decor.rulerLine(rng(900 + d * 2), tb.xs[0], y + d * HEAD_GAP * g.xh, tb.xs[n], y + d * HEAD_GAP * g.xh, g.xh), style);
+        else addDeco(p, decor.rulerLine(rng(i), tb.xs[0], y, tb.xs[n], y, g.xh), style);
+      });
+      tb.xs.forEach((x, j) => addDeco(p, decor.rulerLine(rng(500 + j), x, ys[0], x, ys[ys.length - 1], g.xh), style));
+      (pages[p].tables ||= []).push({ block: tb.bi, xs: tb.xs, ys, rows: list.map((rs) => rs.map((row) => row.line)) });
+    }
+  }
+  if (tables.length) stats.gridTouching = touching;
 
   // frames: one per box and page, around the ink of its rows
   pagesRows.forEach((list, p) => {

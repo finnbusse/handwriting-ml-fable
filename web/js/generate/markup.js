@@ -6,7 +6,12 @@
 //   Block = { type: 'paragraph' | 'heading' | 'item' | 'rule' | 'pagebreak' | 'blank',
 //             level?, marker?: 'bullet' | 'number' | 'check' | 'checked', align?: 'center' | 'right',
 //             box?: number, lines: [[Span]] }
+//         | { type: 'table', columns: ['left' | 'center' | 'right'], rows: [{ head?: true, cells: [[Span]] }], caption?: [Span], lines }
 //   Span  = { text, bold?, underline?, strike?, mark?, color?, arrow?, part?, body? }   (an arrow span has text '')
+//
+// A table cell is a list of spans like a line; a line break inside it is the span
+// { text: '', br: true }.  A table's `lines` are its rows' words, the cells one space
+// apart, for code that only reads lines; its own content is `rows`.
 //
 // A line may have parts: spans with part 'center' or 'right' (none = left), in that
 // order, are written on the same line, centred and against the right edge.  In a
@@ -63,6 +68,12 @@ export function plainText(doc) {
   for (const b of doc?.blocks ?? []) {
     if (b.type === 'blank') { out.push(''); continue; }
     if (b.type === 'rule' || b.type === 'pagebreak') continue;
+    if (b.type === 'table') {
+      const text = (c) => c.map((s) => (s.br ? ' ' : s.arrow ? ARROW_TEXT[s.arrow] ?? '' : s.text)).join('');
+      for (const r of b.rows ?? []) { const cells = r.cells.map(text); while (cells.length > 1 && !cells[cells.length - 1].trim()) cells.pop(); out.push(cells.join(' | ')); }
+      if (b.caption) out.push(text(b.caption));
+      continue;
+    }
     // the parts of a line one space apart, in reading order
     const lines = (b.lines ?? []).map((l) => l.map((s, i) => (i && s.part !== l[i - 1].part ? ' ' : '') + (s.arrow ? ARROW_TEXT[s.arrow] ?? '' : s.text)).join(''));
     if (b.type === 'item') {
@@ -95,6 +106,8 @@ export const CHEAT_SHEET = Object.freeze([
   { schreiben: '{datum}', ergebnis: 'das heutige Datum, z. B. 26.11.2026' },
   { schreiben: '\\*Stern\\*', ergebnis: 'ein \\ davor: das Zeichen bleibt, wie es ist' },
   { schreiben: '\\section{…}  \\textbf{…}  \\item', ergebnis: 'LaTeX wird auch verstanden' },
+  { schreiben: '| Wort | Zahl |   |:--|--:|   | Haus | 12 |', ergebnis: 'Tabelle, die erste Zeile kräftiger; :-- links, :-: mittig, --: rechts; <br> bricht in der Zelle um' },
+  { schreiben: '\\begin{tabular}{l r} a & 1 \\\\ \\end{tabular}', ergebnis: 'Tabelle in LaTeX; in \\begin{table} steht \\caption{…} mittig darunter' },
 ]);
 
 // ---------- shared ----------
@@ -152,6 +165,26 @@ function dropTrailingBlanks(blocks) {
 }
 
 function withBox(b, box) { const { lines, ...rest } = b; return { ...rest, box, lines }; }
+
+/** A table block: every row as many cells as the widest (missing ones empty, so a
+ *  ragged row loses nothing), one alignment per column; null when no cell holds
+ *  anything to write. */
+function tableBlock(columns, rows) {
+  const n = rows.reduce((m, r) => Math.max(m, r.cells.length), columns.length);
+  const lines = [];
+  for (const r of rows) {
+    while (r.cells.length < n) r.cells.push([]);
+    const l = [];
+    for (const c of r.cells) {
+      if (!c.length) continue;
+      if (l.length) l.push({ text: ' ' });
+      for (const sp of c) l.push(sp.br ? { text: ' ' } : { ...sp });
+    }
+    if (l.length) lines.push(l);
+  }
+  if (!lines.length) return null;
+  return { type: 'table', columns: Array.from({ length: n }, (_, i) => columns[i] || 'left'), rows, lines };
+}
 
 function textBlocks(src) {
   const blocks = [];
@@ -212,7 +245,10 @@ function markdownBlocks(lines, st) {
       // "> > x" is one box, not a box in a box (and no recursion as deep as the line is long)
       while (k < lines.length && BOX.test(lines[k])) inner.push(lines[k++].replace(BOXES, ''));
       k--;
-      const id = ++st.box, got = dropTrailingBlanks(markdownBlocks(inner, st));
+      const id = ++st.box, outer = st.inBox;
+      st.inBox = true;
+      const got = dropTrailingBlanks(markdownBlocks(inner, st));
+      st.inBox = outer;
       while (got.length && got[0].type === 'blank') got.shift();
       for (const b of got) blocks.push(withBox(b, id));
       indents = [];
@@ -220,14 +256,35 @@ function markdownBlocks(lines, st) {
     }
     if (RULE.test(raw)) { blocks.push({ type: 'rule', lines: [] }); indents = []; continue; }
     if (PAGE.test(raw)) { blocks.push({ type: 'pagebreak', lines: [] }); indents = []; continue; }
-    if (/^\s*\|.*\|\s*$/.test(raw)) {
-      // until tables are drawn, a row is written as a line of its cells: the pipes come out
-      // of this hand as strokes like an n, and the |---| line under the head as a scrawl
-      st.notes.add('Markdown: Tabellen werden als Zeilen geschrieben');
-      if (/^[\s|:-]+$/.test(raw)) { open = was; continue; }
-      raw = raw.trim().slice(1, -1).split('|').map((c) => c.trim()).filter(Boolean).join('  ');
-      if (!raw) continue;
+    // a table: a row with a pipe, then the delimiter row (--- per column, : for the alignment)
+    let nested = false;
+    if (k + 1 < lines.length && raw.includes('|') && lines[k + 1].includes('|') && !listItem(raw) && !HEAD.test(raw)) {
+      const head = splitRow(raw), delim = splitRow(lines[k + 1]);
+      if (head.pipes && delim.pipes && head.cells.length && delim.cells.length === head.cells.length && delim.cells.every((c) => DELIM_CELL.test(c))) {
+        nested = st.inBox || (was === 'item' && cols(/^[ \t]*/.exec(raw)[0]) >= 2);
+        if (nested) st.notes.add(NESTED_TABLE);
+        else {
+          const cell = (t) => {
+            const out = [];
+            for (const seg of t.split(/<br\s*\/?>/i)) {
+              const spans = finishLine(inlineMarkdown(seg, st));
+              if (!spans.length) continue;
+              if (out.length) out.push({ text: '', br: true });
+              out.push(...spans);
+            }
+            return out;
+          };
+          const rows = [{ head: true, cells: head.cells.map(cell) }];
+          let e = k + 2;
+          for (let r; e < lines.length && lines[e].trim() && (r = splitRow(lines[e])).pipes; e++) rows.push({ cells: r.cells.map(cell) });
+          const block = tableBlock(delim.cells.map((c) => (c.endsWith(':') ? (c.startsWith(':') ? 'center' : 'right') : 'left')), rows);
+          if (block) blocks.push(block);
+          k = e - 1; indents = [];
+          continue;
+        }
+      }
     }
+    if (!nested && !st.notes.has(NESTED_TABLE) && /^\s*\|.*\|\s*$/.test(raw)) st.notes.add('Markdown: Tabellen werden als Text geschrieben');
 
     const item = listItem(raw);
     if (item) {
@@ -284,6 +341,28 @@ function markdownBlocks(lines, st) {
     open = 'para';
   }
   return blocks;
+}
+
+const DELIM_CELL = /^:?-+:?$/;
+const NESTED_TABLE = 'Markdown: Tabellen in Listen oder Kästen werden als Text geschrieben';
+
+/** The cells of a table row, split at the pipes a backslash does not escape (the
+ *  escape stays for the inline marks to read); a leading and a trailing pipe are
+ *  the row's edges.  { cells, pipes }. */
+function splitRow(line) {
+  const s = line.trim(), cells = [];
+  let cur = '', pipes = 0, edge = false;
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    edge = false;
+    if (c === '\\' && i + 1 < s.length) { cur += c + s[++i]; continue; }
+    if (c === '|') { cells.push(cur.trim()); cur = ''; pipes++; edge = true; continue; }
+    cur += c;
+  }
+  cells.push(cur.trim());
+  if (pipes && s[0] === '|') cells.shift();
+  if (edge && cells.length) cells.pop();
+  return { cells, pipes };
 }
 
 function listItem(raw) {
@@ -473,6 +552,33 @@ const QUIET_ENVS = new Set(['document', 'minipage', 'figure', 'figure*', 'table'
 // stay far below, and pasted brace soup must not exhaust the call stack.
 const MAX_DEPTH = 120;
 const VERBATIM_ENVS = new Set(['verbatim', 'verbatim*', 'lstlisting', 'minted', 'Verbatim']);
+// The rules of a tabular: the grid is always drawn in full, so they only tell where the header ends.
+const TABLE_RULES = /^(?:\s|\\(?:hline|toprule|midrule|bottomrule|hdashline|endhead|endfirsthead|endfoot|endlastfoot)(?![a-zA-Z])|\\(?:cline|cmidrule)(?:\([^)]*\))?\{[^}]*\}|\\(?:addlinespace|specialrule)(?:\[[^\]]*\])?(?:\{[^}]*\})*)*/;
+
+/** The alignments of a tabular's column spec: l c r (p{…}, m{…}, b{…}, X as l), | @{…} >{…} dropped, *{n}{…} repeated. */
+function columnAligns(spec) {
+  const out = [];
+  const group = (j) => {
+    if (spec[j] !== '{') return null;
+    let d = 0;
+    for (let k = j; k < spec.length; k++) { if (spec[k] === '{') d++; else if (spec[k] === '}' && --d === 0) return { text: spec.slice(j + 1, k), end: k }; }
+    return { text: spec.slice(j + 1), end: spec.length };
+  };
+  for (let i = 0; i < spec.length && out.length < 64; i++) {
+    const c = spec[i];
+    if (c === '*') {
+      const n = group(i + 1), one = n && group(n.end + 1);
+      if (!one) continue;
+      const cols = columnAligns(one.text);
+      for (let r = 0; r < Math.min(Number(n.text) || 0, 64) && out.length < 64; r++) out.push(...cols);
+      i = one.end; continue;
+    }
+    const a = { l: 'left', c: 'center', r: 'right', L: 'left', C: 'center', R: 'right', J: 'left', p: 'left', m: 'left', b: 'left', X: 'left', S: 'right' }[c];
+    if (a) out.push(a);
+    if ('pmb@!<>'.includes(c)) { const g = group(i + 1); if (g) i = g.end; }
+  }
+  return out;
+}
 
 /** Removes % comments the way TeX does: a line that is only a comment disappears,
  *  a comment after text joins that text to the next line. */
@@ -585,6 +691,13 @@ function latexBuilder() {
       if (lists.length) { if (cur?.type === 'item') b.lineBreak(); return; }
       b.close(); pendingBlank = true;
     },
+    table(block) {
+      b.close();
+      const prev = blocks.at(-1);
+      if (pendingBlank && prev && !['blank', 'pagebreak'].includes(prev.type)) blocks.push({ type: 'blank', lines: [] });
+      pendingBlank = false;
+      blocks.push(block);
+    },
     single(type, ctx) {
       b.close();
       if (pendingBlank && type === 'rule' && blocks.length && !['blank', 'pagebreak'].includes(blocks.at(-1).type)) blocks.push({ type: 'blank', lines: [] });
@@ -597,7 +710,9 @@ function latexBuilder() {
 }
 
 function parseLatex(src, today) {
-  const notes = new Set(), b = latexBuilder(), meta = {}, envs = [];
+  // b: where the text goes; a table cell is read into a builder of its own
+  const notes = new Set(), meta = {}, envs = [];
+  let b = latexBuilder();
   let s = stripComments(src), pre = '';
   const start = s.indexOf('\\begin{document}');
   if (start >= 0) {
@@ -764,6 +879,12 @@ function parseLatex(src, today) {
         parse(a.from, a.to, inner(ctx, { style: { ...ctx.style, ...ARG_STYLE[name] } }));
         return a.next;
       }
+      if (name === 'caption' && envs.some((e) => e.name === 'table' || e.name === 'table*')) {
+        // a table's caption: written centred under it, wherever it is typed
+        const o = optArg(j, to), a = reqArg(o ? o.next : j, to);
+        if (a) envs.findLast((e) => e.name === 'table' || e.name === 'table*').caption = a;
+        return a ? a.next : j;
+      }
       if (PASS.has(name)) { const a = reqArg(j, to); if (a) parse(a.from, a.to, inner(ctx)); return a ? a.next : j; }
       if (DECL_STYLE[name]) { ctx.style = { ...ctx.style, ...DECL_STYLE[name] }; return eat(j); }
       if (LATEX_ARROWS[name]) { b.arrow(LATEX_ARROWS[name], ctx); return j; }      // the spaces around an arrow stay
@@ -905,6 +1026,59 @@ function parseLatex(src, today) {
     };
     const parseLabel = (label, ctx) => reader(label).parse(0, label.length, ctx);
 
+    /** The rows of a tabular's body: split at \\ and & outside braces; the rules
+     *  (\hline, \midrule …) are read and dropped, a rule after the first row makes
+     *  it the header. */
+    const tableRows = (from, to, ctx) => {
+      const rows = [];
+      let cells = [], start = from, depth = 0;
+      for (let i = from; i < to; i++) {
+        const c = str[i];
+        if (c === '\\') {
+          const nl = str[i + 1] === '\\' ? 2 : str.startsWith('tabularnewline', i + 1) && !/[a-zA-Z]/.test(str[i + 15] ?? '') ? 15 : 0;
+          if (nl && !depth) {
+            cells.push([start, i]); rows.push(cells); cells = [];
+            let j = i + nl;
+            if (str[j] === '*') j++;
+            const o = optArg(j, to);
+            start = o ? o.next : j; i = start - 1;
+            continue;
+          }
+          i++; continue;
+        }
+        if (c === '{') depth++;
+        else if (c === '}') depth = Math.max(0, depth - 1);
+        else if (c === '&' && !depth) { cells.push([start, i]); start = i + 1; }
+      }
+      cells.push([start, to]); rows.push(cells);
+      const out = [];
+      let ruleAfterFirst = false;
+      for (const row of rows) {
+        const lead = TABLE_RULES.exec(str.slice(row[0][0], row[0][1]))[0];
+        if (out.length === 1 && /\\/.test(lead)) ruleAfterFirst = true;
+        row[0][0] += lead.length;
+        if (row.length === 1 && !str.slice(row[0][0], row[0][1]).trim()) continue;      // nothing but rules
+        out.push({ cells: row.map(([a, e]) => cellSpans(a, e, ctx)) });
+      }
+      if (ruleAfterFirst && out.length > 1) out[0] = { head: true, ...out[0] };
+      return out;
+    };
+    /** The spans of one cell, read into a builder of its own; its lines one break apart. */
+    const cellSpans = (from, to, ctx) => {
+      const outer = b;
+      b = latexBuilder();
+      parse(from, to, inner(ctx, { align: 'left', box: 0, table: true }));
+      const got = b.finish();
+      b = outer;
+      const out = [];
+      for (const bl of got) for (const l of bl.lines) {
+        if (!l.length) continue;
+        if (out.length) out.push({ text: '', br: true });
+        for (const { part, body, ...sp } of l) out.push(sp);
+      }
+      return out;
+    };
+
     const begin = (name, j, to, ctx) => {
       if (name === 'document') return j;
       if (VERBATIM_ENVS.has(name)) {
@@ -930,12 +1104,21 @@ function parseLatex(src, today) {
       if (BOX_ENVS.has(name)) { const o = optArg(k, to); if (o) k = o.next; b.close(); ctx.box = b.newBox(); return k; }
       if (MATH_ENVS.has(name)) { b.close(); ctx.math = true; return k; }
       if (TABLE_ENVS.has(name)) {
-        notes.add(`LaTeX: Tabellen (${name}) werden als Zeilen geschrieben`);
-        b.close(); ctx.table = true;
         const o = optArg(k, to); if (o) k = o.next;
         const args = name === 'tabular' || name === 'array' || name === 'longtable' ? 1 : 2;
-        for (let n = 0; n < args; n++) { const a = reqArg(k, to, true); if (a) k = a.next; }
-        return k;
+        let spec = '';
+        for (let n = 0; n < args; n++) { const a = reqArg(k, to, true); if (a) { k = a.next; spec = raw(a); } }
+        // a tabular is drawn as a table; what it cannot show is written as lines of text
+        const close = `\\end{${name}}`, e = str.indexOf(close, k), stop = e < 0 || e > to ? to : e, body = str.slice(k, stop);
+        const why = name === 'array' ? `LaTeX: Tabellen (${name}) werden als Text geschrieben`
+          : /\\(?:multicolumn|multirow)(?![a-zA-Z])/.test(body) ? 'LaTeX: Tabellen mit verbundenen Zellen (\\multicolumn, \\multirow) werden als Text geschrieben'
+            : b.lists.length || ctx.box || /\\begin\{(?:tabular|array|longtable|tabulary)/.test(body) ? 'LaTeX: Tabellen in Listen, Kästen oder anderen Tabellen werden als Text geschrieben' : null;
+        b.close();
+        if (why) { notes.add(why); ctx.table = true; return k; }
+        envs.pop();
+        const block = tableBlock(columnAligns(spec), tableRows(k, stop, ctx));
+        if (block) { b.table(block); const env = envs.findLast((x) => x.name === 'table' || x.name === 'table*'); if (env) env.block = block; }
+        return e < 0 || e > to ? to : e + close.length;
       }
       if (QUIET_ENVS.has(name)) {
         for (let o = optArg(k, to); o; o = optArg(k, to)) k = o.next;
@@ -958,6 +1141,12 @@ function parseLatex(src, today) {
       for (const e of gone) if (LIST_ENVS.has(e.name)) b.lists.pop();
       const { style, ...rest } = gone[0].save;
       Object.assign(ctx, rest, { style });
+      // a table's caption goes under its table; a table environment without one gets a centred line
+      const cap = gone.find((e) => e.caption)?.caption, block = gone.find((e) => e.block)?.block;
+      if (cap && block) {
+        const spans = cellSpans(cap.from, cap.to, ctx).map((sp) => (sp.br ? { text: ' ' } : sp));
+        if (spans.length) { block.caption = spans; block.lines.push(spans.map((sp) => ({ ...sp }))); }
+      } else if (cap) { const c = inner(ctx, { align: 'center' }); b.open('paragraph', c); parse(cap.from, cap.to, c); b.close(); }
     };
 
     const title = (ctx) => {

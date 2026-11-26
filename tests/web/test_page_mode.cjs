@@ -406,6 +406,38 @@ async function rich(browser, server) {
   await ctx.close();
 }
 
+/** A table is written in the app: its cells between its column lines, its grid on the canvas. */
+const TABLE = 'Vokabeln\n\n| English | Deutsch |\n|---|---|\n| journey | die Reise |\n| although | obwohl |';
+async function table(browser, server) {
+  const hf = await modelRepo();
+  const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
+  await ready(page);
+  await page.click('.gen-modes [data-mode="seite"]');
+  await page.fill('#pg-text', TABLE);
+  await page.waitForTimeout(400);
+  await page.click('#pg-write');
+  await idle(page);
+  const d = await dbg(page);
+  L.check('table: written as a document with a table, all placed', d.format === 'markdown' && !!d.rich && d.rich.blocks.some((b) => b.type === 'table') && d.placed === d.total && d.pages === 1, JSON.stringify([d.format, d.placed, d.total, d.pages]));
+  const grid = d.rich.pages[0].strokes.filter((s) => s.kind === 'grid'), verts = grid.filter((s) => s.box[3] - s.box[1] > 10);
+  // four row lines (the one under the header drawn twice) and three column lines
+  L.check('table: its grid is drawn, one stroke a line', grid.length === 5 + 3 && verts.length === 3, String(grid.length));
+  const xs = verts.map((s) => (s.box[0] + s.box[2]) / 2).sort((a, b) => a - b), cells = d.words.filter((w) => d.rich.blocks[w.block].type === 'table');
+  L.check('table: every word of a cell between two column lines', cells.length >= 6 && cells.every((w) => xs.some((x, i) => i < xs.length - 1 && w.box[0] > x && w.box[2] < xs[i + 1])), JSON.stringify(xs));
+  const counts = [];
+  for (const s of verts) counts.push(await countIn(page, 0, [s.box[0] - 0.4, s.box[1] + 1, s.box[2] + 0.4, s.box[3] - 1], 'ink'));
+  L.check('canvas: ink along every column line', counts.every((n) => n > 30), JSON.stringify(counts));
+  const top = grid.filter((s) => s.box[3] - s.box[1] < 2).sort((a, b) => a.box[1] - b.box[1])[0];
+  L.check('canvas: ink along the top line of the grid', !!top && (await countIn(page, 0, [top.box[0] + 2, top.box[1] - 0.3, top.box[2] - 2, top.box[3] + 0.3], 'ink')) > 60);
+  const c1 = await canvasData(page, 0);
+  L.check('canvas: the table page equals the page drawn whole', c1.big === 0 && c1.diff < 400, JSON.stringify(c1));
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#pg-pdf')]);
+  const pdf = inflated(fs.readFileSync(await dl.path()));
+  L.check('PDF: the cells in the text layer', ['(English ', '(journey ', '(die ', '(obwohl)'].every((t) => pdf.includes(t)), ['(English ', '(journey ', '(die ', '(obwohl)'].filter((t) => !pdf.includes(t)).join(' '));
+  L.check('table: no page errors', noErrors(errors).length === 0, noErrors(errors).join(' | '));
+  await ctx.close();
+}
+
 /** A text without marks gives the same canvas pixels and PDF bytes as the app before marks
  *  (PAGE_BASE: the web/ folder of that app; skipped without it). */
 async function plainSame(browser, server) {
@@ -498,7 +530,7 @@ async function phoneDark(browser, server) {
   const browser = await L.launch();
   try {
     const only = (process.env.PAGE_ONLY || '').split(',').filter(Boolean);
-    for (const part of [tablet, workersAgree, robustness, rich, plainSame, phoneDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
+    for (const part of [tablet, workersAgree, robustness, rich, table, plainSame, phoneDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
   } catch (e) {
     console.error(e); L.check('test ran without exception', false, String(e));
   } finally {
