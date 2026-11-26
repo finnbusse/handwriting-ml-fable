@@ -7,6 +7,11 @@ result with scripts/evaluate.py and, with --upload, stores model, history,
 metrics and sheets in the model repo under experiments/<name>/ (private; the
 published model is not touched).  Used by .github/workflows/experiments.yml to
 try several variants side by side on free runners.
+
+    python scripts/experiment.py old-s1 --code-ref 5c53252 -- --epochs 30 --seed 1
+
+trains with hw/ as it was at that commit; the evaluation always uses the
+current code, so that recipes of different dates are measured alike.
 """
 import argparse
 import json
@@ -22,6 +27,7 @@ def main():
     ap.add_argument("name")
     ap.add_argument("--upload", action="store_true")
     ap.add_argument("--seeds", type=int, default=3)
+    ap.add_argument("--code-ref", default=None, help="train with hw/ as it was at this commit")
     # everything after "--" belongs to hw.train (argparse's REMAINDER would also swallow our own options)
     argv = sys.argv[1:]
     cut = argv.index("--") if "--" in argv else len(argv)
@@ -29,12 +35,34 @@ def main():
     out = os.path.join("runs", "exp", args.name)
     env = dict(os.environ, PYTHONPATH=ROOT)
     threads = str(os.cpu_count() or 2)
-    subprocess.run([sys.executable, "-m", "hw.train", "--out", out, "--threads", threads, "--sample-every", "0"] + extra,
-                   check=True, env=env, cwd=ROOT)
-    subprocess.run([sys.executable, "scripts/evaluate.py", os.path.join(out, "best"), "--out", os.path.join(out, "eval"),
-                    "--seeds", str(args.seeds), "--threads", threads], check=True, env=env, cwd=ROOT)
+    git = lambda *a: subprocess.run(["git", *a], check=True, cwd=ROOT)
+    if args.code_ref:
+        have = subprocess.run(["git", "cat-file", "-e", args.code_ref + "^{commit}"], cwd=ROOT, capture_output=True).returncode == 0
+        if not have:                                # a runner's checkout holds the newest commit only
+            shallow = subprocess.run(["git", "rev-parse", "--is-shallow-repository"], cwd=ROOT, capture_output=True,
+                                     text=True).stdout.strip() == "true"
+            git("fetch", *(["--depth", "1"] if shallow else []), "origin", args.code_ref)
+        git("checkout", args.code_ref, "--", "hw")
+    try:
+        subprocess.run([sys.executable, "-m", "hw.train", "--out", out, "--threads", threads, "--sample-every", "0"] + extra,
+                       check=True, env=env, cwd=ROOT)
+    finally:
+        if args.code_ref:
+            git("checkout", "HEAD", "--", "hw")
+
+    def epoch_of(which):
+        with open(os.path.join(out, which, "meta.json"), encoding="utf-8") as f:
+            return json.load(f).get("epoch")
+
+    def evaluate(which, folder):
+        subprocess.run([sys.executable, "scripts/evaluate.py", os.path.join(out, which), "--out", os.path.join(out, folder),
+                        "--seeds", str(args.seeds), "--threads", threads], check=True, env=env, cwd=ROOT)
+
+    evaluate("best", "eval")
+    if os.path.exists(os.path.join(out, "last", "meta.json")) and epoch_of("last") != epoch_of("best"):
+        evaluate("last", "eval_last")              # the end of the budget, when an earlier epoch was kept
     with open(os.path.join(out, "args.json"), "w") as f:
-        json.dump({"name": args.name, "train_args": extra}, f)
+        json.dump({"name": args.name, "train_args": extra, "code_ref": args.code_ref}, f)
     if args.upload:
         from huggingface_hub import HfApi
 
@@ -49,9 +77,10 @@ def main():
         print(f"stored in {repo}/experiments/{args.name}")
     with open(os.path.join(out, "eval", "metrics.json")) as f:
         m = json.load(f)
-    line = (f"**{args.name}** `{' '.join(extra)}`: erste Versuche sauber {m['first_try']:.0%}, Punkte {m['dots']:.0%} "
-            f"(große Umlaute {m['dots_capital_umlauts']:.0%}), Schlusspunkt {m['final_stop']:.0%}, "
-            f"Strichhöhe {m['stroke_height_ratio']:.2f} der echten")
+    line = (f"**{args.name}** `{' '.join(extra)}`{' @ ' + args.code_ref if args.code_ref else ''}: Runde {m['epoch']}, "
+            f"erste Versuche sauber {m['first_try']:.0%}, abgedriftet {m['drift']:.1%}, Punkte {m['dots']:.0%} "
+            f"(große Umlaute {m['dots_capital_umlauts']:.0%}), nach Neuversuchen fehlerhaft {m['delivered_faulty']:.1%}, "
+            f"ohne Punkt {m['delivered_missing_dots']:.0%}")
     print(line)
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as f:

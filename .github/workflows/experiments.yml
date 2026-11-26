@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       runs:
-        description: 'JSON-Liste: [{"name": "e12", "args": "--lines-only --epochs 12"}, ...]'
+        description: 'JSON-Liste: [{"name": "e12", "args": "--lines-only --epochs 12", "opts": ""}, ...] (opts z. B. "--code-ref 5c53252")'
         required: true
         type: string
 
@@ -36,4 +36,4 @@ jobs:
           pip install torch --index-url https://download.pytorch.org/whl/cpu
           pip install -r requirements.txt
       - name: Trainieren, messen, ablegen
-        run: python scripts/experiment.py "${{ matrix.run.name }}" --upload -- ${{ matrix.run.args }}
+        run: python scripts/experiment.py "${{ matrix.run.name }}" --upload ${{ matrix.run.opts }} -- ${{ matrix.run.args }}
