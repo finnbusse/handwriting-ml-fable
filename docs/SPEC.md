@@ -240,22 +240,50 @@ Rules that come from measurements on this writer's earlier recordings:
 
 ### 2.4 Prompts
 
-`web/prompts/de-core.json`:
+`web/prompts/de-core.json`, set `de-core@3`, 2491 prompts in 125 blocks
+(the last block has 11 lines):
 
 ```json
-{"set": "de-core@1", "prompts": [{"id": "de-core-0001", "text": "…", "lang": "de", "block": 1}, …]}
+{"set": "de-core@3", "prompts": [{"id": "de-core-0001", "text": "…", "lang": "de", "block": 1}, …]}
 ```
+
+The app shows prompts block by block in file order and tracks progress by
+prompt id, so an id keeps its text for ever. `block` is the position in the
+file: (position − 1) // 20 + 1.
 
 - Only characters of the model alphabet (`hw/charset.py`, `DEFAULT_CHARSET`).
 - 18–40 characters per line (the tablet shows one line; training cuts lines
   into word groups of at most ~27 characters, so longer lines are fine).
 - Natural everyday German the writer would really jot down (notes, lists,
-  dates, times, short messages), a few English lines, no real persons, no
-  personal data, nothing awkward to write.
-- Blocks of 20. Blocks 1–2 alone must contain every lowercase and uppercase
-  letter incl. ä ö ü ß Ä Ö Ü, every digit at least 3 times, and `. , ! ? : - ( ) " '`.
-  Later blocks balance letter and bigram frequencies and add the rarer signs.
-- `scripts/check_prompts.py` verifies all of the above and prints coverage.
+  dates, times, short messages, school, free time, food, weather, little
+  thoughts, direct speech), some English lines, no real persons, no personal
+  data, nothing awkward to write.
+- History: ids 0001–0800 are de-core@2 with unchanged texts (snapshot
+  `data/prompts/de-core@2.json`, checked against git). Positions 1–240
+  (blocks 1–12) are exactly those of de-core@2. Ids from 0801 are the lines of
+  `data/prompts/additions.txt` (grouped by category) in file order, minus the
+  ones that duplicate or nearly duplicate an earlier prompt (same text ignoring
+  case and punctuation, nearly the same words, or nearly the same characters).
+- Blocks 1–2 alone contain every lowercase and uppercase letter incl. ä ö ü ß
+  Ä Ö Ü, every digit at least 3 times, and `. , ! ? : - ( ) " '`.
+- From position 241 on the order serves two goals at once:
+  - Coverage first: rare character pairs come early, and the rarest characters
+    (Ä Ö Ü % € C E L N O Q V X Y) follow a schedule: two more per block until
+    each has been offered 30 times (counted from position 1; by about position
+    480; `%`, X and Y have fewer lines than that, so all of them come early),
+    then the rest spread evenly. While Ä, Ö or Ü is below 30 every block
+    contains it and at least 3 capital umlauts; afterwards no two blocks in a
+    row are without one.
+  - Variety always: never two neighbours of the same category (additions carry
+    one; for de-core@2 lines: English, digit-heavy, direct speech, list-like,
+    plain sentence) or with the same first word; at most one digit-heavy line
+    (3+ digits) among any four neighbours and at most four per block; at most
+    two English lines per block; every block has at least two lines of ≤ 28
+    and two of ≥ 37 characters.
+- `scripts/build_prompts.py` rebuilds the file deterministically from the
+  snapshot and `additions.txt`; `scripts/check_prompts.py` verifies all of the
+  above and prints a coverage table per 100 prompts (`--reproduce` also
+  rebuilds and compares byte for byte).
 
 ### 2.5 Schreiben (generate)
 

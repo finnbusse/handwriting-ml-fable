@@ -3,7 +3,7 @@
 // No account name here: the account comes from the sign-in at runtime.
 self.HW_CONFIG = Object.freeze({
   appName: 'handwriting-capture',
-  version: '0.10.0',
+  version: '0.11.0',
   datasetRepo: 'handwriting-fable',        // dataset <user>/handwriting-fable (private)
   modelRepo: 'handwriting-fable-model',    // model <user>/handwriting-fable-model (private)
   hfBase: 'https://huggingface.co',

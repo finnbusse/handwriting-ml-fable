@@ -210,10 +210,15 @@ export function createCaptureView(deps) {
     return p;
   }
 
-  /** One dot per block: filled when every prompt of it is done. Extra blocks are marked. */
+  /** One dot per block: filled when every prompt of it is done. Extra blocks are marked.
+   *  The prompt set has far more blocks than anyone needs to see at once: shown are the
+   *  goal blocks and the extra ones up to the next open one (at most the latest 30). */
   function renderBlockDots(prompts) {
     const done = deps.doneIds();
-    const blocks = [...new Set(prompts.map((p) => p.block))].sort((a, b) => a - b);
+    const all = [...new Set(prompts.map((p) => p.block))].sort((a, b) => a - b);
+    const touched = all.filter((b) => prompts.some((p) => p.block === b && done.has(p.id)));
+    const upTo = Math.max(goalBlocks(), (touched.length ? touched[touched.length - 1] : 0) + 1);
+    const blocks = all.filter((b) => b <= upTo).slice(-30);
     const el = $('block-dots');
     el.innerHTML = '';
     for (const b of blocks) {
