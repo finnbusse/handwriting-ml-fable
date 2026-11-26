@@ -270,6 +270,20 @@ export function createPageView(deps) {
       const gone = [];
       for (const [k, n] of left) if (n) gone.push(f.drawn.get(k).box);
       dirty = disjoint([...gone, ...added.filter((it) => it.band).map((it) => it.box)]);
+      // A region grows until it holds all of every stroke and band it meets: a stroke cut
+      // by a region's edge is rasterised differently there than when drawn whole (one
+      // pixel of a tap-rewrite differed like ink from paper on a 1326 px wide page).
+      for (let grew = true; grew;) {
+        grew = false;
+        for (const d of dirty) {
+          for (const { box: q } of items) {
+            if (!meets(d, q) || (q[0] >= d[0] && q[1] >= d[1] && q[2] <= d[2] && q[3] <= d[3])) continue;
+            d[0] = Math.min(d[0], q[0]); d[1] = Math.min(d[1], q[1]); d[2] = Math.max(d[2], q[2]); d[3] = Math.max(d[3], q[3]);
+            grew = true;
+          }
+        }
+        if (grew) dirty = disjoint(dirty);
+      }
       if (dirty.reduce((a, b) => a + (b[2] - b[0]) * (b[3] - b[1]), 0) > REGION_MAX * o.pw * o.ph) fresh = true;
       // a plain text redraws its whole page whenever something went, as it always did:
       // a clipped region would change the edge pixels of the ink it cuts
