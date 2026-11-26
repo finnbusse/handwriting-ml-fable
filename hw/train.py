@@ -80,7 +80,7 @@ class Corpus:
         self.xh_model = report["xh_model"]
         self.max_points, self.long_points = max_points, long_points
         self.rng = np.random.default_rng(seed)
-        train, val = dataset.split(inks, val_lines=0 if train_all else None)
+        train, val = dataset.split(inks, train_all=train_all)
         tw = [i for i in train if i.kind == "word"]
         vw = [i for i in val if i.kind == "word"]
         tl = [i for i in train if i.kind == "line"]
@@ -97,7 +97,7 @@ class Corpus:
                                              special_chars=new_chars, special_share=special_share)
         self.train_real = self._real(tl)
         self.train_lines = tl
-        self._line_words = {l.id: dataset.split_words(l) for l in tl}
+        self._line_words = {l.id: self.line_words(l) for l in tl}
         self._pieces_of = collections.defaultdict(list)
         for piece in self.train_real:
             self._pieces_of[piece.meta.get("line", piece.id)].append(piece)
@@ -107,6 +107,18 @@ class Corpus:
         self.val_composed = dataset.LineComposer(vw, gap_mean, gap_sd, max_points=max_points).fixed(160) if vw else []
         self.counts = dict(train_words=len(tw), val_words=len(vw), train_lines=len(tl), val_lines=len(vl),
                            train_real_pieces=len(self.train_real), val_real_pieces=len(self.val_real))
+
+    @staticmethod
+    def line_words(line: Ink) -> list[Ink] | None:
+        """The words of a real line for drawing windows.  A line the splitter
+        gives up on gets a second chance with a smaller minimum gap (as in
+        dataset.level_words) and without the ambiguity rule, so that only the
+        width check (dataset.word_misfit) decides.  Of the 167 training lines
+        23 fail the first split on the ambiguity rule and none on the minimum
+        gap.  Looked at one by one, the 18 of them the width check accepts
+        (misfit at most 0.94) are cut correctly and the 5 it rejects (2.05 and
+        more) are not.  Lines that still do not split enter training whole."""
+        return dataset.split_words(line) or dataset.split_words(line, min_gap=0.6, ambiguous=True)
 
     def _real(self, lines: list[Ink]) -> list[Ink]:
         out = []
@@ -280,11 +292,11 @@ def build_model(base_dir: str, charset: Charset):
 
 def load_corpus_inks(cache: str, base_stats: dict, token: str | None, fetch: bool,
                      extra_sources: dict | None = None, writer: str | None = None, legacy: bool = True,
-                     lines_only: bool = False):
+                     lines_only: bool = False, calibration: str = "letters", line_size: str = "session"):
     raw = sources.load_all(cache, token=token, fetch=fetch, extra=extra_sources, writer=writer, legacy=legacy,
                            lines_only=lines_only)
     raw, excluded = dataset.apply_exclusions(raw, dataset.load_exclusions())
-    inks, report = dataset.calibrate_cached(raw, base_stats, cache)
+    inks, report = dataset.calibrate_cached(raw, base_stats, cache, calibration=calibration, line_size=line_size)
     report["excluded"] = excluded
     return inks, report
 
@@ -321,6 +333,17 @@ def main(argv=None, hooks=None):
                          "offset normalisation (see jittered)")
     ap.add_argument("--level-words", action="store_true",
                     help="set every word of the recorded lines on the line before training (dataset.level_words)")
+    ap.add_argument("--calibration", choices=("letters", "chars"), default="letters",
+                    help="how characters are counted when the points per character are matched to the base model: "
+                         "'letters' without spaces, 'chars' with spaces as the base statistics do (dataset.calibrate)")
+    ap.add_argument("--line-size", choices=("session", "blend"), default="session",
+                    help="x-height of a recorded line: its session's median, or that median moved halfway towards "
+                         "the line's own size, at most 15 %% (dataset.measure)")
+    ap.add_argument("--max-points", type=int, default=dataset.MAX_POINTS,
+                    help="longest training piece in points (the base model was trained on at most 700).  With "
+                         "--calibration chars a character takes more points: at 700 the windows of real lines shrink "
+                         "to a median of 22 characters (55 %% with 22 or more); 800 gives 24 and 70 %% as 'letters' "
+                         "does at 700")
     ap.add_argument("--epochs", type=int, default=12,
                     help="a fixed budget: with little data more rounds only learn the lines by heart")
     ap.add_argument("--epoch-items", type=int, default=960, help="training lines per epoch")
@@ -337,8 +360,9 @@ def main(argv=None, hooks=None):
     ap.add_argument("--patience", type=int, default=0,
                     help="stop after this many epochs without a better held-out score (0 = run the whole budget)")
     ap.add_argument("--train-all", action="store_true",
-                    help="hold out no real lines: every line is trained on (for the model that is published, "
-                         "once the recipe is settled)")
+                    help="hold out nothing: every line and every word is trained on, no held-out score exists and "
+                         "the last epoch is the one kept (for the model that is published, once the recipe is "
+                         "settled)")
     ap.add_argument("--sd-shift", type=float, default=None,
                     help="score with this spread correction instead of fitting it on the held-out lines")
     ap.add_argument("--ema", type=float, default=0.995,
@@ -375,15 +399,18 @@ def main(argv=None, hooks=None):
 
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_ACCESS_TOKEN")
     inks, report = load_corpus_inks(args.cache, base_stats, token, fetch=not args.no_fetch,
-                                    writer=args.writer, legacy=not args.no_legacy, lines_only=args.lines_only)
+                                    writer=args.writer, legacy=not args.no_legacy, lines_only=args.lines_only,
+                                    calibration=args.calibration, line_size=args.line_size)
     if args.level_words:
         inks = [dataset.level_words(i) if i.kind == "line" else i for i in inks]
     corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share,
-                    train_all=args.train_all, window_chars=tuple(args.window_chars),
+                    train_all=args.train_all, window_chars=tuple(args.window_chars), max_points=args.max_points,
                     augment=tuple(args.augment), dot_weight=args.dot_weight)
     val_real, val_comp = corpus.validation()
     print("data:", json.dumps({**corpus.counts, "gap_xh": [round(g, 2) for g in corpus.gap],
-                               "xh_model": round(report["xh_model"], 1), "excluded": report["excluded"],
+                               "xh_model": round(report["xh_model"], 1), "step_xh": round(report["step_xh"], 4),
+                               "calibration": args.calibration, "line_size": args.line_size,
+                               "excluded": report["excluded"],
                                "sources": report["counts"]}))
 
     meta = {"charset": charset.chars, "mu": mu, "std": std, "xh_model": report["xh_model"],
@@ -391,7 +418,8 @@ def main(argv=None, hooks=None):
             "base": os.path.basename(os.path.normpath(args.base)), "data": report["counts"],
             "writer": args.writer, "lines_only": bool(args.lines_only), "level_words": bool(args.level_words),
             "window_chars": list(args.window_chars), "augment": list(args.augment),
-            "dot_weight": args.dot_weight, "input_noise": args.input_noise}
+            "dot_weight": args.dot_weight, "input_noise": args.input_noise, "calibration": args.calibration,
+            "line_size": args.line_size, "max_points": args.max_points}
 
     def save(name: str, extra: dict):
         Synthesizer(model, charset, mu, std, dict(meta)).save(os.path.join(args.out, name), extra)
@@ -399,7 +427,8 @@ def main(argv=None, hooks=None):
     def to_dev(batch):
         return [t.to(device) for t in batch]
 
-    SHIFTS = [0.05 * k for k in range(11)]      # constants tried for the spread correction
+    # constants tried for the spread correction; the negative ones show a spread that is too wide
+    SHIFTS = [round(0.05 * k, 2) for k in range(-3, 11)]
 
     @torch.no_grad()
     def evaluate_dev(items):
@@ -490,7 +519,7 @@ def main(argv=None, hooks=None):
             model.load_state_dict(load_state(raw))
     else:
         v_real, v_comp, shift = validate()
-        print(f"epoch  0 | before training | val real {v_real:.4f} | val composed {v_comp:.4f} | spread +{shift:.2f}")
+        print(f"epoch  0 | before training | val real {v_real:.4f} | val composed {v_comp:.4f} | spread {shift:+.2f}")
         history = [dict(epoch=0, val_real=v_real, val_composed=v_comp, score=score_of(v_real, v_comp),
                         sd_shift=shift)]
         best, best_epoch, t0 = float("inf"), 0, time.time()
@@ -542,7 +571,7 @@ def main(argv=None, hooks=None):
         history.append(dict(epoch=epoch, train=run / pts, val_real=v_real, val_composed=v_comp, score=score,
                             sd_shift=shift, seconds=time.time() - t_ep))
         print(f"epoch {epoch:2d} | train {run / pts:.4f} | val real {v_real:.4f} | val composed {v_comp:.4f}"
-              f" | spread +{shift:.2f} | {time.time() - t_ep:.0f}s | lr {sched.get_last_lr()[0]:.1e}{flag}", flush=True)
+              f" | spread {shift:+.2f} | {time.time() - t_ep:.0f}s | lr {sched.get_last_lr()[0]:.1e}{flag}", flush=True)
         with open(os.path.join(args.out, "history.json"), "w") as f:
             json.dump(history, f, indent=1)
         with open(os.path.join(args.out, "train_state.json"), "w") as f:

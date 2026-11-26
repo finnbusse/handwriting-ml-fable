@@ -38,16 +38,26 @@ def apply_exclusions(inks: list[Ink], excl: dict) -> tuple[list[Ink], dict]:
 DIGIT_RATIO = 0.8        # digits are about as tall as capitals: 0.8 x the ascender height
 SESSION_MIN_LINES = 8         # a capture session needs this many lines to have a letter size of its own
 WORD_XH_POWER = 0.3           # how far a single word may move away from its source's typical letter size
-RARE_CHAR_COUNT = 8           # a line with a character rarer than this is never held out
+RARE_CHAR_COUNT = 8           # a line or word with a character rarer than this is never held out
+LINE_SIZE_POWER = 0.5         # line_size "blend": how much of its own deviation from the session a line keeps
+LINE_SIZE_CLAMP = 0.15        # ... and never more than this far from the session median
 MAX_HEIGHT_WORD = 9.0         # x-heights; taller recordings are measured wrongly or scribbles
 MAX_HEIGHT_LINE = 12.0        # a line adds baseline drift and tall brackets
 PREP_VERSION = 8         # bump when the preparation changes (invalidates the cache)
 
 
-def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
+def measure(raw: list[Ink], line_size: str = "session") -> tuple[list[Ink], dict]:
     """Clean every recording, find its baseline and x-height and bring it into
-    xh units (baseline y=0, x-height 1, left edge x=0).  Not yet resampled."""
-    inks = [c for c in (prep.clean(i) for i in raw) if c is not None]
+    xh units (baseline y=0, x-height 1, left edge x=0).  Not yet resampled.
+
+    `line_size` decides the x-height of a line of a session that is large
+    enough: "session" gives every line the session median; "blend" keeps part
+    of the line's own deviation (LINE_SIZE_POWER, clamped to LINE_SIZE_CLAMP)."""
+    # prep.clean hands back the caller's point array when there is nothing to
+    # drop and the steps below change it in place; the copy keeps a second call
+    # on the same recordings from starting with altered ink (step_xh 0.1571
+    # instead of 0.1556)
+    inks = [c for c in (prep.clean(i.copy()) for i in raw) if c is not None]
 
     # 1. baselines and letter heights
     geo = {}
@@ -98,7 +108,12 @@ def measure(raw: list[Ink]) -> tuple[list[Ink], dict]:
             if len(group) < SESSION_MIN_LINES:
                 group = source
             if len(group) >= SESSION_MIN_LINES:
-                sizes[ink.id] = float(np.median(group))
+                med = float(np.median(group))
+                if line_size == "blend" and ok(own):
+                    sizes[ink.id] = float(np.clip(med * (own / med) ** LINE_SIZE_POWER,
+                                                  med * (1 - LINE_SIZE_CLAMP), med * (1 + LINE_SIZE_CLAMP)))
+                else:
+                    sizes[ink.id] = med
                 resized += 1
         elif len(source) >= 30:
             med = float(np.median(source))
@@ -191,12 +206,23 @@ def sanity_filter(inks: list[Ink]) -> tuple[list[Ink], dict]:
     return kept, dict(dropped)
 
 
-def points_per_char(inks: list[Ink]) -> float:
-    v = [len(i) / len(i.text.replace(" ", "")) for i in inks if len(i.text.replace(" ", "")) >= 3]
+def points_per_char(inks: list[Ink], calibration: str = "letters") -> float:
+    """Median points per character.  "letters" counts the characters without
+    spaces.  "chars" counts them as scripts/base_stats.py does for the base
+    model (len(ink) / len(text), spaces included); a single word counts one
+    more character, the space that follows it in running text."""
+    v = []
+    for i in inks:
+        letters = len(i.text.replace(" ", ""))
+        if letters < 3:
+            continue
+        n = letters if calibration == "letters" else len(i.text) + (i.kind != "line")
+        v.append(len(i) / n)
     return float(np.median(v))
 
 
-def calibrate(raw: list[Ink], base_stats: dict, verbose: bool = True) -> tuple[list[Ink], dict]:
+def calibrate(raw: list[Ink], base_stats: dict, verbose: bool = True, calibration: str = "letters",
+              line_size: str = "session") -> tuple[list[Ink], dict]:
     """Prepare the recordings so that they look to the network like its
     pretraining data in the two respects its attention mechanism depends on:
 
@@ -209,8 +235,14 @@ def calibrate(raw: list[Ink], base_stats: dict, verbose: bool = True) -> tuple[l
     scale then makes one step as long as the base model's steps.  The writer's
     letters therefore come out a little smaller or larger than the average
     pretraining writer -- which is fine, sizes varied there too.
+
+    `calibration` says how characters are counted (see points_per_char): the
+    base statistics count spaces, "letters" does not and so ends at 22.4
+    points per character including spaces (step_xh 0.156, xh_model 93);
+    "chars" counts like the base statistics (step_xh 0.133, xh_model 110; the
+    base's own x-height is 130).  `line_size`: see measure().
     """
-    norm, report = measure(raw)
+    norm, report = measure(raw, line_size)
     target_ppc = base_stats["points_per_char"]
     step, hint = base_stats["step_median_xh"], None
     for _ in range(5):
@@ -220,44 +252,75 @@ def calibrate(raw: list[Ink], base_stats: dict, verbose: bool = True) -> tuple[l
         ref = [i for i in inks if i.kind == "line"]
         if len(ref) < 50:
             ref = [i for i in inks if i.kind == "word" and not i.text.isdigit()] or ref
-        ppc = points_per_char(ref)
+        ppc = points_per_char(ref, calibration)
         if abs(ppc / target_ppc - 1.0) < 0.02:
             break
         step *= ppc / target_ppc
     inks, dropped = sanity_filter(inks)
     report["dropped"].update(dropped)
     base_step_model = base_stats["step_median_xh"] * base_stats["xh_model"]
-    report.update(resampling=hint, points_per_char=ppc, step_xh=step, xh_model=base_step_model / step,
+    report.update(calibration=calibration, line_size=line_size, resampling=hint, points_per_char=ppc,
+                  step_xh=step, xh_model=base_step_model / step,
                   counts=dict(collections.Counter(i.source for i in inks)))
     if verbose:
         print(json.dumps({k: v for k, v in report.items() if k != "resampling"}, indent=1))
     return inks, report
 
 
-def calibrate_cached(raw: list[Ink], base_stats: dict, cache_dir: str) -> tuple[list[Ink], dict]:
-    """calibrate() with a disk cache keyed by the recordings and the base statistics."""
+def calibrate_cached(raw: list[Ink], base_stats: dict, cache_dir: str, calibration: str = "letters",
+                     line_size: str = "session") -> tuple[list[Ink], dict]:
+    """calibrate() with a disk cache keyed by the recordings, the base
+    statistics and the two modes."""
     import hashlib
     import os
     import pickle
 
-    h = hashlib.sha256(json.dumps([PREP_VERSION, base_stats], sort_keys=True).encode())
+    key = [PREP_VERSION, base_stats]
+    if (calibration, line_size) != ("letters", "session"):    # the default keeps the key of existing caches
+        key.append([calibration, line_size])
+    h = hashlib.sha256(json.dumps(key, sort_keys=True).encode())
     for ink in sorted(raw, key=lambda i: i.id):
         h.update(f"{ink.id}:{len(ink)}:{ink.text}".encode())
     path = os.path.join(cache_dir, f"prepared_{h.hexdigest()[:16]}.pkl")
     if os.path.exists(path):
         with open(path, "rb") as f:
             return pickle.load(f)
-    result = calibrate(raw, base_stats, verbose=False)
+    result = calibrate(raw, base_stats, verbose=False, calibration=calibration, line_size=line_size)
     os.makedirs(cache_dir, exist_ok=True)
     with open(path, "wb") as f:
         pickle.dump(result, f)
     return result
 
 
-def split_words(line: Ink, min_gap: float = 0.8) -> list[Ink] | None:
+# Largest |log(word width / (line's median width per character x characters))|
+# a split may have.  Measured on the 155 capture and older lines that split at
+# min_gap 0.8: the two lines written with a space the text does not have
+# ("Tag # 2 ...", "Aufgabe # 3 ...") reach 1.58 and 1.81, every correct split at
+# most 0.84 (lines full of digits and symbols such as "100 + 50 + 25 = 175");
+# the correct splits found without the ambiguity rule (hw/train.py:
+# Corpus.line_words) reach 0.94, the wrong ones 2.05 and more.
+WORD_FIT_MAX = 1.2
+
+
+def word_misfit(words: list[Ink]) -> float:
+    """How badly the widths of the cut-out words fit their texts: the largest
+    |log| of a word's width over the width its number of characters predicts
+    at the line's median width per character.  A cut at a gap the text does
+    not have shifts every following text by one word, and some word then comes
+    out several times too wide or too narrow."""
+    width = np.array([max(float(np.ptp(w.points[:, 0])), 1e-3) for w in words])
+    n = np.array([len(w.text) for w in words])
+    return float(np.max(np.abs(np.log(width / (np.median(width / n) * n)))))
+
+
+def split_words(line: Ink, min_gap: float = 0.8, ambiguous: bool = False, check_fit: bool = True) -> list[Ink] | None:
     """Cut a real line into its words at the largest horizontal jumps between
     consecutive strokes (one cut per space in the text).  Returns None when the
-    jumps do not single out the word gaps clearly."""
+    jumps do not single out the word gaps clearly, or when the words do not fit
+    their texts (word_misfit; `check_fit` False leaves that test out, for ink
+    whose text is not in doubt but whose letters may be: generated pieces).
+    With `ambiguous` a next-largest jump nearly as large as the cuts is no
+    reason to give up: the width check alone decides."""
     words = line.text.split()
     if len(words) < 2:
         return [line]
@@ -271,7 +334,7 @@ def split_words(line: Ink, min_gap: float = 0.8) -> list[Ink] | None:
     ranked = sorted(jumps, reverse=True)
     if len(ranked) < n_cut or ranked[n_cut - 1][0] < min_gap:
         return None
-    if len(ranked) > n_cut and ranked[n_cut][0] > 0.75 * ranked[n_cut - 1][0]:
+    if not ambiguous and len(ranked) > n_cut and ranked[n_cut][0] > 0.75 * ranked[n_cut - 1][0]:
         return None                                   # next-largest jump is nearly as big: ambiguous
     cuts = sorted(k for _, k in ranked[:n_cut])
     bounds = [0] + [sl[k].start for k in cuts] + [len(line.points)]
@@ -279,7 +342,7 @@ def split_words(line: Ink, min_gap: float = 0.8) -> list[Ink] | None:
     for w, (lo, hi) in zip(words, zip(bounds[:-1], bounds[1:])):
         out.append(Ink(line.points[lo:hi].copy(), text=w, id=f"{line.id}/{len(out)}", source=line.source,
                        kind="word", meta={"line": line.id}))
-    return out
+    return out if not check_fit or word_misfit(out) <= WORD_FIT_MAX else None
 
 
 def level_words(line: Ink) -> Ink:
@@ -331,14 +394,18 @@ def stable_fraction(key: str) -> float:
     return (zlib.crc32(key.encode("utf-8")) % 10_000) / 10_000.0
 
 
-def split(inks: list[Ink], val_fraction: float = 0.08, val_lines: int | None = None):
+def split(inks: list[Ink], val_fraction: float = 0.08, val_lines: int | None = None, train_all: bool = False):
     """Hold out whole *texts* (so a word written several times never straddles
     the split) and some real lines (8 %, at least 4) to measure against.
 
     Held-out lines come from the capture app only (older lines are written a
     little differently and would blur the measurement), and never contain a
     character that is rare in the corpus: with two examples of a capital
-    umlaut, holding one out would take half of what there is to learn from."""
+    umlaut, holding one out would take half of what there is to learn from.
+    The same holds for single words, counted over all recordings.  With
+    `train_all` nothing is held out."""
+    if train_all:
+        return list(inks), []
     lines = [i for i in inks if i.kind == "line"]
     counts = collections.Counter(c for i in lines for c in i.text if not c.isspace())
     capture = [i for i in lines if i.source in sources.CAPTURE_SOURCES]
@@ -348,11 +415,12 @@ def split(inks: list[Ink], val_fraction: float = 0.08, val_lines: int | None = N
     if val_lines is None:
         val_lines = max(4, round(val_fraction * len(lines)))
     val_line_ids = {i.id for i in eligible[:val_lines]} if len(lines) >= 3 * val_lines else set()
+    every = collections.Counter(c for i in inks for c in i.text if not c.isspace())
     train, val = [], []
     for ink in inks:
         if ink.kind == "line":
             (val if ink.id in val_line_ids else train).append(ink)
-        elif stable_fraction(ink.text.lower()) < val_fraction:
+        elif stable_fraction(ink.text.lower()) < val_fraction and all(every[c] >= RARE_CHAR_COUNT for c in ink.text):
             val.append(ink)
         else:
             train.append(ink)
