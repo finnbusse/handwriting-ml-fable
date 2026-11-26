@@ -13,10 +13,11 @@ import { lookColors, drawDocumentPage, BOLD } from './render.js';
 import { documentToPDF, pdfFileName } from './pdf.js';
 import { createEnginePool, poolSize } from './engine-client.js';
 import { parseMarkup, plainText, detectFormat } from './markup.js';
+import { unwrapLines } from './unwrap.js';
 import { createFormatHelp } from './format-help.js';
 import { createEditor } from './editor-tools.js';
 
-export const PAGE_DEFAULTS = Object.freeze({ text: '', paper: 'liniert', size: 'mittel', textLayer: true, format: 'auto' });
+export const PAGE_DEFAULTS = Object.freeze({ text: '', paper: 'liniert', size: 'mittel', textLayer: true, format: 'auto', unwrap: true });
 const FORMATS = ['auto', 'markdown', 'latex', 'text'];
 const FORMAT_NAMES = { markdown: 'Markdown', latex: 'LaTeX' };
 // A region repainted on a page (what a later piece moved or put under the ink) larger than
@@ -54,7 +55,7 @@ export function createPageView(deps) {
     text: $('pg-text'), write: $('pg-write'), cancel: $('pg-cancel'),
     busy: $('pg-busy'), busyText: $('pg-busy-text'), info: $('pg-info'), bar: $('pg-bar'), fill: $('pg-fill'),
     pdf: $('pg-pdf'), share: $('pg-share'), note: $('pg-note'), chars: $('pg-chars'),
-    textLayer: $('pg-textlayer'), detected: $('pg-detected'),
+    textLayer: $('pg-textlayer'), detected: $('pg-detected'), unwrap: $('pg-unwrap'),
   };
   const P = {
     settings: { ...PAGE_DEFAULTS },
@@ -460,10 +461,16 @@ export function createPageView(deps) {
   /** What a typed text is written as: the text itself when it has no marks (exactly as
    *  before there were marks) or the choice is 'text', else the document of its marks.
    *  today: what {datum} and \today write. */
-  function source(text, today = new Date()) {
-    if (P.settings.format === 'text') return { text, format: 'text', notes: [] };
+  function source(typed, today = new Date()) {
+    // The line breaks of a narrower source column come out first (unwrap.js).  Not in a
+    // LaTeX text: there a line break is a space already, and a comment ends at one.
+    const latex = P.settings.format === 'latex' || (P.settings.format === 'auto' && detectFormat(typed) === 'latex');
+    const { text, joined } = P.settings.unwrap && !latex ? unwrapLines(typed) : { text: typed, joined: 0 };
+    const flowed = joined ? ['Kopierte Zeilenumbrüche zusammengeführt'] : [];
+    if (P.settings.format === 'text') return { text, format: 'text', notes: flowed };
     const doc = parseMarkup(text, P.settings.format, { today });
-    return plainDoc(doc, text) ? { text, format: 'text', notes: doc.notes } : { doc, format: doc.format, notes: doc.notes };
+    const notes = [...flowed, ...doc.notes];
+    return plainDoc(doc, text) ? { text, format: 'text', notes } : { text, doc, format: doc.format, notes };
   }
 
   async function write() {
@@ -474,8 +481,8 @@ export function createPageView(deps) {
     P.notes = src.notes;
     note('');
     // only what is written is checked, not the marks around it
-    charsNote(m.normalizer.unsupported(src.doc ? docText(src.doc) : text));
-    const plan = planDocument(src.doc || text, m.normalizer.normalize);
+    charsNote(m.normalizer.unsupported(src.doc ? docText(src.doc) : src.text));
+    const plan = planDocument(src.doc || src.text, m.normalizer.normalize);
     if (!plan.pieces.length) {
       note(text.trim() ? 'In diesem Text steht nichts, was ich schreiben kann.' : 'Bitte tippe oder füge zuerst einen Text ein.');
       if (!text.trim()) el.text.focus();
@@ -622,8 +629,8 @@ export function createPageView(deps) {
   function save() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      const { paper, size, textLayer, format } = P.settings;
-      store.kvSet('page', { text: el.text.value, paper, size, textLayer, format }).catch(() => {});
+      const { paper, size, textLayer, format, unwrap } = P.settings;
+      store.kvSet('page', { text: el.text.value, paper, size, textLayer, format, unwrap }).catch(() => {});
     }, 300);
   }
 
@@ -666,6 +673,7 @@ export function createPageView(deps) {
         if (DOC_SIZES.includes(v.size)) P.settings.size = v.size;
         P.settings.textLayer = v.textLayer !== false;
         if (FORMATS.includes(v.format)) P.settings.format = v.format;
+        P.settings.unwrap = v.unwrap !== false;
       }
     } catch (_) { /* defaults */ }
     const editor = createEditor({ text: el.text, root: $('gen'), format: () => (P.settings.format === 'auto' ? detectFormat(el.text.value) : P.settings.format) });
@@ -678,6 +686,7 @@ export function createPageView(deps) {
     help.refresh();
     detect();
     el.textLayer.checked = P.settings.textLayer;
+    if (el.unwrap) el.unwrap.checked = P.settings.unwrap;
     el.share.hidden = !canShareFiles();
     el.write.addEventListener('click', write);
     el.cancel.addEventListener('click', cancel);
@@ -688,6 +697,7 @@ export function createPageView(deps) {
     el.share.addEventListener('click', sharePdf);
     el.redo.addEventListener('click', rewrite);
     el.textLayer.addEventListener('change', () => { P.settings.textLayer = el.textLayer.checked; save(); });
+    if (el.unwrap) el.unwrap.addEventListener('change', () => { P.settings.unwrap = el.unwrap.checked; save(); detect(); });
     // A tap is a short press that hardly moves (a scroll with the finger is not a tap).
     let down = null;
     el.pages.addEventListener('pointerdown', (e) => {

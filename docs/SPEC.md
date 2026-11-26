@@ -546,6 +546,32 @@ reloaded.
 
 ### 2.5.3 Seite: documents with structure (`document.js`, `decor.js`, `pdf.js`)
 
+Copied line breaks (`js/generate/unwrap.js`): a text copied from a web page, a
+PDF or an e-mail keeps the line breaks of its source column (a law from
+gesetze-im-internet.de: 70 characters), and a page row of this hand holds
+about 55 characters, so every such line ran over by a word or two that stood
+alone on a row. Before the text is parsed, `unwrapLines` joins such lines: the
+column is the ninth decile of the lengths of the lines that have a line after
+them (not the maximum, so that one line never wrapped does not hide it); a
+line is full when the first word of the next line would not have fitted
+behind it, or not into 0.8 of the column when the line does not end a
+sentence (a source in a proportional font wraps by width, so its full lines
+differ in their number of characters); the text counts as wrapped when the
+column is at least 40 characters, at least 3 lines are full, of the lines at
+least half the column wide at least two thirds are, not more than half of
+the lines end a sentence (that is one sentence a line, typed so), and some
+line after a full one starts with a small letter (running text goes on in
+the middle of a sentence; titles or entries one a line do not). Then every full line is joined to the
+next with one space. Lines that start a block of their own (heading, list
+item, quote, table row, rule, alignment mark, an enumerator like "(1)") are
+never joined to the line before, and two spaces, a backslash or `<br>` at the
+end of a line keep its break. Short lines typed on purpose, poems, lists and
+paragraphs typed in one line stay as they are. LaTeX texts are not touched (a
+line break is a space there already). The note line says "Kopierte
+Zeilenumbrüche zusammengeführt."; the switch "Kopierte Zeilenumbrüche
+zusammenführen" in the Formatierung panel (on by default, stored) turns it
+off.
+
 `planDocument` also takes the document model of `markup.js` (`{ format, blocks:
 [{ type, level, marker, align, box, lines: [[span]] }], notes }`); a string
 behaves as before, and a document of plain paragraphs gives the same pieces,

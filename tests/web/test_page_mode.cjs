@@ -525,12 +525,48 @@ async function phoneDark(browser, server) {
   }
 }
 
+// A text with the line breaks of a 70-character source column: written as flowing
+// paragraphs, with a note; the switch under Formatierung keeps the breaks.
+const WRAPPED = `Die Würde des Menschen ist unantastbar. Sie zu achten und zu
+schützen ist Verpflichtung aller staatlichen Gewalt. Das Deutsche Volk
+bekennt sich darum zu unverletzlichen und unveräußerlichen
+Menschenrechten als Grundlage jeder menschlichen Gemeinschaft, des
+Friedens und der Gerechtigkeit in der Welt.`;
+async function unwrap(browser, server) {
+  const hf = await modelRepo();
+  const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
+  await ready(page);
+  await page.click('.gen-modes [data-mode="seite"]');
+  await page.fill('#pg-text', WRAPPED);
+  await page.waitForTimeout(400);
+  await page.click('#pg-write');
+  await idle(page);
+  // the rows of the page: how many words stand on each line
+  const rows = async () => { const d = await dbg(page); const n = new Map(); for (const w of d.words) n.set(w.line, (n.get(w.line) || 0) + 1); return [...n.entries()].sort((a, b) => a[0] - b[0]).map((e) => e[1]); };
+  const flowing = await rows();
+  L.check('unwrap: a text with the breaks of a source column flows: no row of one or two words before the last', flowing.length >= 4 && flowing.slice(0, -1).every((n) => n > 2), JSON.stringify(flowing));
+  L.check('unwrap: the note line says so', /Kopierte Zeilenumbrüche zusammengeführt\./.test(await page.textContent('#pg-note')), await page.textContent('#pg-note'));
+  await page.click('#pg-format');
+  await page.setChecked('#pg-unwrap', false);
+  await page.click('#pg-format');
+  await page.click('#pg-write');
+  await idle(page);
+  const kept = await rows();
+  L.check('unwrap: switched off, the breaks stay as typed (short rows again) and the note is gone', kept.length > flowing.length && kept.slice(0, -1).some((n) => n <= 2) && !/zusammengeführt/.test(await page.textContent('#pg-note')), JSON.stringify(kept));
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await ready(page);
+  await page.click('.gen-modes [data-mode="seite"]');
+  L.check('unwrap: the switch is remembered', (await page.isChecked('#pg-unwrap')) === false);
+  L.check('unwrap: no page errors', noErrors(errors).length === 0, noErrors(errors).join(' | '));
+  await ctx.close();
+}
+
 (async () => {
   const server = await L.start();
   const browser = await L.launch();
   try {
     const only = (process.env.PAGE_ONLY || '').split(',').filter(Boolean);
-    for (const part of [tablet, workersAgree, robustness, rich, table, plainSame, phoneDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
+    for (const part of [tablet, workersAgree, robustness, rich, table, unwrap, plainSame, phoneDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
   } catch (e) {
     console.error(e); L.check('test ran without exception', false, String(e));
   } finally {
