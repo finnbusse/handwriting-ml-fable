@@ -56,12 +56,13 @@ SAMPLE_TEXTS = [
 # ----------------------------------------------------------------------- data
 class Corpus:
     def __init__(self, inks: list[Ink], report: dict, charset: Charset, mu, std, seed: int = 0,
-                 max_points: int = dataset.MAX_POINTS, long_points: int = 1250, special_share: float = 0.3):
+                 max_points: int = dataset.MAX_POINTS, long_points: int = 1250, special_share: float = 0.3,
+                 train_all: bool = False):
         self.charset, self.mu, self.std = charset, mu, std
         self.xh_model = report["xh_model"]
         self.max_points, self.long_points = max_points, long_points
         self.rng = np.random.default_rng(seed)
-        train, val = dataset.split(inks)
+        train, val = dataset.split(inks, val_lines=0 if train_all else None)
         tw = [i for i in train if i.kind == "word"]
         vw = [i for i in val if i.kind == "word"]
         tl = [i for i in train if i.kind == "line"]
@@ -85,7 +86,7 @@ class Corpus:
         self._queue: list[int] = []
         self.val_real = self._real(vl)
         self.val_lines = vl
-        self.val_composed = dataset.LineComposer(vw, gap_mean, gap_sd, max_points=max_points).fixed(160)
+        self.val_composed = dataset.LineComposer(vw, gap_mean, gap_sd, max_points=max_points).fixed(160) if vw else []
         self.counts = dict(train_words=len(tw), val_words=len(vw), train_lines=len(tl), val_lines=len(vl),
                            train_real_pieces=len(self.train_real), val_real_pieces=len(self.val_real))
 
@@ -262,6 +263,11 @@ def main(argv=None, hooks=None):
                     help="share of composed words drawn from words with newly added characters")
     ap.add_argument("--patience", type=int, default=0,
                     help="stop after this many epochs without a better held-out score (0 = run the whole budget)")
+    ap.add_argument("--train-all", action="store_true",
+                    help="hold out no real lines: every line is trained on (for the model that is published, "
+                         "once the recipe is settled); needs --sd-shift from a run with held-out lines")
+    ap.add_argument("--sd-shift", type=float, default=None,
+                    help="use this spread correction instead of fitting it on the held-out lines")
     ap.add_argument("--ema", type=float, default=0.995,
                     help="decay of the running average of the weights that is evaluated and saved (0 = off)")
     ap.add_argument("--sample-every", type=int, default=5)
@@ -297,7 +303,8 @@ def main(argv=None, hooks=None):
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_ACCESS_TOKEN")
     inks, report = load_corpus_inks(args.cache, base_stats, token, fetch=not args.no_fetch,
                                     writer=args.writer, legacy=not args.no_legacy, lines_only=args.lines_only)
-    corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share)
+    corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share,
+                    train_all=args.train_all)
     val_real, val_comp = corpus.validation()
     print("data:", json.dumps({**corpus.counts, "gap_xh": [round(g, 2) for g in corpus.gap],
                                "xh_model": round(report["xh_model"], 1), "excluded": report["excluded"],
@@ -332,7 +339,11 @@ def main(argv=None, hooks=None):
     def validate():
         """(val_real, val_composed, shift) at the spread correction that suits the held-out real lines best."""
         r, c = evaluate_dev(val_real), evaluate_dev(val_comp)
-        k = int(np.nanargmin(c if np.isnan(r).all() else r))
+        ref = c if np.isnan(r).all() else r
+        if args.sd_shift is not None or np.isnan(ref).all():       # nothing held out, or the correction is given
+            k = int(np.argmin([abs(v - (args.sd_shift or 0.0)) for v in SHIFTS]))
+            return float(r[k]), float(c[k]), float(args.sd_shift or 0.0)
+        k = int(np.nanargmin(ref))
         return float(r[k]), float(c[k]), SHIFTS[k]
 
     ema = None                                   # name -> running average of that parameter
@@ -379,7 +390,9 @@ def main(argv=None, hooks=None):
 
     def score_of(v_real, v_comp):
         # real lines are what we want to imitate; composed lines keep the score stable
-        return v_comp if math.isnan(v_real) else 0.75 * v_real + 0.25 * v_comp
+        if math.isnan(v_real):
+            return v_comp
+        return v_real if math.isnan(v_comp) else 0.75 * v_real + 0.25 * v_comp
 
     shift = 0.0
 
@@ -442,8 +455,8 @@ def main(argv=None, hooks=None):
         flag = ""
         extra = {"epoch": epoch, "val_real": v_real, "val_composed": v_comp, "sd_shift": shift}
         with exported(shift):
-            if score < best:
-                best, best_epoch, flag = score, epoch, " *"
+            if score < best or math.isnan(score):          # without held-out lines the newest epoch is the one to keep
+                best, best_epoch, flag = (best if math.isnan(score) else score), epoch, " *"
                 save("best", extra)
             save("last", extra)
         torch.save(model.state_dict(), os.path.join(args.out, "last", "raw.pt"))
