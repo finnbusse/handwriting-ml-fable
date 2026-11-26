@@ -282,6 +282,24 @@ def split_words(line: Ink, min_gap: float = 0.8) -> list[Ink] | None:
     return out
 
 
+def level_words(line: Ink) -> Ink:
+    """A recorded line with every word set on the line (xh units, baseline at
+    y = 0): each word moves up or down as a whole, by prep.word_level.
+
+    Nobody writes a whole line dead level, and the network learns that
+    unevenness and adds its own when it writes freely.  Whole words keep their
+    shape; a line whose words cannot be told apart stays as it is."""
+    words = split_words(line, min_gap=0.6)
+    if not words:
+        return line
+    size = prep.extremes(line.copy(kind="line"))[2]
+    p, start = line.points.copy(), 0
+    for w in words:
+        p[start:start + len(w.points), 1] -= prep.word_level(w, size)
+        start += len(w.points)
+    return line.copy(points=p)
+
+
 def line_chunks(line: Ink, max_points: int = None, max_chars: int = 34) -> list[Ink]:
     """Real line -> pieces of consecutive words that fit the training length.
     The words keep their true positions, so spacing and baseline are real."""

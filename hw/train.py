@@ -251,6 +251,8 @@ def main(argv=None, hooks=None):
     ap.add_argument("--lines-only", action="store_true",
                     help="train on whole written lines only (October 2025 and the capture app), "
                          "without the early single-word and digit recordings")
+    ap.add_argument("--level-words", action="store_true",
+                    help="set every word of the recorded lines on the line before training (dataset.level_words)")
     ap.add_argument("--epochs", type=int, default=12,
                     help="a fixed budget: with little data more rounds only learn the lines by heart")
     ap.add_argument("--epoch-items", type=int, default=960, help="training lines per epoch")
@@ -306,6 +308,8 @@ def main(argv=None, hooks=None):
     token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGINGFACE_ACCESS_TOKEN")
     inks, report = load_corpus_inks(args.cache, base_stats, token, fetch=not args.no_fetch,
                                     writer=args.writer, legacy=not args.no_legacy, lines_only=args.lines_only)
+    if args.level_words:
+        inks = [dataset.level_words(i) if i.kind == "line" else i for i in inks]
     corpus = Corpus(inks, report, charset, mu, std, seed=args.seed, special_share=args.special_share,
                     train_all=args.train_all)
     val_real, val_comp = corpus.validation()
@@ -316,7 +320,7 @@ def main(argv=None, hooks=None):
     meta = {"charset": charset.chars, "mu": mu, "std": std, "xh_model": report["xh_model"],
             "step_xh": report["step_xh"], "gap_xh": list(corpus.gap), "tall_ratio": report["tall_ratio"],
             "base": os.path.basename(os.path.normpath(args.base)), "data": report["counts"],
-            "writer": args.writer, "lines_only": bool(args.lines_only)}
+            "writer": args.writer, "lines_only": bool(args.lines_only), "level_words": bool(args.level_words)}
 
     def save(name: str, extra: dict):
         Synthesizer(model, charset, mu, std, dict(meta)).save(os.path.join(args.out, name), extra)
