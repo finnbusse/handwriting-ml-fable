@@ -244,27 +244,40 @@ function pathData(line, scale) {
   return `${d}L${fmt(p[p.length - 1][0])} ${fmt(p[p.length - 1][1])}`;
 }
 
-/** Füller / Bleistift: the short straight pieces of every stroke, grouped by width or tone level. */
-function svgPenGroups(page, look, scale) {
-  const groups = new Map();    // level -> path data
-  const add = (key, d) => groups.set(key, (groups.get(key) || '') + d);
-  const levels = 12;           // Füller: width steps between 0.4x and 1.6x
-  for (const points of page.strokes) {
+export const FUELLER_LEVELS = 12;     // Füller: width steps between 0.4x and 1.6x
+
+/**
+ * Füller / Bleistift: the short straight pieces of every stroke (word arrays in xh
+ * units), grouped by width or tone level: [{ key, runs: [{ dot, pts: [[x, y], ...] }] }],
+ * keys ascending.  A run with `dot` starts a stroke (exporters mark it with a tiny
+ * segment so that a one-point stroke still shows).  SVG and PDF export share this.
+ */
+export function penGroups(strokes, look) {
+  const groups = new Map();    // level -> runs
+  for (const points of strokes) {
     for (const s of wordSamples(points)) {
-      let pe = 0, prev = null;
+      let pe = 0, prev = null, run = null;
       for (let i = 0; i < s.x.length; i++) {
         pe = smoothPressure(pe, s, i);
-        const key = look.pen === 'fueller' ? Math.round(Math.min(1, pe) * levels) : pencilLevel(pe);
-        const x = fmt(s.x[i] * scale), y = fmt(s.y[i] * scale);
-        if (i === 0) { add(key, `M${x} ${y}l0.01 0`); prev = key; continue; }
-        const px = fmt(s.x[i - 1] * scale), py = fmt(s.y[i - 1] * scale);
-        add(key, key === prev ? `L${x} ${y}` : `M${px} ${py}L${x} ${y}`);
+        const key = look.pen === 'fueller' ? Math.round(Math.min(1, pe) * FUELLER_LEVELS) : pencilLevel(pe);
+        if (!groups.has(key)) groups.set(key, []);
+        if (i === 0) { run = { dot: true, pts: [[s.x[0], s.y[0]]] }; groups.get(key).push(run); }
+        else if (key === prev) run.pts.push([s.x[i], s.y[i]]);
+        else { run = { dot: false, pts: [[s.x[i - 1], s.y[i - 1]], [s.x[i], s.y[i]]] }; groups.get(key).push(run); }
         prev = key;
       }
     }
   }
-  // A new level always starts a new subpath; continuing "L"s join the previous point.
-  return [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([key, d]) => ({ key, d: d.replace(/^L/, 'M') }));
+  return [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([key, runs]) => ({ key, runs }));
+}
+
+/** Füller / Bleistift as SVG path data per level. */
+function svgPenGroups(page, look, scale) {
+  return penGroups(page.strokes, look).map(({ key, runs }) => ({
+    key,
+    d: runs.map(({ dot, pts }) => `M${fmt(pts[0][0] * scale)} ${fmt(pts[0][1] * scale)}${dot ? 'l0.01 0' : ''}` +
+      pts.slice(1).map(([x, y]) => `L${fmt(x * scale)} ${fmt(y * scale)}`).join('')).join(''),
+  }));
 }
 
 /**
@@ -345,4 +358,73 @@ export function toCanvas(page, { scale = 24, look = DEFAULT_LOOK, paper = true, 
   drawSheet(c, W, H, l, colors, { scale, spacing, top, margin, lineWidth: guideWidth });
   c.drawImage(inkCanvas, 0, 0);
   return out;
+}
+
+// ---------- document pages (document.js), in millimetres ----------
+
+const nominal = new WeakMap();
+/** A document word array (mm) in the x-heights of the page (mm / xh), so that the
+ *  pens' speed and width rules see the same units as on the quick sheet (cached). */
+export function docWordXh(points, xh) {
+  let out = nominal.get(points);
+  if (!out || out.xh !== xh) {
+    const q = new Float32Array(points.length);
+    for (let i = 0; i < q.length; i += 3) { q[i] = points[i] / xh; q[i + 1] = points[i + 1] / xh; q[i + 2] = points[i + 2]; }
+    out = { xh, q };
+    nominal.set(points, out);
+  }
+  return out.q;
+}
+
+/** The colour of a document page's ruling. */
+export const rulingColor = (doc, colors) => (doc.geometry.ruling.tone === 'faint' ? colors.faint : colors.rule);
+
+/**
+ * Draw page `pageIndex` of a document onto a 2D context with the identity transform:
+ * paper, ruling, ink.  o = { scale (device px per mm), look (default the document's),
+ * colors, offsetX, offsetY, mark: [[x0, y0, x1, y1], ...] boxes in mm to underlay
+ * (a piece picked for rewriting), markColor }.  The page is drawn from the same
+ * object the PDF is written from, with the same pens.
+ */
+export function drawDocumentPage(ctx, doc, pageIndex, { scale, look, colors, offsetX = 0, offsetY = 0, mark = null, markColor = null, ink = true } = {}) {
+  const l = normalizeLook(look || doc.settings.look);
+  const c = colors || lookColors(l);
+  const { width: W, height: H } = doc.page;
+  const g = doc.geometry;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = c.paper;
+  ctx.fillRect(offsetX, offsetY, W * scale, H * scale);
+  const { ys, xs } = g.ruling;
+  if (ys.length || xs.length) {
+    const lw = Math.max(1, g.ruling.width * scale);
+    const whole = Math.abs(lw - Math.round(lw)) < 1e-6;
+    const at = (v, o) => (whole ? Math.round(v * scale + o - lw / 2) + lw / 2 : v * scale + o);
+    ctx.lineWidth = lw; ctx.lineCap = 'butt';
+    ctx.strokeStyle = rulingColor(doc, c);
+    ctx.beginPath();
+    for (const y of ys) { ctx.moveTo(offsetX, at(y, offsetY)); ctx.lineTo(offsetX + W * scale, at(y, offsetY)); }
+    for (const x of xs) { ctx.moveTo(at(x, offsetX), offsetY); ctx.lineTo(at(x, offsetX), offsetY + H * scale); }
+    ctx.stroke();
+  }
+  if (mark && mark.length) {
+    ctx.fillStyle = markColor || c.faint;
+    const pad = 0.12 * g.pitch;
+    for (const [x0, y0, x1, y1] of mark) ctx.fillRect(offsetX + (x0 - pad) * scale, offsetY + (y0 - pad) * scale, (x1 - x0 + 2 * pad) * scale, (y1 - y0 + 2 * pad) * scale);
+  }
+  ctx.restore();
+  const page = doc.pages[pageIndex];
+  if (!ink || !page) return;
+  const o = { scale: scale * g.xh, look: l, colors: c, offsetX, offsetY };
+  for (const points of page.strokes) drawWord(ctx, docWordXh(points, g.xh), o);
+}
+
+/** One document page in a new canvas, `scale` device px per mm (PNG export). */
+export function documentPageCanvas(doc, pageIndex, { scale = 8, look, createCanvas } = {}) {
+  const make = createCanvas || ((w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h }));
+  const canvas = make(Math.round(doc.page.width * scale), Math.round(doc.page.height * scale));
+  drawDocumentPage(canvas.getContext('2d'), doc, pageIndex, { scale, look });
+  return canvas;
 }

@@ -571,3 +571,58 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
 .gen-go.stop i { width: 10px; height: 10px; border-radius: 2px; background: currentColor; }
 .gen-note { font-size: 14px; color: var(--muted); padding: 4px 4px 0; }
 #gen-note { color: var(--ink); }
+
+/* ---------- Schreiben: Zettel / Seite ----------
+   One switch above the sheet.  Seite shows A4 pages fitted to the column, one under
+   the other, each the paper of its own scheme; the dock below is the same as Zettel's. */
+.gen[data-mode="seite"] [data-only="zettel"], .gen[data-mode="zettel"] [data-only="seite"] { display: none !important; }
+.gen-modes { flex: none; display: flex; margin: 0 0 2px -10px; }
+.gen-modes .gen-choice { font-weight: 500; }
+.pg-stage {
+  flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  margin: 0 -12px; padding: 4px 12px 18px;
+}
+.pg-pages { position: relative; display: grid; gap: 20px; --pg-hint: #8B93A0; }
+.pg-pages[data-scheme="light_on_dark"] { --pg-hint: var(--paper-dark-muted); }
+.pg-page {
+  position: relative; aspect-ratio: 210 / 297; background: var(--paper-light-bg); border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--gen-paper-edge), 0 1px 2px rgba(20, 26, 38, .06), 0 14px 30px -14px rgba(20, 26, 38, .22);
+  touch-action: pan-y; cursor: pointer;
+}
+.pg-pages[data-scheme="light_on_dark"] .pg-page { background: var(--paper-dark-bg); box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 14px 30px -14px rgba(20, 26, 38, .3); }
+.pg-page canvas { display: block; width: 100%; height: 100%; border-radius: inherit; }
+.pg-empty { position: absolute; left: 0; right: 0; top: 2.6%; z-index: 1; text-align: center; padding: 0 24px; color: var(--pg-hint); pointer-events: none; }
+.pg-pick {
+  position: absolute; left: 0; top: 0; z-index: 3; padding: 4px;
+  background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 28px rgba(20, 26, 38, .18);
+}
+.pg-redo {
+  appearance: none; border: 0; background: none; font: inherit; font-size: 16px; font-weight: 600; color: var(--accent);
+  display: inline-flex; align-items: center; gap: 8px; height: 48px; padding: 0 16px; border-radius: 10px;
+  cursor: pointer; touch-action: manipulation; white-space: nowrap;
+}
+.pg-redo .ic { width: 18px; height: 18px; stroke-width: 1.9; }
+.pg-redo:not(:disabled):hover { background: var(--accent-soft); }
+.pg-redo:disabled { color: var(--muted); cursor: default; }
+.pg-redo:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: -3px; }
+.gen-busy .pbar { flex: none; width: 72px; margin: 0; }
+.gen-dock { grid-template-columns: minmax(0, 1fr); }      /* a long status line never widens the column */
+#pg-busy-text { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#pg-text {
+  flex: 1; min-width: 0; font: inherit; font-size: 17px; line-height: 25px; color: var(--ink);
+  background: none; border: 0; outline: 0; resize: none; padding: 11px 0; margin: 0;
+  max-height: min(30vh, 220px); overflow-y: auto; scrollbar-width: thin;
+}
+#pg-text::placeholder { color: var(--muted); }
+/* Away from the keyboard the text steps back to two lines: the pages are the thing to look at. */
+/* (25 px lines: 11 + 2 x 25 shows exactly two; the bottom padding moves out of the box so no third line peeks in) */
+.pg-composer:not(:focus-within) #pg-text { max-height: 61px; padding-bottom: 0; margin-bottom: 11px; }
+.pg-switch { display: inline-flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; color: var(--ink); cursor: pointer; justify-self: start; }
+.pg-short { display: none; }
+@media (max-width: 560px) {
+  .pg-long { display: none; } .pg-short { display: inline; } .pg-pages { gap: 14px; } #pg-bar { display: none; }
+  /* On a phone the open Stil bar needs the height; nobody switches modes while choosing a pen. */
+  .gen:has(> .gen-dock #gen-style:not([hidden])) .gen-modes { display: none; }
+  /* the short progress fits beside the tools; the longer hint when done may take two lines */
+  .gen-status:has(> #pg-busy:not([hidden])) { flex-basis: 110px; }
+}

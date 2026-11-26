@@ -240,11 +240,12 @@ Rules that come from measurements on this writer's earlier recordings:
 
 ### 2.4 Prompts
 
-`web/prompts/de-core.json`, set `de-core@3`, 2491 prompts in 125 blocks
-(the last block has 11 lines):
+`web/prompts/de-core.json`, set `de-core@5`, 3252 prompts in 163 blocks
+(the last block has 12 lines):
 
 ```json
-{"set": "de-core@3", "prompts": [{"id": "de-core-0001", "text": "…", "lang": "de", "block": 1}, …]}
+{"set": "de-core@5", "streams": {"eszett": [["de-core-2808", "de-core-2880"]], "rows": [["de-core-2881", "de-core-3252"]]},
+ "prompts": [{"id": "de-core-0001", "text": "…", "lang": "de", "block": 1}, …]}
 ```
 
 The app shows prompts block by block in file order and tracks progress by
@@ -260,30 +261,64 @@ file: (position − 1) // 20 + 1.
   data, nothing awkward to write.
 - History: ids 0001–0800 are de-core@2 with unchanged texts (snapshot
   `data/prompts/de-core@2.json`, checked against git). Positions 1–160
-  (blocks 1–8) are exactly those of de-core@2. Ids from 0801 are the lines of
+  (blocks 1–8) are exactly those of de-core@2 and stay frozen (all written).
+  Ids 0801–2807 are the lines of
   `data/prompts/additions.txt` (grouped by category) in file order, minus the
   ones that duplicate or nearly duplicate an earlier prompt (same text ignoring
   case and punctuation, nearly the same words, or nearly the same characters).
+  Ids 0001–2807 in the order of de-core@4 (snapshot `data/prompts/de-core@4.json`,
+  checked against git) are the main sequence.
+- Two streams are woven into the main sequence from position 161 on (ids in
+  `streams`, so training can tell rows from sentences):
+  - ß sentences, ids 2808–2880: the 73 lines of `data/prompts/eszett.txt`
+    (ordinary sentences with ß; the recordings held 29 ß in all), in file order.
+  - Word rows, ids 2881–3252: the 372 lines of `data/prompts/rows.txt`, 3–6
+    unrelated words or numbers each, in file order. Training cuts a row into its
+    words; they replace about 1,400 older single-word recordings in an older
+    hand. The first rows pack capital umlauts and ß densely.
+
+  In every block after the frozen ones, slots 3, 7, 11, 15 and 19 hold the next
+  rows and slots 5 and 13 the next ß sentences while each stream lasts (rows up
+  to position 1647, ß sentences to 885); all other slots hold the main sequence
+  in its order. Removing the stream entries gives de-core@4 exactly. Stream
+  lines are checked for alphabet, length and exact duplicates; ß sentences also
+  for near-duplicates. De-core@5 is published, so no stream line is moved,
+  changed or removed (checked against its git commit); a new line goes at the
+  end of its file and takes the next free id (3253 on), added as a further
+  range of that stream in `streams`. The variety rules below apply to the main sequence;
+  per block (number rows count as digit-heavy) at most four digit-heavy lines,
+  six lines with digits and two English lines hold in the woven blocks too.
 - Blocks 1–2 alone contain every lowercase and uppercase letter incl. ä ö ü ß
   Ä Ö Ü, every digit at least 3 times, and `. , ! ? : - ( ) " '`.
-- From position 161 on the order serves two goals at once:
-  - Coverage first: rare character pairs come early, and the rarest characters
+- From position 161 on the main sequence (de-core@4) serves three goals:
+  - Focus: its positions 161–220 are rich in what the trained model writes
+    worst (Ä Ö Ü T at a word start, the 'über' family, Q X Y C J j, ä ü, every
+    digit, the scarce signs; minimums `FOCUS` in `build_prompts.py`), 221–420
+    at half that rate, and neither below what de-core@3 offered there.
+  - Coverage: rare character pairs come early, and the rarest characters
     (Ä Ö Ü % € C E L N O Q V X Y) follow a schedule: two more per block until
     each has been offered 30 times (counted from position 1; by about position
-    480; `%`, X and Y have fewer lines than that, so all of them come early),
+    440 in the main sequence, 570 in de-core@5, where Ä Ö Ü get there by 261),
     then the rest spread evenly. While Ä, Ö or Ü is below 30 every block
     contains it and at least 3 capital umlauts; afterwards no two blocks in a
-    row are without one.
-  - Variety always: never two neighbours of the same category (additions carry
+    row are without one (this holds in the woven blocks too).
+  - Variety: never two neighbours of the same category (additions carry
     one; for de-core@2 lines: English, digit-heavy, direct speech, list-like,
     plain sentence) or with the same first word; at most one digit-heavy line
     (3+ digits) among any four neighbours and at most four per block; at most
-    two English lines per block; every block has at least two lines of ≤ 28
-    and two of ≥ 37 characters.
-- `scripts/build_prompts.py` rebuilds the file deterministically from the
-  snapshot and `additions.txt`; `scripts/check_prompts.py` verifies all of the
-  above and prints a coverage table per 100 prompts (`--reproduce` also
-  rebuilds and compares byte for byte).
+    two English lines per block; every block of the main sequence has at least
+    two lines of ≤ 28 and two of ≥ 37 characters (rows are mostly long: 10 woven
+    blocks miss it, block 9, the writer's next, has no short line).
+- The writer's next 60 prompts (positions 161–220 of de-core@5: 39 of the main
+  sequence, 15 rows, 6 ß sentences) hold ß in 18 lines, Ä/Ö/Ü at a word start in
+  16/16/17, Q 6, X 5, Y 6, C 7, J 7. The 21 stream slots cost signs that rows do
+  not carry: `# & ' * €` 2 times, `/ @` once, `%` not at all (de-core@4 had 3
+  each there); X has only two rows.
+- `scripts/build_prompts.py` rebuilds the main sequence deterministically from
+  the snapshots and `additions.txt`, compares it with `de-core@4.json` and
+  weaves in the streams; `scripts/check_prompts.py` verifies all of the above
+  and prints a coverage table per 100 prompts (`--reproduce` also rebuilds and
+  compares byte for byte).
 
 ### 2.5 Schreiben (generate)
 
@@ -311,6 +346,112 @@ most ~27 characters that are placed on a common baseline with the writer's own
 word spacing (`gap_xh` in `model.json`). Lesbarkeit (bias) regenerates;
 size and line spacing only lay the finished pieces out again; ink only redraws.
 The UI typeface (Instrument Sans, OFL) is bundled in `web/fonts/`.
+
+### 2.5.1 Seite: layout and PDF (`js/generate/document.js`, `pdf.js`)
+
+The page mode writes a typed text onto A4 pages (210 × 297 mm, portrait). All
+geometry is in millimetres, y down, from the top left corner.
+
+- Paper: **Liniert** – a line every 8 mm from 24 mm down, the last one at least
+  12 mm above the edge (33 lines), across the full width. **Kariert** – a 5 mm
+  grid centred on the page (lines at y = 1, 6, …), writing on every second grid
+  line (10 mm, 26 lines from 26 mm); the margin x = 20 mm is a grid line.
+  **Blanko** – no ruling, the lines of Liniert. Margins 20 mm left, 15 mm right.
+- Letter size: x-height = 0.16 / 0.18 / 0.21 × the line distance (Klein /
+  Mittel / Groß; 1.44 mm on lines, 1.8 mm on squares for Mittel). Chosen by
+  looking at pages and counting neighbouring lines whose ink touches: this
+  hand's tops reach a median 3.5 x-heights above the baseline within a piece and
+  its descenders 1.5. On a lined page of prose 0.25 touched on 16 of 36 line
+  pairs, 0.21 on 12 of 31, 0.18 on 4 of 28 (three lined pages: 12 of 75).
+- Text: one newline = a new line, an empty line = one empty line, trailing empty
+  lines dropped. Paragraphs are cut into pieces (`layout.js: splitPieces`); piece
+  i is written with seed `pieceSeed(seed, i, version)`, so the result does not
+  depend on how many workers write or in which order; `version` counts rewrites.
+- Layout: each written piece is straightened and cut into levelled words
+  (`layout.js`); if its gaps are unclear, a looser cut is tried and kept only if
+  the word widths fit their texts. Words flow greedily, ragged right; gaps inside
+  a piece as written (clamped as on the quick sheet), between pieces the writer's
+  gap (`gap_xh`) drawn per piece. Words `wordLevel` leaves alone (1–2
+  characters, or bottoms more than 1.5 xh off) are set on the line by their own
+  letter bottoms (`sitLine`, up to 2.5 xh); a piece with a word still more than
+  0.5 xh off the line, a word reaching above 5 xh, or a long stroke lying more
+  than 1 xh above the line is flagged (`flags`; 3 of ~200 test pieces) and the
+  page mode writes it once more. A line starts at the margin ± at most 0.5 mm
+  (sd 0.2 mm). A word wider than a line is scaled down onto a line of its own.
+  Pages break when their lines are used up; an empty line never opens a page.
+  Layout random numbers come from the document seed and the piece index only.
+- Even letter size: every piece gets an estimate of its log letter size,
+  0.85 × log(pen-down ink length / expected length of its characters) + 0.15 ×
+  (log stroke size − what its text explains). On 322 real pieces scaled by a
+  known factor (4-fold by line) its error is 0.136 (stroke size alone 0.220,
+  ink alone 0.140), of which most is the real lines' own size (two pieces of one
+  line: 0.085). A piece is pulled towards the median estimate of the first 12
+  pieces (so nothing shown moves while the rest is written) by
+  0.7 of its deviation (cov with an independent x-height fit / variance, measured
+  on 117 generated pieces), clamped to ×0.8–1.25; words of 4+ characters
+  additionally towards their piece by 0.46 (clamped ×0.85–1.18). A rewrite keeps
+  the document's median, so nothing before the rewritten piece moves. The
+  effect is modest: an independent x-height fit per piece spreads by sd 0.133
+  (log) without evening and 0.112 with it; letter size still varies by about
+  ×1.5 between the 5th and 95th percentile of pieces.
+- The layout is a plain object `{ settings, page, geometry, typical, pages:
+  [{ strokes: Float32Array[x, y, penUp…] per word in mm, words: [{ text, piece,
+  word, line, x, width, baseline, box }] }], pieces }`. The screen
+  (`render.js: drawDocumentPage`) and the PDF read the same object; pens, widths
+  and colours are those of the quick sheet with the page's x-height as unit.
+- PDF (`pdf.js`, written by hand, PDF 1.4): one page per document page, the
+  paper colour on dark paper, the ruling (0.16 mm, the scheme's rule / faint
+  colour), the ink as stroked paths with round caps and joins (Fineliner: the
+  screen's curves as Béziers; Füller: 13 width steps; Bleistift: 8 tones as
+  opacity with Darken / Lighten blending, no grain). Coordinates in pt, 2
+  decimals; content streams deflated where `CompressionStream` exists. Title
+  (UTF-16) and creation date in the info dictionary. An invisible text layer
+  (render mode 3, Helvetica, WinAnsi with umlauts, ß, €, „ “ –, other
+  characters `?`) holds the words as typed (`planDocument` keeps them beside the
+  model's folded text) and puts every word on its baseline stretched to its width, with its space widened
+  to the next word so text tools read whole lines; it can be switched off.
+
+### 2.5.2 Seite: interface and workers (`js/generate/page-view.js`)
+
+A switch above the sheet chooses **Zettel** (the quick sheet above, unchanged)
+or **Seite**. Seite shows A4 pages fitted to the column, one under the other and
+scrollable, and its own multi-line text field (typing and pasting, up to 40 000
+characters). Stil is shared; in Seite it shows **Schrift** (Klein / Mittel /
+Groß) instead of Größe, Papier is the page's own, Zeilenabstand is hidden;
+Lesbarkeit is read when writing starts. "Erweitert" adds a switch for the PDF's
+text layer. Mode, text, paper, letter size and the text-layer switch are stored
+(`kv: generateMode`, `kv: page`); the written pages live until the tab is
+reloaded.
+
+- Workers: `engine-client.js: createEnginePool`, hardwareConcurrency − 1, at
+  most 4, 2 with deviceMemory ≤ 4 and 1 with ≤ 2; each worker holds its own
+  copy of the model. Pieces are handed out in text order; piece i always gets
+  `pieceSeed(seed, i, version)`, so one worker and several write identical pages
+  (tested). A rewrite goes ahead of the queue. A piece that fails is tried once
+  more; an engine whose worker died is replaced by a fresh one (at most `size`
+  times, then dropped), so one crash does not end the text (tested with a
+  worker that dies). If a piece fails twice the run stops and the next one
+  starts with new engines.
+- While writing, the pages show every piece from the start of the text up to
+  the first unfinished one (`layoutDocument` stops there); the view follows the
+  last line until the writer scrolls. Only pages within one screen height of
+  the viewport keep a canvas (each at most 8 Mpx). The status reads
+  "schreibt … 26 von 79 · Seite 2 · noch etwa 2 Min." with a bar; the time left
+  is (time so far / pieces done) × pieces left, shown once every worker has
+  finished one piece. "Abbrechen" stops all workers; what is written stays.
+- Tap to rewrite: a tap (pointer moving less than 10 px) within 3 mm (finger),
+  2 mm (pen) or 1.5 mm (mouse) of a word marks its piece and shows
+  "Neu schreiben" next to it, under or over the piece where it hides the
+  fewest other words (opening Stil drops the mark); only that piece is written again with the next
+  version of its seed, the typical size is kept, so nothing before it moves. A
+  tap on empty paper or Escape drops the mark. A rewrite lost to "Abbrechen"
+  is named in the note. A paste cut at the field's 40 000 characters is named
+  too.
+- Paper and letter size lay the written pieces out again; pen, width, ink and
+  colours redraw; a new text or Lesbarkeit needs "Schreiben". A newer model
+  waits until nothing is being written.
+- "PDF herunterladen" (phone: "PDF") saves `handschrift-YYYY-MM-DD.pdf` from the
+  same document object; "Teilen" appears only where the browser can share files.
 
 ### 2.6 Engine
 

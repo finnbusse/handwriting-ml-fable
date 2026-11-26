@@ -1,4 +1,6 @@
-// The Schreiben screen: text in, handwriting out (SPEC 2.5).
+// The Schreiben screen: text in, handwriting out (SPEC 2.5).  Two modes: "Zettel"
+// (this file: a short text on a sheet of its own size) and "Seite" (page-view.js:
+// A4 pages and a PDF); the model, Stil and Lesbarkeit are shared.
 //
 // Pieces: model-store.js (download, check, cache), engine-client.js (network in a
 // worker), page-writer.js (text -> page, piece by piece), render.js (drawing, export).
@@ -17,6 +19,7 @@ import { createPageWriter } from './page-writer.js';
 import { drawWord, drawWords, drawPartial, drawSheet, toSVG, toCanvas, lookColors, normalizeLook, lookFromCapture, INKS, DEFAULT_LOOK } from './render.js';
 import { createEngine } from './engine-client.js';
 import { createModelStore } from './model-store.js';
+import { createPageView } from './page-view.js';
 import { normalize as normalizeDisplay, WIDTHS as CAPTURE_WIDTHS } from '../capture/ink.js';
 
 const PAGE_TOP = 6.5, PAGE_MARGIN = 3;   // first baseline and side margin, x-heights (ascenders of enlarged words need about 3.5)
@@ -75,6 +78,7 @@ export function createGenerateView(deps) {
     modelRow: $('gen-model-row'), modelPick: $('gen-model-pick'),
     save: $('gen-save'), saveMenu: $('gen-save-menu'),
     png: $('gen-png'), inkPng: $('gen-ink-png'), svg: $('gen-svg'), copy: $('gen-copy'),
+    gen: $('gen'), modes: document.querySelector('#gen .gen-modes'), pgStage: $('pg-stage'), pgPages: $('pg-pages'),
   };
   const ctx = el.canvas.getContext('2d');
   const gctx = el.lines.getContext('2d');               // the paper and its lines, under the ink
@@ -86,7 +90,8 @@ export function createGenerateView(deps) {
     settings: Object.assign({}, DEFAULTS),
     look: Object.assign({}, DEFAULT_LOOK),
     ownLook: false,                               // changed here at least once: no longer follows the capture sheet
-    visible: false,
+    visible: false, mode: 'zettel', pageStatus: false,
+    entry: null, ready: null,                     // the model in use, for the page mode's engines
     // model
     engine: null, engineUser: null, sha: null, normalizer: null, writer: null, trainedOn: null,
     version: null, index: null, choice: 'newest', switching: false, again: false,
@@ -125,11 +130,13 @@ export function createGenerateView(deps) {
     el.card.hidden = false;
     el.work.hidden = true;
     el.empty.hidden = true;
+    applyMode();
   }
 
   function showWork() {
     el.card.hidden = true;
     el.work.hidden = false;
+    applyMode();
     renderInfo();
     syncUi();
     autosize();
@@ -161,7 +168,7 @@ export function createGenerateView(deps) {
   };
 
   async function useModel(entry, trainedOn, { updated = false, info = null } = {}) {
-    if (S.phase === 'writing') {                    // never swap the network under a running text
+    if (S.phase === 'writing' || pageView.busy()) {   // never swap the network under a running text
       S.pendingModel = { entry, trainedOn, updated, info };
       S.info = { kind: 'waiting' }; renderInfo();
       return;
@@ -177,7 +184,8 @@ export function createGenerateView(deps) {
     }
     const old = S.engine;
     const normalizer = createNormalizer(ready.charset);
-    S.engine = engine; S.engineUser = entry.user; S.sha = entry.manifest.sha256;
+    S.engine = engine; S.engineUser = entry.user; S.sha = entry.manifest.sha256; S.entry = entry; S.ready = ready;
+    pageView.modelChanged();
     S.normalizer = normalizer; S.trainedOn = trainedOn || null; S.version = entry.version || null;
     S.writer = createPageWriter({
       normalize: normalizer.normalize, xhModel: ready.xhModel, gapXh: ready.gapXh,
@@ -190,11 +198,12 @@ export function createGenerateView(deps) {
     renderPicker();
     showWork();
     syncUi();
+    pageView.sync();
   }
 
   function onSyncError(e) {
     const have = ownEngine();
-    if (!have && S.engine) { S.engine.terminate(); S.engine = null; S.writer = null; }   // some other account's model
+    if (!have && S.engine) { S.engine.terminate(); S.engine = null; S.writer = null; S.entry = null; pageView.modelChanged(); }   // some other account's model
     switch (e.kind) {
       case 'cancelled': return;
       case 'signin': if (!have) showCard('signin'); return;
@@ -455,7 +464,8 @@ export function createGenerateView(deps) {
     el.write.disabled = writing || !S.engine;
     el.write.hidden = writing; el.cancel.hidden = !writing;       // one place, two meanings
     el.again.disabled = writing || !S.engine || !S.lastText;
-    el.busy.hidden = !writing; el.info.hidden = writing;
+    const seite = S.mode === 'seite';
+    el.busy.hidden = !writing || seite; el.info.hidden = seite ? S.pageStatus : writing;
     el.size.disabled = writing; el.spacing.disabled = writing;
     const canExport = !!S.page && !writing;
     el.save.disabled = !canExport;
@@ -489,6 +499,7 @@ export function createGenerateView(deps) {
     const open = el.style.hidden;
     el.style.hidden = !open;
     el.styleBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) pageView.unpick();
   }
 
   function toggleMore() {
@@ -552,8 +563,46 @@ export function createGenerateView(deps) {
     if (S.cancelled) { settleAll(); setNote(el.note, S.page ? 'Abgebrochen. Was schon geschrieben ist, bleibt stehen.' : 'Abgebrochen.'); }
     setNote(el.bad, S.bad ? badText(S.bad) : '');
     syncUi();
-    if (S.pendingModel) { const p = S.pendingModel; S.pendingModel = null; await useModel(p.entry, p.trainedOn, { updated: p.updated, info: p.info }); }
+    await takePendingModel();
     save();
+  }
+
+  async function takePendingModel() {
+    if (!S.pendingModel || S.phase === 'writing' || pageView.busy()) return;
+    const p = S.pendingModel; S.pendingModel = null;
+    await useModel(p.entry, p.trainedOn, { updated: p.updated, info: p.info });
+  }
+
+  // ---------- Zettel / Seite ----------
+
+  const pageView = createPageView({
+    store, toast,
+    model: () => (S.engine && S.entry && S.ready ? { entry: S.entry, info: S.ready, normalizer: S.normalizer } : null),
+    look: () => S.look,
+    bias: () => S.settings.bias,
+    onIdle: () => { takePendingModel(); },
+    onStatus: (shown) => { S.pageStatus = shown; syncUi(); },
+  });
+
+  /** Which mode's sheet, tools and text field are shown (the model card replaces both sheets). */
+  function applyMode() {
+    const seite = S.mode === 'seite';
+    el.gen.dataset.mode = S.mode;
+    for (const b of el.modes.querySelectorAll('[data-mode]')) b.setAttribute('aria-checked', b.dataset.mode === S.mode ? 'true' : 'false');
+    el.stage.hidden = seite && el.card.hidden;
+    el.pgStage.hidden = !seite || !el.card.hidden;
+    pageView.activate(seite && el.card.hidden && S.visible);
+  }
+
+  function setMode(mode) {
+    if (mode === S.mode || !['zettel', 'seite'].includes(mode)) return;
+    S.mode = mode;
+    closeMenu();
+    applyMode();
+    applyLook();
+    syncUi();
+    store.kvSet('generateMode', mode).catch(() => {});
+    if (mode === 'zettel' && S.visible) { autosize(); redrawAll(); }
   }
 
   function onPiece({ page, fresh, problems }) {
@@ -642,12 +691,16 @@ export function createGenerateView(deps) {
     applyLook();
   }
 
-  /** Buttons, swatches and the sheet's own colours follow the look. */
+  /** Buttons, swatches and the sheet's own colours follow the look (paper and letter
+   *  size of the page mode are its own). */
   function applyLook() {
     const l = S.look;
+    const ps = pageView.settings;
+    // Letter size belongs to the page mode only: in Zettel none of its (hidden) choices is on.
+    const value = (k) => (k === 'docsize' ? (S.mode === 'seite' ? ps.size : null) : k === 'paper' && S.mode === 'seite' ? ps.paper : l[k]);
     for (const b of el.style.querySelectorAll('.gen-choice')) {
       const v = b.dataset.k === 'width' ? Number(b.dataset.v) : b.dataset.v;
-      b.setAttribute('aria-checked', l[b.dataset.k] === v ? 'true' : 'false');
+      b.setAttribute('aria-checked', value(b.dataset.k) === v ? 'true' : 'false');
     }
     for (const b of el.inks.querySelectorAll('[data-ink]')) {
       const [color, name] = INKS[l.scheme][b.dataset.ink];
@@ -657,16 +710,22 @@ export function createGenerateView(deps) {
     }
     el.inkRow.hidden = l.pen === 'bleistift';       // graphite has no ink to choose
     el.paper.dataset.scheme = l.scheme;
+    el.pgPages.dataset.scheme = l.scheme;
   }
 
   /** Change one part of the look here: from now on Schreiben keeps its own. */
   function setLook(key, value) {
+    if (key === 'docsize' || (key === 'paper' && S.mode === 'seite')) {
+      pageView.set(key === 'docsize' ? 'size' : 'paper', value);
+      applyLook();
+      return;
+    }
     const next = normalizeLook(Object.assign({}, S.look, { [key]: value }));
     if (next[key] === S.look[key] && S.ownLook) return;
     S.look = next; S.ownLook = true;
     applyLook(); save();
     S.sheetKey = '';
-    if (key === 'paper') paintSheet(); else redrawAll();
+    if (key === 'paper') paintSheet(); else { redrawAll(); pageView.redraw(); }
   }
 
   /** Until the look is changed here, it is the current writer's capture sheet (when they set one up). */
@@ -683,7 +742,7 @@ export function createGenerateView(deps) {
     if (JSON.stringify(next) === JSON.stringify(S.look)) return;
     S.look = next;
     applyLook();
-    S.sheetKey = ''; redrawAll();
+    S.sheetKey = ''; redrawAll(); pageView.redraw();
   }
 
   let relayoutFrame = 0;
@@ -697,7 +756,8 @@ export function createGenerateView(deps) {
     el.text.addEventListener('input', () => { setNote(el.note, ''); autosize(); save(); });
     el.bias.addEventListener('input', () => { S.settings.bias = Number(el.bias.value); save(); });
     // Lesbarkeit changes how the network writes, so letting go of the slider writes the text again.
-    el.bias.addEventListener('change', () => { if (S.lastText && S.phase === 'idle') run(S.lastText); });
+    el.bias.addEventListener('change', () => { if (S.mode === 'zettel' && S.lastText && S.phase === 'idle') run(S.lastText); });
+    el.modes.addEventListener('click', (e) => { const b = e.target.closest('[data-mode]'); if (b) setMode(b.dataset.mode); });
     el.styleBtn.addEventListener('click', toggleStyle);
     el.moreBtn.addEventListener('click', toggleMore);
     el.modelPick.addEventListener('change', () => choose(el.modelPick.value));
@@ -733,7 +793,7 @@ export function createGenerateView(deps) {
       lastW = w;
       redrawAll();
     }).observe(el.paper);
-    window.addEventListener('resize', () => { redrawAll(); autosize(); });
+    window.addEventListener('resize', () => { redrawAll(); autosize(); pageView.autosize(); });
     window.addEventListener('hw-auth', () => { S.stale = true; if (S.visible) refresh(); });
     window.addEventListener('online', () => { if (S.visible && !S.syncing) refresh(); });
   };
@@ -757,8 +817,11 @@ export function createGenerateView(deps) {
       const c = await store.kvGet('modelChoice', null);
       if (c && typeof c.id === 'string' && c.user === hf.userName()) S.choice = c.id;
     } catch (_) { /* "Neuestes" */ }
+    try { const m = await store.kvGet('generateMode', null); if (m === 'seite') S.mode = 'seite'; } catch (_) { /* Zettel */ }
+    await pageView.init();
     applySettings();
     wire();
+    applyMode();
     syncUi();
     await followCapture();
   }
@@ -766,6 +829,8 @@ export function createGenerateView(deps) {
   function show() {
     S.visible = true;
     S.follow = true;
+    pageView.show();
+    applyMode();
     autosize();
     redrawAll();
     followCapture();
@@ -773,11 +838,13 @@ export function createGenerateView(deps) {
     if (stale && !S.syncing) refresh();
   }
 
-  function hide() { S.visible = false; }
+  function hide() { S.visible = false; pageView.hide(); }
 
   return {
     init, show, hide, refresh,
     info: () => ms.info(),
+    /** For tests: the page mode's state. */
+    pageDebug: () => Object.assign(pageView.debug(), { mode: S.mode }),
     /** For tests and the diagnostics page. */
     debug: () => ({ choice: S.choice, version: S.version ? S.version.id : null, models: ((S.index && S.index.models) || []).map((m) => m.id), phase: S.phase, page: S.page, seed: S.seed, sha: S.sha, settings: S.settings, look: Object.assign({}, S.look), ownLook: S.ownLook, runs: S.runId, scale: S.geo ? S.geo.scale : 0, text: S.lastText, bad: S.bad, settled: S.settled, total: S.total, done: S.done }),
   };

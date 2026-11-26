@@ -38,6 +38,7 @@
     <symbol id="i-nib" viewBox="0 0 24 24"><path d="M12 3.5 17.5 10 12 20.5 6.5 10z"/><path d="M12 13.2v7.3"/><circle cx="12" cy="11.6" r="1.4"/></symbol>
     <symbol id="i-expand" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></symbol>
     <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5.5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="18.5" cy="12" r="1.3"/></symbol>
+    <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 15V4"/><path d="M7.5 8.5 12 4l4.5 4.5"/><path d="M5 12v6.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V12"/></symbol>
     <symbol id="i-shrink" viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5"/></symbol>
   </defs>
 </svg>
@@ -193,7 +194,13 @@
 
   <!-- Generate: text in, handwriting out -->
   <section class="view view-write" id="v-schreiben" hidden>
-    <div class="gen" id="gen">
+    <div class="gen" id="gen" data-mode="zettel">
+
+      <!-- Zettel: a short text on a sheet of its own size; Seite: A4 pages and a PDF (page-view.js) -->
+      <div class="gen-modes" role="radiogroup" aria-label="Art">
+        <button class="gen-choice" type="button" role="radio" aria-checked="true" data-mode="zettel">Zettel</button>
+        <button class="gen-choice" type="button" role="radio" aria-checked="false" data-mode="seite">Seite</button>
+      </div>
 
       <!-- The sheet. It is always there; without a model it says why and what to do. -->
       <div class="gen-stage" id="gen-stage">
@@ -215,16 +222,26 @@
         </div>
       </div>
 
+      <!-- Seite: the A4 pages, one canvas each; a tap on a word marks its piece for rewriting -->
+      <div class="pg-stage" id="pg-stage" data-only="seite" hidden>
+        <div class="pg-pages" id="pg-pages">
+          <p class="pg-empty" id="pg-empty">Hier erscheinen deine Seiten.</p>
+          <div class="pg-pick" id="pg-pick" hidden><button class="pg-redo" id="pg-redo" type="button"><svg class="ic" aria-hidden="true"><use href="#i-again"/></svg><span>Neu schreiben</span></button></div>
+        </div>
+      </div>
+
       <div class="gen-dock" id="gen-work" hidden>
         <div class="gen-row">
           <div class="gen-status">
             <span class="gen-busy" id="gen-busy" hidden><span class="pen-dot" aria-hidden="true"></span><span id="gen-busy-text" role="status">schreibt …</span></span>
+            <span class="gen-busy" id="pg-busy" data-only="seite" hidden><span class="pen-dot" aria-hidden="true"></span><span id="pg-busy-text" role="status"></span><span class="pbar" id="pg-bar" hidden><span id="pg-fill"></span></span></span>
+            <span class="gen-info pg-info" id="pg-info" data-only="seite" role="status" hidden></span>
             <span class="gen-info" id="gen-info"><span id="gi-text" role="status"></span><span class="pbar" id="gi-bar" hidden><span id="gi-fill"></span></span></span>
           </div>
           <div class="gen-tools">
-            <button class="gen-tool" id="gen-again" type="button" title="Denselben Text noch einmal schreiben" disabled><svg class="ic" aria-hidden="true"><use href="#i-again"/></svg><span>Nochmal</span></button>
+            <button class="gen-tool" id="gen-again" data-only="zettel" type="button" title="Denselben Text noch einmal schreiben" disabled><svg class="ic" aria-hidden="true"><use href="#i-again"/></svg><span>Nochmal</span></button>
             <button class="gen-tool" id="gen-style-btn" type="button" aria-expanded="false" aria-controls="gen-style"><svg class="ic" aria-hidden="true"><use href="#i-nib"/></svg><span>Stil</span></button>
-            <div class="gen-menu-wrap">
+            <div class="gen-menu-wrap" data-only="zettel">
               <button class="gen-tool" id="gen-save" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="gen-save-menu" disabled><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg><span>Speichern</span></button>
               <div class="gen-menu" id="gen-save-menu" role="menu" hidden>
                 <button type="button" role="menuitem" id="gen-png" disabled>Als Bild</button>
@@ -233,6 +250,8 @@
                 <button type="button" role="menuitem" id="gen-copy" disabled hidden>Kopieren</button>
               </div>
             </div>
+            <button class="gen-tool" id="pg-share" data-only="seite" type="button" aria-label="Teilen" disabled hidden><svg class="ic" aria-hidden="true"><use href="#i-share"/></svg><span class="pg-long">Teilen</span></button>
+            <button class="gen-tool" id="pg-pdf" data-only="seite" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-down"/></svg><span class="pg-long">PDF herunterladen</span><span class="pg-short">PDF</span></button>
           </div>
         </div>
 
@@ -255,7 +274,14 @@
                 <button class="gen-choice gen-w" type="button" role="radio" aria-checked="false" data-k="width" data-v="0.42" aria-label="Dick" title="Dick"><i style="height:4px"></i></button>
               </div>
             </div>
-            <label class="gen-opt"><span class="gen-opt-l">Größe</span><input type="range" id="gen-size" min="6" max="30" step="1" value="11"></label>
+            <label class="gen-opt" data-only="zettel"><span class="gen-opt-l">Größe</span><input type="range" id="gen-size" min="6" max="30" step="1" value="11"></label>
+            <div class="gen-opt" data-only="seite"><span class="gen-opt-l" id="gs-docsize-l">Schrift</span>
+              <div class="gen-choices" role="radiogroup" aria-labelledby="gs-docsize-l">
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="docsize" data-v="klein">Klein</button>
+                <button class="gen-choice" type="button" role="radio" aria-checked="true" data-k="docsize" data-v="mittel">Mittel</button>
+                <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="docsize" data-v="gross">Groß</button>
+              </div>
+            </div>
             <div class="gen-opt gen-opt-paper"><span class="gen-opt-l" id="gs-paper-l">Papier</span>
               <div class="gen-choices" role="radiogroup" aria-labelledby="gs-paper-l">
                 <button class="gen-choice" type="button" role="radio" aria-checked="false" data-k="paper" data-v="blanko">Blanko</button>
@@ -275,7 +301,7 @@
             <label class="gen-opt gen-opt-model" id="gen-model-row" hidden><span class="gen-opt-l">Modell</span>
               <select class="gen-select" id="gen-model-pick"><option value="newest">Neuestes</option></select></label>
             <label class="gen-opt"><span class="gen-opt-l">Lesbarkeit</span><input type="range" id="gen-bias" min="0" max="1.2" step="0.05" value="0.4"></label>
-            <label class="gen-opt"><span class="gen-opt-l">Zeilenabstand</span><input type="range" id="gen-spacing" min="5" max="9" step="0.25" value="6.5"></label>
+            <label class="gen-opt" data-only="zettel"><span class="gen-opt-l">Zeilenabstand</span><input type="range" id="gen-spacing" min="5" max="9" step="0.25" value="6.5"></label>
             <div class="gen-opt" id="gen-ink-row"><span class="gen-opt-l" id="gen-ink-l">Tinte</span>
               <div class="gen-inks" id="gen-inks" role="radiogroup" aria-labelledby="gen-ink-l">
                 <button class="gen-ink" type="button" role="radio" aria-checked="true" data-ink="blueblack" aria-label="Blauschwarz" title="Blauschwarz"><i></i></button>
@@ -283,18 +309,29 @@
                 <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="blue" aria-label="Königsblau" title="Königsblau"><i></i></button>
               </div>
             </div>
+            <div class="gen-opt" data-only="seite"><span class="gen-opt-l">PDF</span>
+              <label class="pg-switch"><input type="checkbox" role="switch" id="pg-textlayer" checked><span>Text durchsuchbar</span></label>
+            </div>
           </div>
         </div>
 
-        <div class="gen-composer">
+        <div class="gen-composer" data-only="zettel">
           <label class="sr-only" for="gen-text">Text</label>
           <textarea id="gen-text" rows="1" maxlength="4000" placeholder="Was soll ich schreiben?" autocomplete="off" spellcheck="true" enterkeyhint="enter"></textarea>
           <button class="gen-go" id="gen-write" type="button" title="Strg + Eingabe">Schreiben</button>
           <button class="gen-go stop" id="gen-cancel" type="button" hidden><i aria-hidden="true"></i>Abbrechen</button>
         </div>
-        <p class="gen-note" id="gen-note" role="status" hidden></p>
-        <p class="gen-note" id="gen-chars" hidden></p>
-        <p class="gen-note" id="gen-bad" hidden></p>
+        <div class="gen-composer pg-composer" data-only="seite">
+          <label class="sr-only" for="pg-text">Text für die Seiten</label>
+          <textarea id="pg-text" rows="2" maxlength="40000" placeholder="Text tippen oder einfügen" autocomplete="off" spellcheck="true" enterkeyhint="enter"></textarea>
+          <button class="gen-go" id="pg-write" type="button" title="Strg + Eingabe">Schreiben</button>
+          <button class="gen-go stop" id="pg-cancel" type="button" hidden><i aria-hidden="true"></i>Abbrechen</button>
+        </div>
+        <p class="gen-note" id="gen-note" data-only="zettel" role="status" hidden></p>
+        <p class="gen-note" id="gen-chars" data-only="zettel" hidden></p>
+        <p class="gen-note" id="gen-bad" data-only="zettel" hidden></p>
+        <p class="gen-note" id="pg-note" data-only="seite" role="status" hidden></p>
+        <p class="gen-note" id="pg-chars" data-only="seite" hidden></p>
       </div>
     </div>
   </section>

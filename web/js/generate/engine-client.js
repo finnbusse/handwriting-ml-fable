@@ -36,7 +36,7 @@ export function createEngine(manifest, buffer, { workerUrl = new URL('../engine/
     } else if (m.type === 'error') {
       const error = new Error(m.message || 'engine error');
       if (m.id !== undefined && pending.has(m.id)) { const p = pending.get(m.id); pending.delete(m.id); p.reject(error); }
-      else { readyHandlers.reject(error); failAll(error); }
+      else { dead = error; readyHandlers.reject(error); failAll(error); }     // the model did not load: this engine is no use
     }
   };
   worker.onerror = (event) => {
@@ -50,6 +50,8 @@ export function createEngine(manifest, buffer, { workerUrl = new URL('../engine/
 
   return {
     ready,
+    /** The worker crashed or could not load the model; every writePiece() fails. */
+    get failed() { return !!dead; },
     set onProgress(fn) { onProgress = fn; },
     writePiece({ text, bias, seed, tries }) {
       if (dead) return Promise.reject(dead);
@@ -66,6 +68,90 @@ export function createEngine(manifest, buffer, { workerUrl = new URL('../engine/
     terminate() {
       worker.terminate();
       failAll(cancelled());
+    },
+  };
+}
+
+/** How many engines a device can spare for writing pages: one core stays with the
+ *  page, at most 4 (a piece is about 600 steps at ~200 steps/s per core), and fewer
+ *  where memory is small (every engine holds its own copy of the model). */
+export function poolSize(nav = typeof navigator !== 'undefined' ? navigator : {}) {
+  let n = Math.min(4, Math.max(1, (nav.hardwareConcurrency || 2) - 1));
+  const mem = nav.deviceMemory;
+  if (mem && mem <= 2) n = 1;
+  else if (mem && mem <= 4) n = Math.min(n, 2);
+  return n;
+}
+
+/**
+ * Several engines writing pieces side by side.  Same interface as one engine, plus
+ * `size`; writePiece({ ..., first: true }) goes ahead of everything queued (a piece
+ * the writer asked to rewrite).  Pieces are handed out in the order they are asked
+ * for, so the start of a text is written first.
+ *
+ * A piece that fails is tried once more, on another engine if there is one.  An
+ * engine whose worker died (crash, out of memory, model not loaded) is replaced by
+ * a fresh one; after `size` replacements a dead engine is dropped instead, and only
+ * when none is left do the pieces fail.  Without this a dead engine, which fails at
+ * once, would take most of the queue and fail the whole text.
+ */
+export function createEnginePool(manifest, buffer, size = poolSize(), o = {}) {
+  const make = o.createEngine || createEngine;
+  const engines = Array.from({ length: Math.max(1, size) }, () => make(manifest, buffer, o));
+  const busy = new Set();
+  let queue = [];          // { job, resolve, reject, tried }
+  let renewals = 0;
+  const ready = Promise.any(engines.map((e) => e.ready));
+  ready.catch(() => {});
+
+  const replace = (e) => {
+    const k = engines.indexOf(e);
+    if (k < 0) return;
+    e.terminate();
+    if (renewals < engines.length + 1) { renewals++; engines[k] = make(manifest, buffer, o); engines[k].ready.catch(() => {}); }
+    else engines.splice(k, 1);
+  };
+
+  const pump = () => {
+    if (!engines.length) {
+      const q = queue; queue = [];
+      for (const it of q) it.reject(new Error('no engine left'));
+      return;
+    }
+    for (const e of [...engines]) {
+      if (!queue.length) return;
+      if (busy.has(e)) continue;
+      const item = queue.shift();
+      busy.add(e);
+      e.writePiece(item.job).then(item.resolve, (error) => {
+        if (error && error.cancelled) { item.reject(error); return; }
+        if (e.failed) replace(e);
+        if (item.tried) item.reject(error);
+        else { item.tried = true; queue.unshift(item); }
+      }).finally(() => { busy.delete(e); pump(); });
+    }
+  };
+
+  return {
+    ready,
+    get size() { return engines.length; },
+    writePiece(job) {
+      return new Promise((resolve, reject) => {
+        const { first, ...rest } = job;
+        const item = { job: rest, resolve, reject, tried: false };
+        if (first) queue.unshift(item); else queue.push(item);
+        pump();
+      });
+    },
+    /** Pending and running pieces reject with .cancelled = true. */
+    cancel() {
+      const q = queue; queue = [];
+      for (const it of q) it.reject(cancelled());
+      for (const e of busy) e.cancel();
+    },
+    terminate() {
+      this.cancel();
+      for (const e of engines) e.terminate();
     },
   };
 }
