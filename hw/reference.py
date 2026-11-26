@@ -20,7 +20,8 @@ Per step t, given the previous point x (zeros at t = 0) and four random draws
     dx          = mu1_j + exp(logsd1_j - bias) * n1
     dy          = mu2_j + exp(logsd2_j - bias) * (rho_j * n1 + sqrt(1 - rho_j^2) * n2)
     eos         = 1 if u_eos < sigmoid(y.eos) else 0
-    stop        if phi[U-1] > 0.8  or  (argmax(phi) == U-1 and eos == 1)   -> eos := 1
+    stop        if t >= MIN_STEPS_PER_CHAR * (U - n_tail)
+                and (phi[U-1] > 0.8  or  (argmax(phi) == U-1 and eos == 1))   -> eos := 1
 
 The text passed in already ends with the sentinel (two spaces).  `tail_step`
 is the first step at which argmax(phi) lies on the sentinel.
@@ -30,7 +31,7 @@ from __future__ import annotations
 import numpy as np
 import torch
 
-from .model import SynthesisNetwork
+from .model import MIN_STEPS_PER_CHAR, SynthesisNetwork
 
 
 @torch.no_grad()
@@ -47,6 +48,7 @@ def sample_reference(model: SynthesisNetwork, tokens: list[int], draws: np.ndarr
     state = model.initial_state(1)
     x = torch.zeros(1, 3)
     n_steps = min(len(draws), max_steps or len(draws))
+    min_steps = MIN_STEPS_PER_CHAR * max(U - n_tail, 0)
     out, peak, tail_step, finished, traced, wheres = [], np.zeros(U, dtype=np.float32), -1, False, [], []
     for t in range(n_steps):
         u_comp, n1, n2, u_eos = (float(v) for v in draws[t])
@@ -66,7 +68,7 @@ def sample_reference(model: SynthesisNetwork, tokens: list[int], draws: np.ndarr
         eos = 1.0 if u_eos < p_eos else 0.0
         ph = phi[0].numpy()
         where = int(ph.argmax())
-        done = bool(ph[U - 1] > 0.8 or (where == U - 1 and eos > 0.5))
+        done = t >= min_steps and bool(ph[U - 1] > 0.8 or (where == U - 1 and eos > 0.5))
         if done:
             eos = 1.0
         peak = np.maximum(peak, ph)

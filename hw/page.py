@@ -27,12 +27,18 @@ from .ink import Ink
 # and 6 % with 18, and the retries of failed pieces cost less.  22 keeps two to
 # four words together, so most word spacing is still the network's own.
 MAX_PIECE_CHARS = 22
+# A piece of this many characters or fewer is joined to its neighbour even if
+# that one then exceeds MAX_PIECE_CHARS: alone ('Hörsaal' + 'B.', 'Uhr' + 'an.')
+# it writes badly, and a single letter mostly comes out as no letter at all.
+SHORT_PIECE_CHARS = 3
 
 
 def split_pieces(text: str, max_chars: int = MAX_PIECE_CHARS) -> list[list[str]]:
     """Text -> paragraphs -> pieces.  A piece is one or more whole words; a word
     longer than max_chars becomes a piece of its own (the network copes with
-    somewhat longer pieces, it just has seen fewer of them)."""
+    somewhat longer pieces, it just has seen fewer of them).  A piece of
+    SHORT_PIECE_CHARS or fewer is joined to the piece before it (the first one
+    to the piece after it); only a paragraph that short as a whole stays so."""
     paragraphs = []
     for para in text.replace("\r", "").split("\n"):
         pieces, cur = [], ""
@@ -44,7 +50,13 @@ def split_pieces(text: str, max_chars: int = MAX_PIECE_CHARS) -> list[list[str]]
                 cur = f"{cur} {word}" if cur else word
         if cur:
             pieces.append(cur)
-        paragraphs.append(pieces)
+        joined = []
+        for p in pieces:
+            if joined and (len(p) <= SHORT_PIECE_CHARS or len(joined[-1]) <= SHORT_PIECE_CHARS):
+                joined[-1] = f"{joined[-1]} {p}"
+            else:
+                joined.append(p)
+        paragraphs.append(joined)
     return paragraphs
 
 
@@ -71,7 +83,7 @@ def piece_words(piece: Ink) -> list[Ink]:
     """A written piece cut into its words (at the widest gaps between strokes),
     so that lines can break between any two words.  If the gaps are not clear
     enough the piece stays whole."""
-    words = dataset.split_words(piece.copy(kind="line"), min_gap=0.6)
+    words = dataset.split_words(piece.copy(kind="line"), min_gap=0.6, check_fit=False)   # as layout.js: pieceWords
     return words if words else [piece]
 
 

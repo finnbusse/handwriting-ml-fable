@@ -23,9 +23,24 @@ from hw.export import export, load_exported
 from hw.ink import Ink, from_offsets
 from hw.model import SynthesisNetwork
 from hw.reference import make_draws, sample_reference
-from hw.sampling import SENTINEL, Synthesizer
+from hw.sampling import SENTINEL, Synthesizer, skipped_chars
 
 TEXTS = ["Hallo Welt", "Viele Grüße aus Köln!", "Zimmer 204, 3. Stock", "The quick brown fox"]
+SHORT_TEXTS = ["a", "B.", "an.", "und", "Ja!", "Ok"]      # MIN_STEPS_PER_CHAR keeps them from stopping at once
+SPLIT_CASES = [
+    "Morgen schreiben wir die Klausur im Hörsaal B.", "Der Zug kommt pünktlich um acht Uhr an.", "a", "Ja!", "Ok gut",
+    "Abc Donaudampfschifffahrt",
+    "ab Donaudampfschifffahrtsgesellschaft und", "Hallo\nB.\n\nDas ist ein ganz normaler Satz ohne Ende.",
+    "Viele Grüße aus dem schönen Köln am Rhein", "x y z a b c d e f g h i j k l m n o p q r s",
+]
+# skipped_chars on made-up attention: (normalized text, peak per character, character per point)
+SKIP_CASES = [
+    ("abcd", [1.0, 0.09, 0.8, 0.9], [0] * 10 + [1] * 2 + [2] * 10 + [3] * 10),          # weak peak alone
+    ("abcd", [1.0, 0.12, 0.8, 0.9], [0] * 10 + [1] * 18 + [2] * 10 + [3] * 10),         # 0.12, stayed 1.8 x median
+    ("abcd", [1.0, 0.12, 0.8, 0.9], [0] * 10 + [1] * 17 + [2] * 10 + [3] * 10),         # 0.12, not long enough
+    ("ab cd", [1.0, 0.9, 0.14, 0.8, 0.13], [0] * 10 + [1] * 10 + [2] * 40 + [3] * 12 + [4] * 20 + [5] * 9),
+    ("abc", [0.5, 0.06, 0.5], [0] * 5 + [2] * 5),                                       # never visited, weak
+]
 NORMALIZE_CASES = [
     "Hallo Welt", "  viele   Leerzeichen\tund\nUmbruch ", "„Zitat“ und ‚einfach‘", "Gedanken – Strich — lang",
     "Café, naïve, señor, Ångström", "Preis: 3,50 € (inkl. 19 % MwSt.)", "E-Mail: info@beispiel.de", "a{b}c<d>e|f\\g~h^i",
@@ -68,10 +83,12 @@ def main():
                "draws": r(draws[:n], 9), "offsets": r(res["offsets"]), "finished": res["finished"],
                "tail_step": res["tail_step"], "char_peak": r(res["char_peak"]), "trace": res["trace"],
                "where": [int(v) for v in ink.meta["where"]],
+               "skipped": skipped_chars(norm, res["char_peak"][:len(norm)], ink.meta["where"]),
                "finish": {"points": r(ink.points, 4), "ok": ink.meta["ok"], "problems": ink.meta["problems"]}}
         return rec, ink
 
     samples = [run(t, 100 + k, trace=3)[0] for k, t in enumerate(TEXTS)]
+    samples += [run(t, 200 + k, trace=3)[0] for k, t in enumerate(SHORT_TEXTS)]
 
     # page layout: pieces -> straighten -> words -> placement
     paragraphs = page.split_pieces("\n".join(charset.normalize(l) for l in PAGE_TEXT.split("\n")))
@@ -104,6 +121,9 @@ def main():
         "normalize": [{"in": t, "out": charset.normalize(t), "tokens": charset.encode(charset.normalize(t))}
                       for t in NORMALIZE_CASES],
         "samples": samples,
+        "split": [{"in": t, "out": page.split_pieces(t)} for t in SPLIT_CASES],
+        "skip": [{"norm": t, "peak": pk, "where": w, "skipped": skipped_chars(t, np.array(pk, dtype=np.float32), np.array(w))}
+                 for t, pk, w in SKIP_CASES],
         "page": {"text": PAGE_TEXT, "paragraphs": paragraphs, "pieces": pieces, "gap": list(gap),
                  "gap_draws": gap_draws, "width": pg.width, "line_height": 6.5, "margin": 3.0, "top": 5.0,
                  "lines": pg.lines, "height": pg.height,

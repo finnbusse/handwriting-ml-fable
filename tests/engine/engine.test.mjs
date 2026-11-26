@@ -4,7 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HandwritingModel, makeRandom, writePiece } from '../../web/js/engine/engine.js';
+import { HandwritingModel, makeRandom, writePiece, skippedChars, MIN_STEPS_PER_CHAR } from '../../web/js/engine/engine.js';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 if (!fs.existsSync(path.join(dir, 'fixture.json'))) {
@@ -62,7 +62,19 @@ for (const s of all) {
   check(fin.ok === s.finish.ok && JSON.stringify(fin.problems) === JSON.stringify(s.finish.problems), `${JSON.stringify(s.text)}: verdict`);
   check(maxDiff(fin.points, s.finish.points.flat()) < 3.0, `${JSON.stringify(s.text)}: final positions (model units)`);
   check(fin.where.length === fin.count && s.where.length === fin.count && fin.where.every((u, i) => u === s.where[i]), `${JSON.stringify(s.text)}: character per point`);
+  if (s.skipped) check(JSON.stringify(skippedChars(run.norm, run.peak, fin.where)) === JSON.stringify(s.skipped), `${JSON.stringify(s.text)}: skipped characters`);
+  // no piece stops before MIN_STEPS_PER_CHAR points per character (without the minimum, texts of three characters or fewer stop at step 0)
+  if (s.finished) check(run.steps >= MIN_STEPS_PER_CHAR * [...s.normalized].length, `${JSON.stringify(s.text)}: stopped after ${run.steps} points`);
 }
+const short = fixture.samples.filter((s) => [...s.normalized].length <= 3);
+check(short.length >= 4 && short.every((s) => s.finished && s.finish.points.length >= 8 * [...s.normalized].length), 'the fixture holds finished short texts');
+
+// 2b. the skipped-character rule on made-up attention (hw/sampling.py: skipped_chars)
+for (const c of fixture.skip ?? []) {
+  const got = skippedChars(c.norm, Float32Array.from(c.peak), c.where);
+  check(JSON.stringify(got) === JSON.stringify(c.skipped), `skippedChars(${JSON.stringify(c.norm)}) = ${JSON.stringify(got)}, expected ${JSON.stringify(c.skipped)}`);
+}
+check((fixture.skip ?? []).length >= 5, 'the fixture holds the skip cases');
 const ms = performance.now() - t0;
 check(worstTrace < 2e-4, `internal quantities of the first steps differ by ${worstTrace}`);
 
@@ -70,6 +82,6 @@ check(worstTrace < 2e-4, `internal quantities of the first steps differ by ${wor
 const free = writePiece(model, 'Guten Morgen!', { bias: 0.8, random: makeRandom(7) });
 check(free.count > 50 && free.finished, `free run: ${free.count} points, finished=${free.finished}`);
 
-console.log(JSON.stringify({ pieces: all.length, steps, max_offset_diff: +worst.toExponential(2), max_trace_diff: +worstTrace.toExponential(2),
+console.log(JSON.stringify({ pieces: all.length, short_pieces: short.length, skip_cases: (fixture.skip ?? []).length, steps, max_offset_diff: +worst.toExponential(2), max_trace_diff: +worstTrace.toExponential(2),
   steps_per_second: Math.round(steps / (ms / 1000)), free_run_points: free.count, failures }));
 process.exit(failures ? 1 : 0);

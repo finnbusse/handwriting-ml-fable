@@ -2,25 +2,25 @@
 //
 //   -> { type: 'load', manifest, buffer }                      (buffer is transferred)
 //   <- { type: 'ready', charset, xhModel, gapXh }
-//   -> { type: 'write', id, text, bias, seed, tries }
+//   -> { type: 'write', id, text, bias, seed, tries? }           (tries: a cap; without it the app's policy, layout.js: anotherAttempt)
 //   <- { type: 'progress', id, attempt, steps }                 (about ten times a second)
 //   <- { type: 'done', id, result: { text, points, count, ok, problems, finished, attempt, missingDots, ms } }
 //   -> { type: 'cancel' }                                       (the current and queued pieces are dropped)
 //   <- { type: 'error', id?, message }
 import { HandwritingModel, makeRandom } from './engine.js';
-import { judgePiece, betterAttempt } from '../generate/layout.js';
+import { judgePiece, betterAttempt, anotherAttempt } from '../generate/layout.js';
 
 let model = null;
 let generation = 0;          // bumped by 'cancel'; running work checks it and stops
 
 const pause = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-async function write({ id, text, bias = 0.8, seed, tries = 3 }) {
+async function write({ id, text, bias = 0.8, seed, tries }) {
   const mine = generation;
   const random = makeRandom(seed);
   const t0 = performance.now();
   let best = null;
-  for (let attempt = 1; attempt <= tries; attempt++) {
+  for (let attempt = 1; ; attempt++) {
     const run = model.begin(text, { bias });
     let lastReport = performance.now();
     while (!run.done) {
@@ -39,7 +39,7 @@ async function write({ id, text, bias = 0.8, seed, tries = 3 }) {
     result.attempt = attempt;
     judgePiece(result, run.norm, model.xhModel);      // missing dots, drift below the line
     if (best === null || betterAttempt(result, best)) best = result;
-    if (best.ok && best.missingDots === 0) break;       // otherwise again: the best attempt is kept
+    if (!anotherAttempt(best, attempt, tries)) break;   // the best attempt is kept
   }
   if (mine !== generation) return;
   best.ms = Math.round(performance.now() - t0);

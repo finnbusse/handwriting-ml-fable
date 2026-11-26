@@ -1,4 +1,5 @@
-"""The page layout's size correction (hw/page.py), without a model.
+"""Splitting text into pieces and the page layout's size correction
+(hw/page.py), without a model.
 
     python -m unittest tests/python/test_page.py
 """
@@ -16,6 +17,29 @@ def piece(text, x0=0.0):
     b = a.copy()
     b[:, 0] += 5.0
     return Ink(np.vstack([a, b]), text=text, kind="line", source="test")
+
+
+class SplitPieces(unittest.TestCase):
+    def test_no_tiny_pieces(self):
+        # greedy cutting at 22 characters leaves 'an.' and 'B.' on their own
+        self.assertEqual(page.split_pieces("Der Zug kommt pünktlich um acht Uhr an."),
+                         [["Der Zug kommt", "pünktlich um acht Uhr an."]])
+        self.assertEqual(page.split_pieces("Morgen schreiben wir die Klausur im Hörsaal B."),
+                         [["Morgen schreiben wir", "die Klausur im Hörsaal B."]])
+        self.assertEqual(page.split_pieces("Abc Donaudampfschifffahrt"), [["Abc Donaudampfschifffahrt"]])
+        self.assertEqual(page.split_pieces("ab Donaudampfschifffahrtsgesellschaft und"),
+                         [["ab Donaudampfschifffahrtsgesellschaft und"]])
+
+    def test_short_text_stays(self):
+        self.assertEqual(page.split_pieces("Ja!"), [["Ja!"]])
+        self.assertEqual(page.split_pieces("Hallo\nB.\n\nOk gut"), [["Hallo"], ["B."], [], ["Ok gut"]])
+
+    def test_limit_otherwise_kept(self):
+        text = "Heute ist ein schöner Tag, und morgen wird es noch besser. Bis bald und viele Grüße!"
+        for para in page.split_pieces(text):
+            for p in para:
+                self.assertTrue(page.SHORT_PIECE_CHARS < len(p) <= page.MAX_PIECE_CHARS, p)
+        self.assertEqual(" ".join(sum(page.split_pieces(text), [])), text)
 
 
 class SizeCorrection(unittest.TestCase):

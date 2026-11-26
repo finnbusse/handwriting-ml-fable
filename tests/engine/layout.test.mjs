@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HandwritingModel } from '../../web/js/engine/engine.js';
-import { splitPieces, straighten, pieceWords, layoutPage, toXh, baseline, sizeScale, countDots, expectedDots, judgePiece, levelledWords, betterAttempt } from '../../web/js/generate/layout.js';
+import { splitPieces, straighten, pieceWords, layoutPage, toXh, baseline, sizeScale, countDots, expectedDots, judgePiece, levelledWords, betterAttempt, anotherAttempt, TRIES, TRIES_FOR_DOTS, SHORT_PIECE_CHARS } from '../../web/js/generate/layout.js';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 if (!fs.existsSync(path.join(dir, 'fixture.json'))) { console.log('SKIP: no fixtures'); process.exit(0); }
@@ -20,6 +20,14 @@ const check = (ok, msg) => { if (!ok) { failures++; console.log('FAIL', msg); } 
 const norm = page.text.split('\n').map((l) => model.normalize(l)).join('\n');
 const paragraphs = splitPieces(norm);
 check(JSON.stringify(paragraphs) === JSON.stringify(page.paragraphs), `pieces ${JSON.stringify(paragraphs)} vs ${JSON.stringify(page.paragraphs)}`);
+for (const c of fixture.split ?? []) {
+  const got = splitPieces(c.in);
+  check(JSON.stringify(got) === JSON.stringify(c.out), `splitPieces(${JSON.stringify(c.in)}) = ${JSON.stringify(got)} vs ${JSON.stringify(c.out)} (Python)`);
+}
+check((fixture.split ?? []).length >= 8, 'the fixture holds the split cases');
+const tiny = (t) => splitPieces(t).flat().filter((p) => [...p].length <= SHORT_PIECE_CHARS);
+check(tiny('Der Zug kommt pünktlich um acht Uhr an.').length === 0 && tiny('Morgen schreiben wir die Klausur im Hörsaal B.').length === 0, 'no piece of three characters or fewer');
+check(JSON.stringify(splitPieces('Ja!')) === '[["Ja!"]]' && JSON.stringify(splitPieces('Abc Donaudampfschifffahrt')) === '[["Abc Donaudampfschifffahrt"]]', 'a short text stays whole, a short first piece joins the next');
 
 // 2. write every piece with the reference's random draws, then straighten and cut into words
 let k = 0, worstBase = 0, worstStraight = 0, dotsSeen = 0, worstLevel = 0, levelled = 0;
@@ -112,6 +120,26 @@ check(betterAttempt(att(true, 2), att(false, 0)), 'a sound attempt beats a fault
 check(!betterAttempt(att(false, 0), att(true, 2)), 'a faulty attempt never replaces a sound one');
 check(betterAttempt(att(true, 0), att(true, 1)) && !betterAttempt(att(true, 1), att(true, 0)), 'fewer missing dots win');
 check(!betterAttempt(att(true, 1), att(true, 1)), 'the earlier attempt wins a tie');
+
+// 6. how many attempts a piece gets (hw/sampling.py: Synthesizer.write)
+const attempts = (outcomes, tries) => {        // outcomes: [ok, missingDots] per attempt, as they would come out
+  let best = null, n = 0;
+  for (const [ok, md] of outcomes) {
+    n++;
+    const a = att(ok, md);
+    if (best === null || betterAttempt(a, best)) best = a;
+    if (!anotherAttempt(best, n, tries)) break;
+  }
+  return n;
+};
+check(TRIES === 3 && TRIES_FOR_DOTS === 6, 'three attempts, six when only dots are missing');
+check(attempts([[true, 0], [true, 0]]) === 1, 'a perfect first attempt is kept');
+check(attempts([[false, 0], [false, 0], [false, 0], [false, 0]]) === 3, 'a faulty piece gets three attempts');
+check(attempts([[true, 1], [true, 1], [true, 1], [true, 1], [true, 1], [true, 1], [true, 1]]) === 6, 'a sound piece lacking a dot gets six');
+check(attempts([[false, 0], [false, 0], [true, 1], [true, 0], [true, 0]]) === 4, 'sound by the third attempt: more until perfect');
+check(attempts([[true, 1], [false, 0], [false, 0], [false, 0]]) === 4, 'the best attempt counts, not the latest');
+check(attempts([[false, 1], [false, 1], [false, 1], [true, 1]]) === 3, 'faulty after three: no more');
+check(attempts([[true, 1], [true, 1], [true, 1]], 1) === 1 && attempts([[false, 0], [false, 0], [false, 0]], 2) === 2, 'tries caps every piece');
 
 console.log(JSON.stringify({ pieces: k, dots: dotsSeen, words_levelled: levelled, max_level_diff: +worstLevel.toExponential(2), words: pg.words.length, lines: pg.lines, max_baseline_diff: +worstBase.toExponential(2),
   max_straight_diff: +worstStraight.toExponential(2), max_word_pos_diff: +worstPos.toExponential(2), failures }));

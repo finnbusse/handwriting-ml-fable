@@ -27,6 +27,15 @@ HIDDEN = 400
 WINDOW_K = 10
 MIXTURES = 20
 
+# No stop rule fires before this many steps per character of the text.  On a
+# text of three characters or fewer the window starts out with 0.97 to 1.44 of
+# its weight on the final sentinel (0.75 on four), so without this minimum
+# "phi[last] > 0.8" ends every such piece after its first point.  hw.sampling
+# judges fewer than 8 points per letter a failure, so a suppressed stop would
+# almost always have given a rejected piece; not always, since spaces count
+# here but not as letters there.
+MIN_STEPS_PER_CHAR = 8
+
 
 class PeepholeLSTMCell(nn.Module):
     def __init__(self, input_size: int, hidden_size: int):
@@ -217,6 +226,9 @@ class SynthesisNetwork(nn.Module):
         of the exact step at which a stroke ends, so the pen would stay down
         and the writing would run off into waves.
 
+        Neither stop rule applies during the first MIN_STEPS_PER_CHAR steps
+        per character of the text to write (sentinel not counted).
+
         Returns (seqs, infos): seqs[i] is a (T_i,3) tensor in normalized units;
         infos[i] has
           finished    the stop rule fired before max_steps
@@ -250,6 +262,7 @@ class SynthesisNetwork(nn.Module):
         where_at = torch.zeros(B, max_steps, dtype=torch.long, device=device)
         last_idx = (text_len - 1).clamp_min(0)
         tail_start = (text_len - n_tail).clamp_min(0)
+        min_steps = tail_start * MIN_STEPS_PER_CHAR if prime is None else torch.zeros_like(tail_start)
         ar = torch.arange(B, device=device)
 
         for t in range(max_steps):
@@ -273,7 +286,7 @@ class SynthesisNetwork(nn.Module):
 
             # stop once the window has moved onto the last sentinel and the pen lifts
             where = phi.argmax(dim=1)
-            finished = (phi[ar, last_idx] > 0.8) | ((where == last_idx) & (eos > 0.5))
+            finished = ((phi[ar, last_idx] > 0.8) | ((where == last_idx) & (eos > 0.5))) & (t >= min_steps)
             eos = torch.where(finished, torch.ones_like(eos), eos)
 
             x = torch.stack([dx, dy, eos], dim=1)

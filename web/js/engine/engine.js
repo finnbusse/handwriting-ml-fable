@@ -9,6 +9,42 @@
 
 export const SENTINEL_FALLBACK = '  ';
 
+// No stop before this many steps per character of the text (hw/model.py:
+// MIN_STEPS_PER_CHAR).  A text of three characters or fewer otherwise ends
+// after its first point: the window starts with most of its weight on the sentinel.
+export const MIN_STEPS_PER_CHAR = 8;
+
+// A character counts as skipped when its strongest attention stays below
+// SKIP_RATIO x the piece's strongest, or below SKIP_WEAK while the window sat on
+// it for SKIP_DWELL x the median number of points per letter of the piece
+// (hw/sampling.py: skipped_chars, where the numbers behind them are).
+export const SKIP_RATIO = 0.10;
+export const SKIP_WEAK = 0.15;
+export const SKIP_DWELL = 1.8;
+
+/** Indices of the characters of `norm` the network skipped (hw/sampling.py:
+ *  skipped_chars).  peak[u]: strongest attention on character u; where[i]: the
+ *  character the window sat on at point i. */
+export function skippedChars(norm, peak, where) {
+  const chars = [...norm], n = chars.length;
+  let peakMax = 0;
+  for (let u = 0; u < n; u++) if (peak[u] > peakMax) peakMax = peak[u];
+  if (!n || !(peakMax > 0)) return [];
+  const dwell = new Array(n).fill(0);
+  if (where) for (const u of where) if (u < n) dwell[u]++;
+  const counts = [];
+  chars.forEach((c, u) => { if (c !== ' ') counts.push(dwell[u]); });
+  counts.sort((a, b) => a - b);
+  const m = counts.length >> 1;
+  const typical = !counts.length ? 0 : counts.length % 2 ? counts[m] : (counts[m - 1] + counts[m]) / 2;
+  const out = [];
+  for (let u = 0; u < n; u++) {
+    const ratio = peak[u] / peakMax;
+    if (ratio < SKIP_RATIO || (ratio < SKIP_WEAK && dwell[u] > 0 && dwell[u] >= SKIP_DWELL * typical)) out.push(u);
+  }
+  return out;
+}
+
 // Typographic variants that are written the same way by hand (hw/charset.py).
 const FOLD = {
   '„': '"', '“': '"', '”': '"', '«': '"', '»': '"',
@@ -165,6 +201,7 @@ export class Run {
     this.finished = false;       // the stop rule fired (as opposed to running out of steps)
     this.tailStep = -1;
     this.maxSteps = 60 * this.U + 100;
+    this.minSteps = MIN_STEPS_PER_CHAR * Math.max(this.U - nTail, 0);
     this.last = null;            // diagnostics of the latest step
   }
 
@@ -267,7 +304,7 @@ export class Run {
     const pEos = sigmoid(mx.eos[0]);
     let eos = uEos < pEos ? 1 : 0;
 
-    const stop = this.phi[U - 1] > 0.8 || (where === U - 1 && eos === 1);
+    const stop = this.steps >= this.minSteps && (this.phi[U - 1] > 0.8 || (where === U - 1 && eos === 1));
     if (stop) eos = 1;
     if (this.nTail > 0 && this.tailStep < 0 && where >= U - this.nTail) this.tailStep = this.steps;
     this.last = { component: comp, pEos, where };
@@ -299,7 +336,6 @@ export class Run {
   finish() {
     let p = this.points();
     let n = this.steps;
-    const nReal = [...this.norm].length;
     let cut = n;
     if (this.tailStep > 0) {
       let bodyRight = -Infinity;
@@ -317,9 +353,8 @@ export class Run {
     n = Math.max(cut, 1);
     p = p.slice(0, 3 * n);
     p[3 * (n - 1) + 2] = 1;
-    let peakMax = 0, skipped = 0;
-    for (let u = 0; u < nReal; u++) if (this.peak[u] > peakMax) peakMax = this.peak[u];
-    for (let u = 0; u < nReal; u++) if (this.peak[u] < 0.15 * peakMax) skipped++;
+    const where = Uint16Array.from(this.whereAt.slice(0, n));
+    const skipped = skippedChars(this.norm, this.peak, where).length;
     const letters = Math.max([...this.text.replaceAll(' ', '')].length, 1);
     const ppc = n / letters;
     const problems = [];
@@ -327,7 +362,7 @@ export class Run {
     if (skipped) problems.push(`skipped ${skipped}`);
     if (!(ppc >= 8 && ppc <= 70)) problems.push(`points/char ${ppc.toFixed(0)}`);
     return { text: this.text, points: p, count: n, finished: this.finished, ok: problems.length === 0, problems,
-             where: Uint16Array.from(this.whereAt.slice(0, n)) };
+             where };
   }
 }
 

@@ -14,8 +14,10 @@ follows how narrow the predicted spread is, see hw/train.py):
   dots           dot strokes set as a share of what the texts call for
                  (i, j and two per umlaut); capital umlauts separately
   final_stop     share of sentences ending in "." whose dot was written
-  delivered      after the retries of the app (three attempts, best one kept):
-                 share of pieces still faulty, share still lacking a dot
+  delivered      after the retries of the app (up to three attempts, up to six
+                 while the best one is sound and only lacks dots, best one
+                 kept; hw/sampling.py: TRIES, TRIES_FOR_DOTS): share of pieces
+                 still faulty, share still lacking a dot, mean attempts
   size           stroke height and ink length per letter, generated / real
   style          ascender ratio, width per character, slant, word gap, pen
                  lifts per letter: generated minus real, same texts
@@ -124,6 +126,7 @@ def main():
 
     syn = Synthesizer.load(args.model_dir)
     xh_model = float(syn.meta["xh_model"])
+    # tries=None: the app's retries (Synthesizer.write's default policy)
     write = lambda texts, seed, tries=1: [to_xh(i, xh_model) for i in syn.write(texts, bias=args.bias, seed=seed, tries=tries)]
 
     # the writer's real lines: always the lines-only corpus, so that every model is compared with the same lines
@@ -168,11 +171,11 @@ def main():
                                      / sum(expected_dots(i.text) for i in caps))
         stops = [i for i in first if i.text.endswith(".")]
         m["final_stop"] = float(np.mean([dataset.has_final_period(i.copy(kind="line")) for i in stops]))
-        best = write(flat, 100 + seed, tries=3)
+        best = write(flat, 100 + seed, tries=None)
         m["delivered_faulty"] = float(np.mean([not i.meta["ok"] for i in best]))
         m["delivered_missing_dots"] = float(np.mean([i.meta["missing_dots"] > 0 for i in best]))
         m["attempts"] = float(np.mean([i.meta["attempt"] for i in best]))
-        gen = write([r.text for r in real], 300 + seed, tries=3)
+        gen = write([r.text for r in real], 300 + seed, tries=None)
         g, r = style_stats(gen), style_stats(real)
         m["style"] = {k: (None if g[k] is None or r[k] is None else round(g[k] - r[k], 3)) for k in g}
         m["stroke_height_ratio"] = float(np.median(sum(map(stroke_heights, gen), [])) /
@@ -181,7 +184,7 @@ def main():
                                           np.median([ink_per_letter(i) for i in real]))
         rep = []
         for text in REPEAT:
-            lengths = np.log([ink_per_letter(i) for i in write([text] * 8, 400 + seed, tries=3)])
+            lengths = np.log([ink_per_letter(i) for i in write([text] * 8, 400 + seed, tries=None)])
             rep.append(float(lengths.std()))
         m["same_text_spread"] = float(np.mean(rep))
         per_seed.append(m)

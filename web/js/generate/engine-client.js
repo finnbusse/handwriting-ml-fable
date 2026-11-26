@@ -2,7 +2,7 @@
 //
 //   const engine = createEngine(manifest, buffer);
 //   const info = await engine.ready;            // { charset, xhModel, gapXh }
-//   const result = await engine.writePiece({ text, bias, seed, tries });
+//   const result = await engine.writePiece({ text, bias, seed });   // optional tries: a cap on the attempts
 //   engine.cancel();                            // pending writePiece() promises reject with .cancelled = true
 //   engine.terminate();
 //
@@ -51,7 +51,7 @@ export function createEngine(manifest, buffer, { workerUrl = new URL('../engine/
   return {
     ready,
     set onProgress(fn) { onProgress = fn; },
-    writePiece({ text, bias, seed, tries = 3 }) {
+    writePiece({ text, bias, seed, tries }) {
       if (dead) return Promise.reject(dead);
       const id = nextId++;
       return new Promise((resolve, reject) => {

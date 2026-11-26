@@ -14,10 +14,50 @@ from .model import SynthesisNetwork, alphabet_size_of, load_state
 
 SENTINEL = "  "   # appended to every text so the attention window has somewhere to stop
 
+# A character counts as skipped when its strongest attention stays below
+# SKIP_RATIO x the piece's strongest, or below SKIP_WEAK while the window sat on
+# it for SKIP_DWELL x the median number of points per letter of the piece (the
+# pen kept writing without getting past it).  A weak peak alone is mostly
+# harmless: of 186 pieces flagged by "below 0.15" and judged by eye, 49 % were
+# fine, 33 % slightly deformed and 18 % (34) really bad.  This rule catches 18
+# of the 34 and flags 11 of the other 152.  On first attempts at the pieces of
+# scripts/evaluate.py (119, bias 0.4, seeds 100 and 101) it fires on 0.8-1.7 %
+# instead of 7.6-14.3 % for a model at step_xh 0.1446, and on 0.8-2.5 % instead
+# of 13.4-16.8 % for one at 0.1556.
+SKIP_RATIO = 0.10
+SKIP_WEAK = 0.15
+SKIP_DWELL = 1.8
+
+# Attempts per piece: up to TRIES; a piece whose best attempt by then is sound
+# and only lacks dots gets up to TRIES_FOR_DOTS.  Measured: 6 attempts instead
+# of 3 cut the delivered pieces that lack a dot from 12.1 % to 7.5 % for 19 %
+# more sampling.
+TRIES = 3
+TRIES_FOR_DOTS = 6
+
 
 def expected_dots(text: str) -> int:
     """The dots a text calls for: one on every i and j, two on every umlaut."""
     return sum(text.count(c) for c in "ij") + 2 * sum(text.count(c) for c in "äöüÄÖÜ")
+
+
+def skipped_chars(norm: str, peak: np.ndarray, where: np.ndarray | None) -> list[int]:
+    """Indices of the characters of the normalized text `norm` the network
+    skipped (see SKIP_RATIO).  peak[u] is the strongest attention character u
+    received, where[i] the character the window sat on at point i."""
+    n = len(norm)
+    peak = np.asarray(peak, dtype=np.float64)[:n]
+    if not n or not len(peak) or peak.max() <= 0:
+        return []
+    ratio = peak / peak.max()
+    dwell = np.zeros(n, dtype=np.int64)
+    if where is not None and len(where):
+        w = np.asarray(where, dtype=np.int64)
+        dwell = np.bincount(w[w < n], minlength=n)[:n]
+    letters = [u for u, c in enumerate(norm) if c != " "]
+    typical = float(np.median(dwell[letters])) if letters else 0.0
+    long_stay = (dwell >= SKIP_DWELL * typical) & (dwell > 0)
+    return [int(u) for u in np.flatnonzero((ratio < SKIP_RATIO) | ((ratio < SKIP_WEAK) & long_stay))]
 
 
 class Synthesizer:
@@ -69,19 +109,23 @@ class Synthesizer:
 
     # -------------------------------------------------------------- sampling
     def write(self, texts: list[str], bias: float = 0.8, seed: int | None = None,
-              max_steps: int | None = None, eos_mode: str = "sample", tries: int = 3,
+              max_steps: int | None = None, eos_mode: str = "sample", tries: int | None = None,
               return_attention: bool = False) -> list[Ink]:
         """Write each text once.  Samples that went wrong (did not finish,
-        skipped characters, absurd length) or lack dots on i, j, ä, ö, ü are
-        written again, up to `tries` times, and the best attempt is kept: a
-        sound one before a faulty one, then the one with the fewest missing
-        dots.  `meta` records how it went.
+        skipped characters, absurd length, drift) or lack dots on i, j, ä, ö, ü
+        are written again and the best attempt is kept: a sound one before a
+        faulty one, then the one with the fewest missing dots.  A piece stops as
+        soon as an attempt is perfect.  By default (the app's policy) a piece
+        gets up to TRIES attempts, and up to TRIES_FOR_DOTS if its best attempt
+        is sound and only lacks dots; `tries` instead caps every piece at that
+        many.  `meta` records how it went.
 
         Inks come back in model units with the pen start at (0, 0)."""
+        base, most = (TRIES, TRIES_FOR_DOTS) if tries is None else (tries, tries)
         gen = torch.Generator().manual_seed(seed) if seed is not None else None
         result: list[Ink | None] = [None] * len(texts)
         todo = list(range(len(texts)))
-        for attempt in range(1, tries + 1):
+        for attempt in range(1, most + 1):
             if not todo:
                 break
             batch = [texts[i] for i in todo]
@@ -99,7 +143,7 @@ class Synthesizer:
                     ink.meta["attention"] = info["attention"]
                 if result[i] is None or self._rank(ink) < self._rank(result[i]):
                     result[i] = ink
-                if self._rank(result[i]) > (False, 0):
+                if self._rank(result[i]) > (False, 0) and (attempt < base or result[i].meta["ok"]):
                     again.append(i)
             todo = again
         return result
@@ -151,7 +195,8 @@ class Synthesizer:
         # 2. judge the sample
         letters = max(len(text.replace(" ", "")), 1)
         ppc = len(pts) / letters
-        skipped = int((peak < 0.15 * float(peak.max())).sum()) if len(peak) else 0
+        where = np.asarray(info["where"])[:len(pts)] if "where" in info else None
+        skipped = len(skipped_chars(self.charset.normalize(text), peak, where))
         problems = []
         if not info["finished"]:
             problems.append("unfinished")
@@ -160,6 +205,6 @@ class Synthesizer:
         if not 8 <= ppc <= 70:
             problems.append(f"points/char {ppc:.0f}")
         meta = {"finished": info["finished"], "ok": not problems, "problems": problems}
-        if "where" in info:                                # for judge(): which character each point belongs to
-            meta["where"] = np.asarray(info["where"])[:len(pts)]
+        if where is not None:                              # for judge(): which character each point belongs to
+            meta["where"] = where
         return Ink(pts, text=text, kind="line", source="generated", meta=meta)

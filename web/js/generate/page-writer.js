@@ -7,7 +7,7 @@ import { splitPieces, straighten, layoutPage, toXh, sizeScale, MAX_PIECE_CHARS }
 /**
  * @param {object} o
  * @param {(text:string)=>string} o.normalize       model.normalize
- * @param {(job:{text:string,bias:number,seed:number,tries:number})=>Promise<object>} o.writePiece
+ * @param {(job:{text:string,bias:number,seed:number})=>Promise<object>} o.writePiece  retries as the worker does (layout.js: anotherAttempt)
  * @param {number} o.xhModel  model units per x-height
  * @param {[number,number]} o.gapXh  the writer's word gap (mean, sd) in x-heights
  * @param {{bias:number[],xh:number[]}|null} [o.sizeByBias]  model.json's size_by_bias: measured letter size per bias
@@ -40,7 +40,7 @@ export function createPageWriter({ normalize, writePiece, xhModel, gapXh, sizeBy
     let page = relayout(), done = 0, drawn = 0;
     for (let k = 0; k < paragraphs.length; k++) {
       for (const pieceText of paragraphs[k]) {
-        const result = await writePiece({ text: pieceText, bias, seed: (random.uniform() * 2 ** 32) >>> 0, tries: 3 });
+        const result = await writePiece({ text: pieceText, bias, seed: (random.uniform() * 2 ** 32) >>> 0 });
         if (mine !== token) return null;
         rows[k].push(straighten(toXh(result, xhModel)));
         page = relayout();

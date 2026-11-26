@@ -11,17 +11,29 @@ export const MAX_PIECE_CHARS = 22;
 const X = (p, i) => p[3 * i], Y = (p, i) => p[3 * i + 1], E = (p, i) => p[3 * i + 2];
 const count = (p) => p.length / 3;
 
-/** Text -> paragraphs -> pieces of whole words with at most maxChars characters. */
+// A piece of this many characters or fewer is joined to its neighbour even if
+// that one then exceeds MAX_PIECE_CHARS (hw/page.py: SHORT_PIECE_CHARS).
+export const SHORT_PIECE_CHARS = 3;
+
+/** Text -> paragraphs -> pieces of whole words with at most maxChars characters;
+ *  a piece of SHORT_PIECE_CHARS or fewer joins the piece before it (the first
+ *  one the piece after it) (hw/page.py: split_pieces). */
 export function splitPieces(text, maxChars = MAX_PIECE_CHARS) {
+  const len = (s) => [...s].length;
   return text.replaceAll('\r', '').split('\n').map((para) => {
     const pieces = [];
     let cur = '';
     for (const word of para.split(/\s+/u).filter(Boolean)) {
-      if (cur && [...cur].length + 1 + [...word].length > maxChars) { pieces.push(cur); cur = word; }
+      if (cur && len(cur) + 1 + len(word) > maxChars) { pieces.push(cur); cur = word; }
       else cur = cur ? `${cur} ${word}` : word;
     }
     if (cur) pieces.push(cur);
-    return pieces;
+    const joined = [];
+    for (const p of pieces) {
+      if (joined.length && (len(p) <= SHORT_PIECE_CHARS || len(joined[joined.length - 1]) <= SHORT_PIECE_CHARS)) joined[joined.length - 1] += ` ${p}`;
+      else joined.push(p);
+    }
+    return joined;
   });
 }
 
@@ -186,6 +198,22 @@ export function expectedDots(text) {
 export function betterAttempt(a, b) {
   if (a.ok !== b.ok) return a.ok;
   return a.missingDots < b.missingDots;
+}
+
+// Attempts per piece (hw/sampling.py: TRIES, TRIES_FOR_DOTS): up to TRIES; a
+// piece whose best attempt by then is sound and only lacks dots gets up to
+// TRIES_FOR_DOTS (6 instead of 3 cut the delivered pieces lacking a dot from
+// 12.1 % to 7.5 % for 19 % more sampling).
+export const TRIES = 3;
+export const TRIES_FOR_DOTS = 6;
+
+/** Should a piece be written once more after `attempt` attempts whose best is
+ *  `best`?  Never once an attempt is perfect.  `tries` (optional) caps every
+ *  piece at that many attempts instead (hw/sampling.py: Synthesizer.write). */
+export function anotherAttempt(best, attempt, tries) {
+  if (best.ok && best.missingDots === 0) return false;
+  if (tries !== undefined && tries !== null) return attempt < tries;
+  return attempt < TRIES || (best.ok && attempt < TRIES_FOR_DOTS);
 }
 
 /** Cut a piece into its words at the widest gaps between strokes
