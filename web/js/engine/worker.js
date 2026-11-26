@@ -4,10 +4,11 @@
 //   <- { type: 'ready', charset, xhModel, gapXh }
 //   -> { type: 'write', id, text, bias, seed, tries }
 //   <- { type: 'progress', id, attempt, steps }                 (about ten times a second)
-//   <- { type: 'done', id, result: { text, points, count, ok, problems, finished, attempt, ms } }
+//   <- { type: 'done', id, result: { text, points, count, ok, problems, finished, attempt, missingDots, ms } }
 //   -> { type: 'cancel' }                                       (the current and queued pieces are dropped)
 //   <- { type: 'error', id?, message }
 import { HandwritingModel, makeRandom } from './engine.js';
+import { judgePiece, betterAttempt } from '../generate/layout.js';
 
 let model = null;
 let generation = 0;          // bumped by 'cancel'; running work checks it and stops
@@ -36,11 +37,13 @@ async function write({ id, text, bias = 0.8, seed, tries = 3 }) {
     }
     const result = run.finish();
     result.attempt = attempt;
-    if (best === null || result.ok) best = result;
-    if (result.ok) break;
+    judgePiece(result, run.norm, model.xhModel);      // missing dots, drift below the line
+    if (best === null || betterAttempt(result, best)) best = result;
+    if (best.ok && best.missingDots === 0) break;       // otherwise again: the best attempt is kept
   }
   if (mine !== generation) return;
   best.ms = Math.round(performance.now() - t0);
+  delete best.where;                                  // only the judge needed it
   self.postMessage({ type: 'done', id, result: best }, [best.points.buffer]);
 }
 

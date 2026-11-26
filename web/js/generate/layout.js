@@ -80,15 +80,21 @@ function kdeMode(values, bw) {
   return bestG;
 }
 
-/** Robust baseline y = a*x + b of a written piece (hw/prep.py: baseline, kind "line"). */
-export function baseline(p) {
-  const ranges = strokeRanges(p);
+/** The tolerance all baseline work uses: 1.3 x the 90th percentile of the stroke
+ *  heights (hw/prep.py: extremes, kind "line"). */
+export function strokeSize(p, ranges = strokeRanges(p)) {
   const heights = ranges.map(([s, e]) => {
     let lo = Infinity, hi = -Infinity;
     for (let i = s; i < e; i++) { const y = Y(p, i); if (y < lo) lo = y; if (y > hi) hi = y; }
     return hi - lo;
   });
-  const size = Math.max(percentile(heights, 90), 1e-6) * 1.3;
+  return Math.max(percentile(heights, 90), 1e-6) * 1.3;
+}
+
+/** Robust baseline y = a*x + b of a written piece (hw/prep.py: baseline, kind "line"). */
+export function baseline(p) {
+  const ranges = strokeRanges(p);
+  const size = strokeSize(p, ranges);
   const delta = 0.08 * size, bw = 0.07 * size;
   const bx = [], by = [];
   for (const [s, e] of ranges) {
@@ -146,6 +152,41 @@ export function straighten(ink) {
   return { ...ink, points: p, baseline: { a, b } };
 }
 
+export const DOT_MAX_LENGTH = 0.5;    // xh; longer short strokes are the bars of t and f, dashes, parts of capitals
+export const DOT_MIN_HEIGHT = 1.15;   // xh above the baseline: clear of the small letters
+
+/** How many dots a written piece has (hw/prep.py: dot_strokes): very short
+ *  strokes well above the small letters.  `p` in xh units. */
+export function countDots(p) {
+  const { a, b } = baseline(p);
+  let n = 0;
+  for (const [s, e] of strokeRanges(p)) {
+    let length = 0, height = 0;
+    for (let i = s; i < e; i++) {
+      if (i > s) length += Math.hypot(X(p, i) - X(p, i - 1), Y(p, i) - Y(p, i - 1));
+      height += (a * X(p, i) + b) - Y(p, i);
+    }
+    if (length < DOT_MAX_LENGTH && height / (e - s) > DOT_MIN_HEIGHT) n++;
+  }
+  return n;
+}
+
+/** The dots a text calls for: one on every i and j, two on every umlaut
+ *  (hw/sampling.py: expected_dots). */
+export function expectedDots(text) {
+  let n = 0;
+  for (const ch of text) n += (ch === 'i' || ch === 'j') ? 1 : ('äöüÄÖÜ'.includes(ch) ? 2 : 0);
+  return n;
+}
+
+/** Is attempt `a` better than `b`?  A sound one before a faulty one, then the
+ *  one with fewer missing dots; the earlier one wins a tie
+ *  (hw/sampling.py: Synthesizer._rank). */
+export function betterAttempt(a, b) {
+  if (a.ok !== b.ok) return a.ok;
+  return a.missingDots < b.missingDots;
+}
+
 /** Cut a piece into its words at the widest gaps between strokes
  *  (hw/dataset.py: split_words); the whole piece if the gaps are unclear. */
 export function pieceWords(ink, minGap = 0.6) {
@@ -169,6 +210,80 @@ export function pieceWords(ink, minGap = 0.6) {
   return words.map((text, i) => ({ text, ok: ink.ok, points: p.subarray(3 * bounds[i], 3 * bounds[i + 1]) }));
 }
 
+export const DEEP_CHARS = 'gjpqyfzßJGYQ,;()[]/§79!?@';   // may reach well below the baseline, depending on the hand
+export const MAX_PLAIN_DEPTH = 1.5;   // xh below the line; no other character goes that deep
+export const LEVEL_KEEP = 0.12;       // xh a word may sit above or below the line: the natural unevenness stays
+
+/** How far (xh, positive = down) a word of a straightened piece has to move up
+ *  to sit on the line again (hw/page.py: word_level).  `size` is the piece's
+ *  strokeSize.  Short words, words with too few letter bottoms and levels too
+ *  far off to be an uneven line are left alone. */
+export function wordLevel(p, text, size) {
+  const chars = [...text];
+  if (chars.length < 3) return 0;
+  const delta = 0.08 * size, bw = 0.07 * size, ys = [];
+  for (const [s, e] of strokeRanges(p)) {
+    if (e - s < 3) continue;
+    let len = 0;
+    for (let i = s + 1; i < e; i++) len += Math.hypot(X(p, i) - X(p, i - 1), Y(p, i) - Y(p, i - 1));
+    if (len < 0.3 * size) continue;
+    for (const i of bottomsOf(p, s, e, delta)) ys.push(Y(p, i));
+  }
+  if (ys.length < 3) return 0;
+  let b = kdeMode(ys, bw), sum = 0, n = 0;
+  for (const y of ys) if (Math.abs(y - b) < 1.5 * bw) { sum += y; n++; }
+  if (n >= 2) b = sum / n;
+  if (Math.abs(b) > (chars.some((c) => DEEP_CHARS.includes(c)) ? 0.9 : 1.5)) return 0;
+  return b - Math.min(LEVEL_KEEP, Math.max(-LEVEL_KEEP, b));
+}
+
+/** The words of a straightened piece, each with the distance it has to move up
+ *  to sit on the line (hw/page.py: levelled_words). */
+export function levelledWords(piece) {
+  const size = strokeSize(piece.points);
+  return pieceWords(piece).map((word) => ({ word, level: wordLevel(word.points, word.text, size) }));
+}
+
+/** How far below the line (xh) the pen went while writing characters without a
+ *  descender, after every word has been set on the line (hw/page.py:
+ *  stray_depth).  `piece` is straightened and carries the normalized text;
+ *  where[i] is the character the network was writing at point i. */
+export function strayDepth(piece, where) {
+  const deep = [...piece.text].map((c) => DEEP_CHARS.includes(c));
+  deep.push(false);
+  const near = deep.map((d, i) => d || deep[i - 1] === true || deep[i + 1] === true);
+  if (!where || where.length !== count(piece.points)) return 0;
+  let worst = 0, start = 0;
+  for (const { word, level } of levelledWords(piece)) {
+    const q = word.points, m = count(q);
+    for (let i = 0; i < m; i++) {
+      if (near[Math.min(where[start + i], near.length - 1)]) continue;
+      const d = Y(q, i) - level;
+      if (d > worst) worst = d;
+    }
+    start += m;
+  }
+  return worst;
+}
+
+/** The checks of a written piece that need its baseline (hw/sampling.py:
+ *  Synthesizer.judge): sets result.missingDots, and marks a piece whose pen slid
+ *  below the line as faulty.  `result` as Run.finish() returns it (model units),
+ *  `norm` its normalized text. */
+export function judgePiece(result, norm, xhModel) {
+  const ink = { ...toXh(result, xhModel), text: norm };
+  const want = expectedDots(norm);
+  result.missingDots = want && result.count ? Math.max(want - countDots(ink.points), 0) : want;
+  if (result.where && result.count) {
+    result.strayDepth = strayDepth(straighten(ink), result.where);
+    if (result.strayDepth > MAX_PLAIN_DEPTH) {
+      result.problems = [...result.problems, `drift ${result.strayDepth.toFixed(1)}`];
+      result.ok = false;
+    }
+  }
+  return result;
+}
+
 /** Factor that brings generated words back to the writer's letter size at a
  *  legibility setting (hw/page.py: size_scale). `table` is model.json's
  *  size_by_bias {bias: [...], xh: [...]}: the x-height the model really writes,
@@ -189,7 +304,8 @@ export function sizeScale(table, bias) {
 
 /** Set straightened pieces on a page `width` x-heights wide (hw/page.py: layout).
  *  `normal()` supplies standard normal numbers for the spacing between pieces.
- *  `scale` enlarges every word about its left end on the baseline; gaps keep their size. */
+ *  `scale` enlarges every word about its left end on the baseline; gaps keep their size.
+ *  Every word is set on the line (wordLevel). */
 export function layoutPage(paragraphs, { width = 84, lineHeight = 6.5, gap = [2.9, 0.8], margin = 3, top = 5, normal, scale = 1 } = {}) {
   let y = top, lines = 1, right = null;
   const strokes = [], placed = [];
@@ -197,7 +313,7 @@ export function layoutPage(paragraphs, { width = 84, lineHeight = 6.5, gap = [2.
     if (k > 0) { y += lineHeight; lines++; right = null; }
     for (const piece of para) {
       let prevEnd = null;
-      for (const w of pieceWords(piece)) {
+      for (const { word: w, level } of levelledWords(piece)) {
         const p = w.points, n = count(p);
         let x0 = Infinity, x1 = -Infinity;
         for (let i = 0; i < n; i++) { const x = X(p, i); if (x < x0) x0 = x; if (x > x1) x1 = x; }
@@ -209,11 +325,11 @@ export function layoutPage(paragraphs, { width = 84, lineHeight = 6.5, gap = [2.
         let start = right === null ? margin : right + g;
         if (right !== null && start + wide > width - margin) { y += lineHeight; lines++; start = margin; }
         const q = new Float32Array(p.length);
-        for (let i = 0; i < n; i++) { q[3 * i] = (p[3 * i] - x0) * scale + start; q[3 * i + 1] = p[3 * i + 1] * scale + y; q[3 * i + 2] = p[3 * i + 2]; }
+        for (let i = 0; i < n; i++) { q[3 * i] = (p[3 * i] - x0) * scale + start; q[3 * i + 1] = (p[3 * i + 1] - level) * scale + y; q[3 * i + 2] = p[3 * i + 2]; }
         if (n) q[3 * (n - 1) + 2] = 1;
         strokes.push(q);
         right = start + wide;
-        placed.push({ text: w.text, x: start, y, width: wide, ok: piece.ok !== false });
+        placed.push({ text: w.text, x: start, y, width: wide, level, ok: piece.ok !== false });
       }
     }
   });

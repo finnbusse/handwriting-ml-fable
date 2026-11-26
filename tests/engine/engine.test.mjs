@@ -61,6 +61,7 @@ for (const s of all) {
   check(fin.count === s.finish.points.length, `${JSON.stringify(s.text)}: finish keeps ${fin.count} points, expected ${s.finish.points.length}`);
   check(fin.ok === s.finish.ok && JSON.stringify(fin.problems) === JSON.stringify(s.finish.problems), `${JSON.stringify(s.text)}: verdict`);
   check(maxDiff(fin.points, s.finish.points.flat()) < 3.0, `${JSON.stringify(s.text)}: final positions (model units)`);
+  check(fin.where.length === fin.count && s.where.length === fin.count && fin.where.every((u, i) => u === s.where[i]), `${JSON.stringify(s.text)}: character per point`);
 }
 const ms = performance.now() - t0;
 check(worstTrace < 2e-4, `internal quantities of the first steps differ by ${worstTrace}`);

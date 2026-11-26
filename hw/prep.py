@@ -174,6 +174,68 @@ def baseline(ink: Ink) -> tuple[float, float, float]:
     return a, b, size
 
 
+DOT_MAX_LENGTH = 0.5     # xh; longer short strokes are the bars of t and f, dashes, parts of capitals
+DOT_MIN_HEIGHT = 1.15    # xh above the baseline: clear of the small letters
+
+
+def dot_strokes(ink: Ink) -> int:
+    """How many dots a written line has (ink in xh units): very short strokes
+    well above the small letters, that is the dots of i, j, ä, ö and ü.
+
+    On the writer's own lines the count equals i + j + 2 x umlauts in 83 % of
+    the lines, is higher in 16 % (the upper dot of a colon between tall digits,
+    small parts of digits and capitals) and lower in 1 %."""
+    a, b, _ = baseline(ink.copy(kind="line"))
+    n = 0
+    for s in stroke_slices(ink.points):
+        seg = ink.points[s, :2]
+        length = float(np.hypot(*np.diff(seg, axis=0).T).sum()) if len(seg) > 1 else 0.0
+        height = float(np.mean((a * seg[:, 0] + b) - seg[:, 1]))
+        if length < DOT_MAX_LENGTH and height > DOT_MIN_HEIGHT:
+            n += 1
+    return n
+
+
+DEEP_CHARS = "gjpqyfzßJGYQ,;()[]/§79!?@"  # may reach well below the baseline, depending on the hand
+MAX_PLAIN_DEPTH = 1.5                     # xh below the line; no other character goes that deep (page.stray_depth)
+
+
+LEVEL_KEEP = 0.12      # xh a word may sit above or below the line: the natural unevenness stays
+
+
+def word_level(word: Ink, size: float) -> float:
+    """How far (xh, positive = down) a word of a straightened piece has to move
+    up to sit on the line again.
+
+    The network sometimes sets a whole word a little higher or lower than its
+    neighbours.  The level of a word is where most of its letters end at the
+    bottom (as in baseline, with the piece's `size` as tolerance).  Words
+    of fewer than three characters or with fewer than three such bottoms are
+    left alone, and so is a level further off than a word can plausibly be
+    (0.9 xh if the word has descenders, whose ends could be mistaken for the
+    level, else 1.5): that is a failed sample, not an uneven line."""
+    if len(word.text) < 3:
+        return 0.0
+    delta, bw = 0.08 * size, 0.07 * size
+    ys = []
+    for s in stroke_slices(word.points):
+        seg = word.points[s, :2]
+        if len(seg) < 3 or np.hypot(*np.diff(seg, axis=0).T).sum() < 0.3 * size:
+            continue
+        _, bottoms = turning_points(word.points[s, 1], delta)
+        ys += [float(seg[i, 1]) for i in bottoms]
+    if len(ys) < 3:
+        return 0.0
+    ys = np.asarray(ys)
+    b = _kde_mode(ys, bw)
+    near = np.abs(ys - b) < 1.5 * bw
+    if near.sum() >= 2:
+        b = float(ys[near].mean())
+    if abs(b) > (0.9 if any(c in DEEP_CHARS for c in word.text) else 1.5):
+        return 0.0
+    return float(b - np.clip(b, -LEVEL_KEEP, LEVEL_KEEP))
+
+
 def top_heights(ink: Ink, a: float, b: float) -> np.ndarray:
     """Heights of all letter tops above the baseline (positive = above)."""
     tops, _, _ = extremes(ink)

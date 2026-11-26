@@ -13,6 +13,9 @@ import os
 
 import numpy as np
 import torch
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the repo root, for "hw"
 
 from hw import dataset, page, prep
 from hw.charset import Charset
@@ -28,7 +31,8 @@ NORMALIZE_CASES = [
     "Café, naïve, señor, Ångström", "Preis: 3,50 € (inkl. 19 % MwSt.)", "E-Mail: info@beispiel.de", "a{b}c<d>e|f\\g~h^i",
     "GROẞ und groß", "Drei Punkte… fertig", "Emoji 🙂 und 中文 fallen weg", "A\u0308pfel (zerlegtes Ä)", "100 $ = 92 €", "x² + y³",
 ]
-PAGE_TEXT = "Heute ist ein schöner Tag, und morgen wird es noch besser.\nBis bald!"
+PAGE_TEXT = ("Heute ist ein schöner Tag, und morgen wird es noch besser.\nBis bald!\n"
+             "Fünf Äpfel und zwölf Nüsse für die Gäste in Österreich, Zürich und Köln.")
 
 
 def r(a, n=6):
@@ -59,10 +63,11 @@ def main():
         res = sample_reference(model, tokens, draws, args.bias, len(SENTINEL), trace=trace)
         n = len(res["offsets"])
         ink = syn._finish(text, res["offsets"], {"finished": res["finished"], "tail_step": res["tail_step"],
-                                                  "char_peak": torch.from_numpy(res["char_peak"])})
+                                                  "char_peak": torch.from_numpy(res["char_peak"]), "where": res["where"]})
         rec = {"text": text, "normalized": norm, "tokens": tokens, "seed": seed,
                "draws": r(draws[:n], 9), "offsets": r(res["offsets"]), "finished": res["finished"],
                "tail_step": res["tail_step"], "char_peak": r(res["char_peak"]), "trace": res["trace"],
+               "where": [int(v) for v in ink.meta["where"]],
                "finish": {"points": r(ink.points, 4), "ok": ink.meta["ok"], "problems": ink.meta["problems"]}}
         return rec, ink
 
@@ -76,13 +81,16 @@ def main():
         for text in para:
             rec, ink = run(text, 500 + k)
             k += 1
+            judged = syn.judge(ink.copy(meta={**ink.meta, "problems": list(ink.meta["problems"])}))
             ink.points[:, :2] /= xh
             a, b, _ = prep.baseline(ink.copy(kind="line"))
             st = page.straighten(ink)
-            words = page.piece_words(st)
-            rec.update(baseline={"a": a, "b": b}, straight=r(st.points, 5),
+            words = page.levelled_words(st)
+            rec.update(baseline={"a": a, "b": b}, straight=r(st.points, 5), dots=prep.dot_strokes(ink),
+                       judge={"missing_dots": judged.meta["missing_dots"], "stray_depth": judged.meta["stray_depth"],
+                              "ok": judged.meta["ok"]},
                        words=[{"text": w.text, "points": len(w), "x0": float(w.points[:, 0].min()),
-                               "x1": float(w.points[:, 0].max())} for w in words])
+                               "x1": float(w.points[:, 0].max()), "level": level} for w, level in words])
             pieces.append(rec)
             row.append(st)
         rows.append(row)

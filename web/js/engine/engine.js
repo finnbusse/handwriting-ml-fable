@@ -159,6 +159,7 @@ export class Run {
                  sd: new Float32Array(2 * model.M), ro: new Float32Array(model.M), eos: new Float32Array(1) };
     this.x = [0, 0, 0];
     this.offsets = [];           // flat: dx, dy, eos (normalised units)
+    this.whereAt = [];          // per point: the character the window sat on
     this.steps = 0;
     this.done = false;
     this.finished = false;       // the stop rule fired (as opposed to running out of steps)
@@ -272,6 +273,7 @@ export class Run {
     this.last = { component: comp, pEos, where };
     x[0] = Math.fround(dx); x[1] = Math.fround(dy); x[2] = eos;
     this.offsets.push(x[0], x[1], eos);
+    this.whereAt.push(where);
     this.steps++;
     if (stop) { this.done = true; this.finished = true; }
     else if (this.steps >= this.maxSteps) this.done = true;
@@ -292,7 +294,8 @@ export class Run {
   }
 
   /** Trim what was written past the end of the text and judge the sample
-   *  (hw/sampling.py: Synthesizer._finish). */
+   *  (hw/sampling.py: Synthesizer._finish).  The checks that need the baseline
+   *  (missing dots, drift) follow in generate/layout.js: judgePiece. */
   finish() {
     let p = this.points();
     let n = this.steps;
@@ -323,7 +326,8 @@ export class Run {
     if (!this.finished) problems.push('unfinished');
     if (skipped) problems.push(`skipped ${skipped}`);
     if (!(ppc >= 8 && ppc <= 70)) problems.push(`points/char ${ppc.toFixed(0)}`);
-    return { text: this.text, points: p, count: n, finished: this.finished, ok: problems.length === 0, problems };
+    return { text: this.text, points: p, count: n, finished: this.finished, ok: problems.length === 0, problems,
+             where: Uint16Array.from(this.whereAt.slice(0, n)) };
   }
 }
 

@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HandwritingModel } from '../../web/js/engine/engine.js';
-import { splitPieces, straighten, pieceWords, layoutPage, toXh, baseline, sizeScale } from '../../web/js/generate/layout.js';
+import { splitPieces, straighten, pieceWords, layoutPage, toXh, baseline, sizeScale, countDots, expectedDots, judgePiece, levelledWords, betterAttempt } from '../../web/js/generate/layout.js';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 if (!fs.existsSync(path.join(dir, 'fixture.json'))) { console.log('SKIP: no fixtures'); process.exit(0); }
@@ -22,12 +22,19 @@ const paragraphs = splitPieces(norm);
 check(JSON.stringify(paragraphs) === JSON.stringify(page.paragraphs), `pieces ${JSON.stringify(paragraphs)} vs ${JSON.stringify(page.paragraphs)}`);
 
 // 2. write every piece with the reference's random draws, then straighten and cut into words
-let k = 0, worstBase = 0, worstStraight = 0;
+let k = 0, worstBase = 0, worstStraight = 0, dotsSeen = 0, worstLevel = 0, levelled = 0;
 const rows = paragraphs.map((para) => para.map((text) => {
   const ref = page.pieces[k++];
   const run = model.begin(text, { bias: fixture.bias });
   for (let t = 0; t < ref.draws.length && !run.done; t++) run.step(...ref.draws[t]);
-  const ink = toXh(run.finish(), model.xhModel);
+  const finished = run.finish();
+  const ink = toXh(finished, model.xhModel);
+  check(countDots(ink.points) === ref.dots, `${text}: ${countDots(ink.points)} dots vs ${ref.dots} (Python)`);
+  const judged = judgePiece({ ...finished, problems: [...finished.problems] }, run.norm, model.xhModel);
+  check(judged.missingDots === ref.judge.missing_dots, `${text}: ${judged.missingDots} missing dots vs ${ref.judge.missing_dots} (Python)`);
+  check(Math.abs(judged.strayDepth - ref.judge.stray_depth) < 0.02, `${text}: stray depth ${judged.strayDepth} vs ${ref.judge.stray_depth} (Python)`);
+  check(judged.ok === ref.judge.ok, `${text}: verdict after the judge`);
+  dotsSeen += ref.dots;
   const base = baseline(ink.points);
   worstBase = Math.max(worstBase, Math.abs(base.a - ref.baseline.a) * 50, Math.abs(base.b - ref.baseline.b));
   const st = straighten(ink);
@@ -37,10 +44,16 @@ const rows = paragraphs.map((para) => para.map((text) => {
   const words = pieceWords(st);
   check(words.length === ref.words.length, `${text}: ${words.length} words vs ${ref.words.length}`);
   words.forEach((w, i) => { if (ref.words[i]) check(w.text === ref.words[i].text && w.points.length / 3 === ref.words[i].points, `${text}: word ${i}`); });
+  levelledWords(st).forEach(({ level }, i) => {
+    if (!ref.words[i]) return;
+    worstLevel = Math.max(worstLevel, Math.abs(level - ref.words[i].level));
+    if (ref.words[i].level !== 0) levelled++;
+  });
   return st;
 }));
 check(worstBase < 0.02, `baseline differs by ${worstBase}`);
 check(worstStraight < 0.03, `straightened points differ by ${worstStraight}`);
+check(worstLevel < 0.02, `word levels differ by ${worstLevel}`);
 
 // 3. the page
 const draws = [...page.gap_draws];
@@ -58,6 +71,12 @@ check(worstPos < 0.05, `word positions differ by ${worstPos}`);
 check(Math.abs(pg.height - page.height) < 1e-6, 'page height');
 const total = pg.strokes.reduce((s, q) => s + q.length / 3, 0);
 check(total === page.points.length, `page has ${total} points vs ${page.points.length}`);
+let worstInkPos = 0, at = 0;
+for (const q of pg.strokes) for (let j = 0; j < q.length; j += 3, at++) {
+  const r = page.points[at];
+  if (r) worstInkPos = Math.max(worstInkPos, Math.abs(q[j] - r[0]), Math.abs(q[j + 1] - r[1]));
+}
+check(worstInkPos < 0.01, `ink on the page differs by ${worstInkPos} (every word set on the line as in Python)`);
 
 // 4. size correction per legibility setting (hw/page.py: size_scale, layout(scale=...))
 const table = { bias: [0.0, 0.4, 0.8, 1.2], xh: [1.02, 0.86, 0.80, 0.76] };
@@ -85,6 +104,15 @@ check(worstWidth < 1e-3, `scaled word widths differ by ${worstWidth}`);
 check(worstGap < 1e-3, `gaps must not be scaled, differ by ${worstGap}`);
 check(worstInk < 1e-3, `scaled ink differs by ${worstInk}`);
 
-console.log(JSON.stringify({ pieces: k, words: pg.words.length, lines: pg.lines, max_baseline_diff: +worstBase.toExponential(2),
+// 5. dots: what a text calls for, and which of several attempts is kept
+check(dotsSeen > 0, 'the fixture page must contain dots to count');
+check(expectedDots('Über Österreich nach Zürich') === 8 && expectedDots('Jahr 2026: Haus am See') === 0 && expectedDots('jij') === 3, 'expectedDots');
+const att = (ok, missingDots) => ({ ok, missingDots });
+check(betterAttempt(att(true, 2), att(false, 0)), 'a sound attempt beats a faulty one');
+check(!betterAttempt(att(false, 0), att(true, 2)), 'a faulty attempt never replaces a sound one');
+check(betterAttempt(att(true, 0), att(true, 1)) && !betterAttempt(att(true, 1), att(true, 0)), 'fewer missing dots win');
+check(!betterAttempt(att(true, 1), att(true, 1)), 'the earlier attempt wins a tie');
+
+console.log(JSON.stringify({ pieces: k, dots: dotsSeen, words_levelled: levelled, max_level_diff: +worstLevel.toExponential(2), words: pg.words.length, lines: pg.lines, max_baseline_diff: +worstBase.toExponential(2),
   max_straight_diff: +worstStraight.toExponential(2), max_word_pos_diff: +worstPos.toExponential(2), failures }));
 process.exit(failures ? 1 : 0);

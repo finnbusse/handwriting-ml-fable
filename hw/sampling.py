@@ -7,11 +7,17 @@ import os
 import numpy as np
 import torch
 
+from . import page, prep
 from .charset import BASE_CHARSET, Charset
 from .ink import Ink, from_offsets
 from .model import SynthesisNetwork, alphabet_size_of, load_state
 
 SENTINEL = "  "   # appended to every text so the attention window has somewhere to stop
+
+
+def expected_dots(text: str) -> int:
+    """The dots a text calls for: one on every i and j, two on every umlaut."""
+    return sum(text.count(c) for c in "ij") + 2 * sum(text.count(c) for c in "äöüÄÖÜ")
 
 
 class Synthesizer:
@@ -66,8 +72,10 @@ class Synthesizer:
               max_steps: int | None = None, eos_mode: str = "sample", tries: int = 3,
               return_attention: bool = False) -> list[Ink]:
         """Write each text once.  Samples that went wrong (did not finish,
-        skipped characters, absurd length) are written again, up to `tries`
-        times; the result records in `meta` how it went.
+        skipped characters, absurd length) or lack dots on i, j, ä, ö, ü are
+        written again, up to `tries` times, and the best attempt is kept: a
+        sound one before a faulty one, then the one with the fewest missing
+        dots.  `meta` records how it went.
 
         Inks come back in model units with the pen start at (0, 0)."""
         gen = torch.Generator().manual_seed(seed) if seed is not None else None
@@ -86,14 +94,41 @@ class Synthesizer:
             for i, text, seq, info in zip(todo, batch, seqs, infos):
                 ink = self._finish(text, seq.numpy(), info)
                 ink.meta["attempt"] = attempt
+                self.judge(ink)
                 if return_attention:
                     ink.meta["attention"] = info["attention"]
-                if result[i] is None or ink.meta["ok"]:
+                if result[i] is None or self._rank(ink) < self._rank(result[i]):
                     result[i] = ink
-                if not ink.meta["ok"]:
+                if self._rank(result[i]) > (False, 0):
                     again.append(i)
             todo = again
         return result
+
+    @staticmethod
+    def _rank(ink: Ink) -> tuple[bool, int]:
+        """Smaller is better: sound before faulty, then fewer missing dots."""
+        return (not ink.meta["ok"], ink.meta["missing_dots"])
+
+    def judge(self, ink: Ink) -> Ink:
+        """The checks of a written piece that need its baseline (ink in model
+        units, as _finish returns it):
+          missing_dots  dots the text calls for but the ink does not show
+          drift         the pen slid below the line on letters without a descender
+                        (added to `problems`, the piece is then not `ok`)"""
+        norm = self.charset.normalize(ink.text)
+        p = ink.points.copy()
+        p[:, :2] /= float(self.meta.get("xh_model", 100.0))
+        probe = Ink(p, text=norm, kind="line", source="generated")
+        want = expected_dots(norm)
+        ink.meta["missing_dots"] = max(want - prep.dot_strokes(probe), 0) if want and len(p) else want
+        where = ink.meta.pop("where", None)
+        if where is not None and len(p):
+            depth = page.stray_depth(page.straighten(probe), where)
+            ink.meta["stray_depth"] = round(depth, 3)
+            if depth > prep.MAX_PLAIN_DEPTH:
+                ink.meta["problems"].append(f"drift {depth:.1f}")
+                ink.meta["ok"] = False
+        return ink
 
     def _finish(self, text: str, seq: np.ndarray, info: dict) -> Ink:
         pts = from_offsets(self.denormalize(seq))
@@ -124,5 +159,7 @@ class Synthesizer:
             problems.append(f"skipped {skipped}")
         if not 8 <= ppc <= 70:
             problems.append(f"points/char {ppc:.0f}")
-        return Ink(pts, text=text, kind="line", source="generated",
-                   meta={"finished": info["finished"], "ok": not problems, "problems": problems})
+        meta = {"finished": info["finished"], "ok": not problems, "problems": problems}
+        if "where" in info:                                # for judge(): which character each point belongs to
+            meta["where"] = np.asarray(info["where"])[:len(pts)]
+        return Ink(pts, text=text, kind="line", source="generated", meta=meta)

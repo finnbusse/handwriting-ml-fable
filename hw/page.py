@@ -5,8 +5,8 @@ at most ~27 characters).  A page is built by
   1. splitting the text into such pieces at word boundaries,
   2. writing all pieces,
   3. straightening each piece on its own baseline and
-  4. setting the pieces one after another, with the writer's own word spacing,
-     wrapping at the page width.
+  4. setting the pieces one after another, every word on the line, with the
+     writer's own word spacing, wrapping at the page width.
 
 Everything here is in xh units (1.0 = x-height, y down).  The same algorithm
 runs in the browser (web/js/generate/layout.js); scripts/make_engine_fixture.py
@@ -70,6 +70,39 @@ def piece_words(piece: Ink) -> list[Ink]:
     return words if words else [piece]
 
 
+def levelled_words(piece: Ink) -> list[tuple[Ink, float]]:
+    """The words of a straightened piece, each with the distance it has to move
+    up to sit on the line (prep.word_level)."""
+    size = prep.extremes(piece.copy(kind="line"))[2]
+    return [(w, prep.word_level(w, size)) for w in piece_words(piece)]
+
+
+def stray_depth(piece: Ink, where: np.ndarray) -> float:
+    """How far below the line (xh) the pen went while writing characters that
+    have no descender, after every word has been set on the line: the sign of
+    a sample whose pen slid away inside a word.  `piece` is straightened, its
+    text normalized; `where[i]` is the index into the text of the character
+    the network was writing at point i (larger: the sentinel after the text).
+    A descender also excuses the characters right next to it, the window is
+    never exactly on one letter.
+
+    On the writer's own lines, cut into pieces as the page writer does and
+    aligned with the network's attention, the value stays below 1.3 in 99 % of
+    the pieces; prep.MAX_PLAIN_DEPTH is the limit."""
+    deep = np.array([c in prep.DEEP_CHARS for c in piece.text] + [False], dtype=bool)
+    near = deep.copy()
+    near[1:] |= deep[:-1]
+    near[:-1] |= deep[1:]
+    plain = ~near[np.minimum(np.asarray(where, dtype=np.int64), len(near) - 1)]
+    if len(plain) != len(piece.points) or not plain.any():
+        return 0.0
+    depth, start = piece.points[:, 1].copy(), 0
+    for w, level in levelled_words(piece):
+        depth[start:start + len(w.points)] -= level
+        start += len(w.points)
+    return float(max(depth[plain].max(), 0.0))
+
+
 SIZE_BIASES = (0.0, 0.4, 0.8, 1.2)
 SIZE_TEXTS = [
     "Heute ist ein schöner Tag.", "Wir sehen uns morgen", "in der neuen Schule.", "Kannst du mir bitte helfen?",
@@ -125,7 +158,8 @@ def layout(pieces_by_paragraph: list[list[Ink]], width: float = 84.0, line_heigh
     the writer's typical word gap is used.  `gap_draws` (an iterable of standard
     normal numbers, one per piece) makes the result reproducible elsewhere.
     `scale` enlarges every word about its left end on the baseline (see
-    size_scale); the gaps are not scaled, the network writes them at full size."""
+    size_scale); the gaps are not scaled, the network writes them at full size.
+    Every word is set on the line (prep.word_level)."""
     rng = np.random.default_rng(seed)
     draws = iter(gap_draws) if gap_draws is not None else None
     y, lines = top, 1
@@ -136,7 +170,7 @@ def layout(pieces_by_paragraph: list[list[Ink]], width: float = 84.0, line_heigh
             y, lines, right = y + line_height, lines + 1, None
         for piece in para:
             prev_end = None                       # right edge of the previous word inside the piece
-            for w in piece_words(piece):
+            for w, level in levelled_words(piece):
                 x0, x1 = float(w.points[:, 0].min()), float(w.points[:, 0].max())
                 if prev_end is None:
                     z = float(next(draws)) if draws is not None else float(rng.standard_normal())
@@ -150,10 +184,10 @@ def layout(pieces_by_paragraph: list[list[Ink]], width: float = 84.0, line_heigh
                     y, lines, start = y + line_height, lines + 1, margin
                 p = w.points.copy()
                 p[:, 0] = (p[:, 0] - x0) * scale + start
-                p[:, 1] = p[:, 1] * scale + y
+                p[:, 1] = (p[:, 1] - level) * scale + y
                 out.append(p)
                 right = start + wide
-                placed.append({"text": w.text, "x": start, "y": y, "width": wide,
+                placed.append({"text": w.text, "x": start, "y": y, "width": wide, "level": level,
                                "ok": piece.meta.get("ok", True)})
     pts = np.vstack(out) if out else np.zeros((0, 3), dtype=np.float32)
     text = "\n".join(" ".join(p.text for p in para) for para in pieces_by_paragraph)

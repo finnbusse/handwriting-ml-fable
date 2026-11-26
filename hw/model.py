@@ -220,6 +220,7 @@ class SynthesisNetwork(nn.Module):
           tail_step   first step at which the attention reached the sentinel
                       (-1 if it never did); points from there on are suspect
           char_peak   (U_i,) strongest attention each character received
+          where       (T_i,) the character the window sat on at every point
           attention   (T_i,U_i), only with return_attention
         """
         device = tokens.device
@@ -243,6 +244,7 @@ class SynthesisNetwork(nn.Module):
         n_pts = torch.zeros(B, dtype=torch.long, device=device)
         tail_step = torch.full((B,), -1, dtype=torch.long, device=device)
         peak = torch.zeros(B, U, device=device)
+        where_at = torch.zeros(B, max_steps, dtype=torch.long, device=device)
         last_idx = (text_len - 1).clamp_min(0)
         tail_start = (text_len - n_tail).clamp_min(0)
         ar = torch.arange(B, device=device)
@@ -277,6 +279,7 @@ class SynthesisNetwork(nn.Module):
             if att is not None:
                 att[keep, t] = phi[keep]
             peak[keep] = torch.maximum(peak[keep], phi[keep])
+            where_at[keep, t] = where[keep]
             in_tail = keep & (n_tail > 0) & (where >= tail_start) & (tail_step < 0)
             tail_step[in_tail] = t
             n_pts[keep] += 1
@@ -288,7 +291,8 @@ class SynthesisNetwork(nn.Module):
         for i in range(B):
             n, ul = int(n_pts[i]), int(text_len[i])
             seqs.append(out[i, :n].clone())
-            info = {"finished": bool(done[i]), "tail_step": int(tail_step[i]), "char_peak": peak[i, :ul].clone()}
+            info = {"finished": bool(done[i]), "tail_step": int(tail_step[i]), "char_peak": peak[i, :ul].clone(),
+                    "where": where_at[i, :n].clone()}
             if att is not None:
                 info["attention"] = att[i, :n, :ul].clone()
             infos.append(info)

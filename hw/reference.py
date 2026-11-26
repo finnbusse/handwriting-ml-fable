@@ -47,7 +47,7 @@ def sample_reference(model: SynthesisNetwork, tokens: list[int], draws: np.ndarr
     state = model.initial_state(1)
     x = torch.zeros(1, 3)
     n_steps = min(len(draws), max_steps or len(draws))
-    out, peak, tail_step, finished, traced = [], np.zeros(U, dtype=np.float32), -1, False, []
+    out, peak, tail_step, finished, traced, wheres = [], np.zeros(U, dtype=np.float32), -1, False, [], []
     for t in range(n_steps):
         u_comp, n1, n2, u_eos = (float(v) for v in draws[t])
         h, phi, state = model.step(x, onehot, u, state)
@@ -73,6 +73,7 @@ def sample_reference(model: SynthesisNetwork, tokens: list[int], draws: np.ndarr
         if n_tail > 0 and tail_step < 0 and where >= U - n_tail:
             tail_step = t
         out.append((dx, dy, eos))
+        wheres.append(where)
         if t < trace:
             traced.append({"phi": ph.tolist(), "kappa": state[6][0].tolist(), "pi": pi.tolist(),
                            "mu1": p.mu1[0].tolist(), "mu2": p.mu2[0].tolist(),
@@ -84,7 +85,7 @@ def sample_reference(model: SynthesisNetwork, tokens: list[int], draws: np.ndarr
             finished = True
             break
     return {"offsets": np.array(out, dtype=np.float32), "finished": finished, "tail_step": tail_step,
-            "char_peak": peak, "trace": traced}
+            "char_peak": peak, "where": np.array(wheres, dtype=np.int64), "trace": traced}
 
 
 def make_draws(n: int, seed: int) -> np.ndarray:

@@ -12,6 +12,10 @@ import json
 
 import numpy as np
 import torch
+import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))   # the repo root, for "hw"
 
 from hw import prep
 from hw.ink import contact_sheet
@@ -28,16 +32,7 @@ TEXTS = [
 def dots(ink, xh_model: float) -> int:
     p = ink.points.copy()
     p[:, :2] /= xh_model
-    probe = ink.copy(points=p, kind="line")
-    a, b, _ = prep.baseline(probe)
-    n = 0
-    for s in prep.stroke_slices(p):
-        seg = p[s, :2]
-        length = float(np.hypot(*np.diff(seg, axis=0).T).sum()) if len(seg) > 1 else 0.0
-        height = float(np.mean((a * seg[:, 0] + b) - seg[:, 1]))
-        if length < 0.7 and height > 1.15:
-            n += 1
-    return n
+    return prep.dot_strokes(ink.copy(points=p, kind="line"))
 
 
 def main():
