@@ -70,13 +70,62 @@ def piece_words(piece: Ink) -> list[Ink]:
     return words if words else [piece]
 
 
+SIZE_BIASES = (0.0, 0.4, 0.8, 1.2)
+SIZE_TEXTS = [
+    "Heute ist ein schöner Tag.", "Wir sehen uns morgen", "in der neuen Schule.", "Kannst du mir bitte helfen?",
+    "Das Wetter wird am Sonntag", "wieder etwas besser.", "Ich habe den Bus verpasst.", "Viele Grüße und bis bald!",
+    "Der Kuchen steht dort", "auf dem runden Tisch.", "Wir treffen uns nach", "dem Training am See.",
+    "Meine Schwester kommt", "etwas später nach.", "Bitte denk an den Schlüssel.", "Das war eine gute Idee.",
+    "Am Abend lese ich noch", "ein spannendes Buch.", "Die Kinder spielen draußen", "im Garten hinter dem Haus.",
+    "Ruf mich an, wenn du", "morgen etwas Zeit hast.", "Unsere Nachbarn sind nett", "und helfen immer gern.",
+]
+
+
+def measure_size(syn, biases=SIZE_BIASES, seed: int = 7) -> dict | None:
+    """The x-height the model really writes at each legibility setting, in the
+    writer's x-heights: {"bias": [...], "xh": [...]}.
+
+    The legibility setting (bias) narrows the predicted spread, and that
+    shortens every pen step: measured on several models, letters come out 15 to
+    25 % smaller at the app's default while the gaps between words keep their
+    size, so the writing looks small and widely spaced.  The table lets the
+    layout scale the words back (size_scale)."""
+    xh_model, ratio = float(syn.meta["xh_model"]), float(syn.meta.get("tall_ratio", 2.6))
+    out = []
+    for b in biases:
+        sizes = []
+        for ink in syn.write(SIZE_TEXTS, bias=float(b), seed=seed, tries=1):
+            ink.points[:, :2] /= xh_model
+            probe = ink.copy(kind="line")
+            a, c, _ = prep.baseline(probe)
+            x = prep.fit_xheight(prep.letter_heights(probe, a, c), ink.text, ratio)
+            if np.isfinite(x) and x > 0:
+                sizes.append(float(x))
+        if len(sizes) < len(SIZE_TEXTS) // 2:
+            return None                          # the model does not write well enough to be measured
+        out.append(round(float(np.median(sizes)), 4))
+    return {"bias": [float(b) for b in biases], "xh": out}
+
+
+def size_scale(meta: dict, bias: float) -> float:
+    """Factor that brings generated words back to the writer's letter size at
+    this legibility setting (1.0 when the model carries no measurement)."""
+    table = meta.get("size_by_bias")
+    if not table:
+        return 1.0
+    xh = float(np.interp(bias, table["bias"], table["xh"]))
+    return float(np.clip(1.0 / xh, 0.8, 1.5)) if xh > 0 else 1.0
+
+
 def layout(pieces_by_paragraph: list[list[Ink]], width: float = 84.0, line_height: float = 6.5,
            gap: tuple[float, float] = (2.9, 0.8), margin: float = 3.0, top: float = 5.0,
-           seed: int | None = 0, gap_draws=None) -> Page:
+           seed: int | None = 0, gap_draws=None, scale: float = 1.0) -> Page:
     """Set straightened pieces (xh units) on a page `width` x-heights wide.
     Words of one piece keep the spacing the network gave them; between pieces
     the writer's typical word gap is used.  `gap_draws` (an iterable of standard
-    normal numbers, one per piece) makes the result reproducible elsewhere."""
+    normal numbers, one per piece) makes the result reproducible elsewhere.
+    `scale` enlarges every word about its left end on the baseline (see
+    size_scale); the gaps are not scaled, the network writes them at full size."""
     rng = np.random.default_rng(seed)
     draws = iter(gap_draws) if gap_draws is not None else None
     y, lines = top, 1
@@ -95,15 +144,16 @@ def layout(pieces_by_paragraph: list[list[Ink]], width: float = 84.0, line_heigh
                 else:
                     g = float(np.clip(x0 - prev_end, 0.5 * gap[0], 1.8 * gap[0]))
                 prev_end = x1
+                wide = (x1 - x0) * scale
                 start = margin if right is None else right + g
-                if right is not None and start + (x1 - x0) > width - margin:
+                if right is not None and start + wide > width - margin:
                     y, lines, start = y + line_height, lines + 1, margin
                 p = w.points.copy()
-                p[:, 0] += start - x0
-                p[:, 1] += y
+                p[:, 0] = (p[:, 0] - x0) * scale + start
+                p[:, 1] = p[:, 1] * scale + y
                 out.append(p)
-                right = start + (x1 - x0)
-                placed.append({"text": w.text, "x": start, "y": y, "width": x1 - x0,
+                right = start + wide
+                placed.append({"text": w.text, "x": start, "y": y, "width": wide,
                                "ok": piece.meta.get("ok", True)})
     pts = np.vstack(out) if out else np.zeros((0, 3), dtype=np.float32)
     text = "\n".join(" ".join(p.text for p in para) for para in pieces_by_paragraph)
@@ -126,7 +176,7 @@ def write_page(syn, text: str, width: float = 84.0, line_height: float = 6.5, bi
             row.append(straighten(ink))
         done.append(row)
     gap = tuple(syn.meta.get("gap_xh", (2.9, 0.8)))
-    return layout(done, width=width, line_height=line_height, gap=gap, seed=seed)
+    return layout(done, width=width, line_height=line_height, gap=gap, seed=seed, scale=size_scale(syn.meta, bias))
 
 
 def render_page(page: Page, path: str, dpi: int = 110, lw: float = 1.1, color: str = "#1b2a49"):

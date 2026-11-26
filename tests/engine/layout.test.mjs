@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HandwritingModel } from '../../web/js/engine/engine.js';
-import { splitPieces, straighten, pieceWords, layoutPage, toXh, baseline } from '../../web/js/generate/layout.js';
+import { splitPieces, straighten, pieceWords, layoutPage, toXh, baseline, sizeScale } from '../../web/js/generate/layout.js';
 
 const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'fixtures');
 if (!fs.existsSync(path.join(dir, 'fixture.json'))) { console.log('SKIP: no fixtures'); process.exit(0); }
@@ -58,6 +58,32 @@ check(worstPos < 0.05, `word positions differ by ${worstPos}`);
 check(Math.abs(pg.height - page.height) < 1e-6, 'page height');
 const total = pg.strokes.reduce((s, q) => s + q.length / 3, 0);
 check(total === page.points.length, `page has ${total} points vs ${page.points.length}`);
+
+// 4. size correction per legibility setting (hw/page.py: size_scale, layout(scale=...))
+const table = { bias: [0.0, 0.4, 0.8, 1.2], xh: [1.02, 0.86, 0.80, 0.76] };
+const expected = [[-0.1, 0.980392], [0.0, 0.980392], [0.2, 1.06383], [0.4, 1.162791], [0.55, 1.19403], [1.2, 1.315789], [2.0, 1.315789]];
+for (const [b, want] of expected) check(Math.abs(sizeScale(table, b) - want) < 1e-5, `sizeScale(${b}) = ${sizeScale(table, b)} vs ${want} (Python)`);
+check(sizeScale(null, 0.4) === 1 && sizeScale({ bias: [0, 1], xh: [0.5, 0.5] }, 0.3) === 1.5, 'sizeScale: no table gives 1, the factor is limited to 1.5');
+const one = layoutPage(rows, { width: 4000, gap: page.gap, normal: () => 0 });           // one long line: nothing wraps
+const big = layoutPage(rows, { width: 4000, gap: page.gap, normal: () => 0, scale: 1.25 });
+check(one.words.length === big.words.length && one.lines === big.lines, 'scaled layout keeps words and lines');
+let worstWidth = 0, worstGap = 0, worstInk = 0;
+one.words.forEach((w, i) => {
+  const v = big.words[i];
+  worstWidth = Math.max(worstWidth, Math.abs(v.width - 1.25 * w.width));
+  if (i > 0 && w.y === one.words[i - 1].y) {
+    const g1 = w.x - (one.words[i - 1].x + one.words[i - 1].width), g2 = v.x - (big.words[i - 1].x + big.words[i - 1].width);
+    worstGap = Math.max(worstGap, Math.abs(g1 - g2));
+  }
+  // every point: enlarged about the word's left end on its baseline
+  const p = one.strokes[i], q = big.strokes[i];
+  for (let j = 0; j < p.length; j += 3) {
+    worstInk = Math.max(worstInk, Math.abs((q[j] - v.x) - 1.25 * (p[j] - w.x)), Math.abs((q[j + 1] - v.y) - 1.25 * (p[j + 1] - w.y)));
+  }
+});
+check(worstWidth < 1e-3, `scaled word widths differ by ${worstWidth}`);
+check(worstGap < 1e-3, `gaps must not be scaled, differ by ${worstGap}`);
+check(worstInk < 1e-3, `scaled ink differs by ${worstInk}`);
 
 console.log(JSON.stringify({ pieces: k, words: pg.words.length, lines: pg.lines, max_baseline_diff: +worstBase.toExponential(2),
   max_straight_diff: +worstStraight.toExponential(2), max_word_pos_diff: +worstPos.toExponential(2), failures }));

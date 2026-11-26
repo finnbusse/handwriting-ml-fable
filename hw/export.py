@@ -73,6 +73,7 @@ def export(model_dir: str, out_dir: str, dtype: str = "float16") -> dict:
         "std": meta["std"],
         "xh_model": meta.get("xh_model"),
         "gap_xh": meta.get("gap_xh"),
+        "size_by_bias": meta.get("size_by_bias"),     # measured letter size per legibility setting (hw/page.py)
         "sentinel": SENTINEL,
         "trained": {k: meta[k] for k in ("epoch", "val_real", "val_composed", "data", "base") if k in meta},
         "tensors": tensors,

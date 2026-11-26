@@ -493,6 +493,18 @@ def main(argv=None, hooks=None):
         print(f"epoch {last['epoch']} is within 0.01 of the best epoch {best_epoch}: keeping epoch {last['epoch']}")
         best_epoch = last["epoch"]
     print(f"best epoch {best_epoch}, score {best:.4f}, total {(time.time() - t0) / 60:.1f} min")
+    # How large the kept model writes at each legibility setting; the page layout scales words back with it.
+    best_meta = os.path.join(args.out, "best", "meta.json")
+    if os.path.exists(best_meta):
+        from .page import measure_size
+
+        table = measure_size(Synthesizer.load(os.path.join(args.out, "best")))
+        with open(best_meta, encoding="utf-8") as f:
+            kept = json.load(f)
+        kept["size_by_bias"] = table
+        with open(best_meta, "w", encoding="utf-8") as f:
+            json.dump(kept, f, ensure_ascii=False, indent=1)
+        print("letter size by legibility setting:", json.dumps(table))
     result = dict(best_epoch=best_epoch, best=best, epoch=history[-1]["epoch"], stopped=stopped,
                   minutes=(time.time() - t0) / 60)
     if hooks:

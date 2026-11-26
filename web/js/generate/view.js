@@ -181,6 +181,7 @@ export function createGenerateView(deps) {
     S.normalizer = normalizer; S.trainedOn = trainedOn || null; S.version = entry.version || null;
     S.writer = createPageWriter({
       normalize: normalizer.normalize, xhModel: ready.xhModel, gapXh: ready.gapXh,
+      sizeByBias: entry.manifest.size_by_bias || null,
       writePiece: (job) => engine.writePiece(job),
     });
     if (old) old.terminate();
@@ -250,7 +251,8 @@ export function createGenerateView(deps) {
         S.lastCheck = Date.now();
         S.index = r.index;
         if (r.fallback && choice === S.choice) { S.choice = 'newest'; saveChoice(); }
-        const other = !ownEngine() || String(r.entry.manifest.sha256).toLowerCase() !== String(S.sha || '').toLowerCase();
+        // r.described: same weights, but the model's description changed (its letter-size table): take it over too
+        const other = !ownEngine() || r.described || String(r.entry.manifest.sha256).toLowerCase() !== String(S.sha || '').toLowerCase();
         const info = r.fallback ? 'gone' : S.switching ? 'switched' : null;
         if (other) await useModel(r.entry, r.trainedOn, { updated: had && choice === 'newest', info });
         else {

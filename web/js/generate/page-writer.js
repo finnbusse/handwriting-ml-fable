@@ -2,7 +2,7 @@
 // engine (through `writePiece`, normally a Web Worker), and lays the finished
 // pieces out as a page.  No DOM in here; the view draws what onPiece reports.
 import { makeRandom } from '../engine/engine.js';
-import { splitPieces, straighten, layoutPage, toXh, MAX_PIECE_CHARS } from './layout.js';
+import { splitPieces, straighten, layoutPage, toXh, sizeScale, MAX_PIECE_CHARS } from './layout.js';
 
 /**
  * @param {object} o
@@ -10,8 +10,9 @@ import { splitPieces, straighten, layoutPage, toXh, MAX_PIECE_CHARS } from './la
  * @param {(job:{text:string,bias:number,seed:number,tries:number})=>Promise<object>} o.writePiece
  * @param {number} o.xhModel  model units per x-height
  * @param {[number,number]} o.gapXh  the writer's word gap (mean, sd) in x-heights
+ * @param {{bias:number[],xh:number[]}|null} [o.sizeByBias]  model.json's size_by_bias: measured letter size per bias
  */
-export function createPageWriter({ normalize, writePiece, xhModel, gapXh }) {
+export function createPageWriter({ normalize, writePiece, xhModel, gapXh, sizeByBias = null }) {
   let token = 0;
   let lastLayout = null;   // re-lays out the pieces of the latest write()
 
@@ -26,13 +27,14 @@ export function createPageWriter({ normalize, writePiece, xhModel, gapXh }) {
     // when later pieces arrive.
     const gapDraws = [];
     const rows = paragraphs.map(() => []);
+    const scale = sizeScale(sizeByBias, bias);     // letters back to the writer's size at this setting
     const relayout = (over = {}) => {
       let cursor = 0;
       const normal = () => {
         while (gapDraws.length <= cursor) gapDraws.push(random.normal());
         return gapDraws[cursor++];
       };
-      return layoutPage(rows, { width: over.width ?? width, lineHeight: over.lineHeight ?? lineHeight, gap: gapXh, margin, top, normal });
+      return layoutPage(rows, { width: over.width ?? width, lineHeight: over.lineHeight ?? lineHeight, gap: gapXh, margin, top, normal, scale });
     };
     lastLayout = relayout;
     let page = relayout(), done = 0, drawn = 0;

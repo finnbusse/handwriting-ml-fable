@@ -249,12 +249,14 @@ export function createModelStore({ store = defaultStore, hf = defaultHf, fileTim
       const e = hit.entry;
       let trainedOn = e.trainedOn || null;
       if (!trainedOn) trainedOn = await getOptionalJson(repo, `${base}trained_on.json`, signal);
-      if ((version && (!e.version || e.version.id !== version.id)) || trainedOn !== e.trainedOn) {
-        Object.assign(e, { trainedOn, version });
+      // Same weights, but the description may have gained something (the measured letter size, say).
+      const described = JSON.stringify(e.manifest.size_by_bias || null) !== JSON.stringify(manifest.size_by_bias || null);
+      if ((version && (!e.version || e.version.id !== version.id)) || trainedOn !== e.trainedOn || described) {
+        Object.assign(e, { trainedOn, version }, described ? { manifest } : {});
         try { await store.kvSet(hit.slot, e); } catch (_) {}
       }
       await touch(hit.slot, e);
-      return { entry: e, trainedOn, version, index, fallback, changed: false };
+      return { entry: e, trainedOn, version, index, fallback, changed: false, described };
     }
     if (onStage) onStage('downloading', { total: manifest.bytes });
     const buffer = await downloadBin(repo, `${base}model.bin`, manifest, onProgress, signal);

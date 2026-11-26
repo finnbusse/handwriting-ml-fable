@@ -169,9 +169,28 @@ export function pieceWords(ink, minGap = 0.6) {
   return words.map((text, i) => ({ text, ok: ink.ok, points: p.subarray(3 * bounds[i], 3 * bounds[i + 1]) }));
 }
 
+/** Factor that brings generated words back to the writer's letter size at a
+ *  legibility setting (hw/page.py: size_scale). `table` is model.json's
+ *  size_by_bias {bias: [...], xh: [...]}: the x-height the model really writes,
+ *  which shrinks as bias grows while the gaps between words do not. */
+export function sizeScale(table, bias) {
+  if (!table || !Array.isArray(table.bias) || !Array.isArray(table.xh) || table.bias.length !== table.xh.length || !table.bias.length) return 1;
+  const b = table.bias, v = table.xh;
+  let xh;
+  if (bias <= b[0]) xh = v[0];
+  else if (bias >= b[b.length - 1]) xh = v[v.length - 1];
+  else {
+    let k = 1;
+    while (b[k] < bias) k++;
+    xh = v[k - 1] + ((v[k] - v[k - 1]) * (bias - b[k - 1])) / (b[k] - b[k - 1]);
+  }
+  return xh > 0 ? Math.min(1.5, Math.max(0.8, 1 / xh)) : 1;
+}
+
 /** Set straightened pieces on a page `width` x-heights wide (hw/page.py: layout).
- *  `normal()` supplies standard normal numbers for the spacing between pieces. */
-export function layoutPage(paragraphs, { width = 84, lineHeight = 6.5, gap = [2.9, 0.8], margin = 3, top = 5, normal } = {}) {
+ *  `normal()` supplies standard normal numbers for the spacing between pieces.
+ *  `scale` enlarges every word about its left end on the baseline; gaps keep their size. */
+export function layoutPage(paragraphs, { width = 84, lineHeight = 6.5, gap = [2.9, 0.8], margin = 3, top = 5, normal, scale = 1 } = {}) {
   let y = top, lines = 1, right = null;
   const strokes = [], placed = [];
   paragraphs.forEach((para, k) => {
@@ -186,14 +205,15 @@ export function layoutPage(paragraphs, { width = 84, lineHeight = 6.5, gap = [2.
         if (prevEnd === null) g = Math.min(1.6 * gap[0], Math.max(0.6 * gap[0], gap[0] + gap[1] * normal()));
         else g = Math.min(1.8 * gap[0], Math.max(0.5 * gap[0], x0 - prevEnd));
         prevEnd = x1;
+        const wide = (x1 - x0) * scale;
         let start = right === null ? margin : right + g;
-        if (right !== null && start + (x1 - x0) > width - margin) { y += lineHeight; lines++; start = margin; }
+        if (right !== null && start + wide > width - margin) { y += lineHeight; lines++; start = margin; }
         const q = new Float32Array(p.length);
-        for (let i = 0; i < n; i++) { q[3 * i] = p[3 * i] + (start - x0); q[3 * i + 1] = p[3 * i + 1] + y; q[3 * i + 2] = p[3 * i + 2]; }
+        for (let i = 0; i < n; i++) { q[3 * i] = (p[3 * i] - x0) * scale + start; q[3 * i + 1] = p[3 * i + 1] * scale + y; q[3 * i + 2] = p[3 * i + 2]; }
         if (n) q[3 * (n - 1) + 2] = 1;
         strokes.push(q);
-        right = start + (x1 - x0);
-        placed.push({ text: w.text, x: start, y, width: x1 - x0, ok: piece.ok !== false });
+        right = start + wide;
+        placed.push({ text: w.text, x: start, y, width: wide, ok: piece.ok !== false });
       }
     }
   });
