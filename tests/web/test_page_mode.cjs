@@ -51,10 +51,13 @@ const noErrors = (errors) => errors.filter((e) => !/Failed to load resource|ERR_
 const openStyle = async (page) => { if (!(await page.isVisible('#gen-style'))) await page.click('#gen-style-btn'); };
 const pick = async (page, key, value) => { await openStyle(page); await page.click(`.gen-choice[data-k="${key}"][data-v="${value}"]`); await page.waitForTimeout(150); };
 /** Inked pixels (differing from the paper at the page's middle left) on page canvas i. */
-const inked = (page, i = 0) => page.evaluate((k) => {
+const inked = (page, i = 0) => page.evaluate(async (k) => {
+  await window.__hw.generate.painted();
   const c = document.querySelectorAll('#pg-pages .pg-page canvas')[k];
   if (!c || !c.width) return -1;
-  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  const t = Object.assign(document.createElement('canvas'), { width: c.width, height: c.height });   // drawn by a worker: read a copy
+  t.getContext('2d').drawImage(c, 0, 0);
+  const d = t.getContext('2d').getImageData(0, 0, c.width, c.height).data;
   const bg = [d[0], d[1], d[2]];
   let n = 0;
   for (let i = 0; i < d.length; i += 16) if (Math.abs(d[i] - bg[0]) + Math.abs(d[i + 1] - bg[1]) + Math.abs(d[i + 2] - bg[2]) > 120) n++;

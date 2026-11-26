@@ -330,9 +330,11 @@ says why and what to do. Between the two sits one quiet row: what is going on
 **Speichern**. "Schreiben" turns into "Abbrechen"
 while the pen is running. Ctrl/Cmd + Enter writes.
 
-**Stil** holds the look of the page, with the same words and the same
-drawing code as the capture sheet (`capture/ink.js`): Stift (Fineliner,
-Füller, Bleistift), Strichstärke (five steps, relative to the x-height),
+**Stil** holds the look of the page, with the same words and the same pens
+as the capture sheet (`capture/ink.js`: samples, pressure, widths, tones,
+grain; a finished word is stroked as one path per tone or width, not piece by
+piece: 1 311 instead of 101 799 calls for an A4 page in Bleistift): Stift
+(Fineliner, Füller, Bleistift), Strichstärke (five steps, relative to the x-height),
 Größe, Papier (Blanko, Liniert, Kariert; the text baselines sit on the
 lines) and Farben (dark on light, light on dark); "Erweitert" adds
 Lesbarkeit, Zeilenabstand and Tinte. Generated strokes carry no pressure, so
@@ -345,6 +347,13 @@ Long text is wrapped into lines; each line is generated in word groups of at
 most ~27 characters that are placed on a common baseline with the writer's own
 word spacing (`gap_xh` in `model.json`). Lesbarkeit (bias) regenerates;
 size and line spacing only lay the finished pieces out again; ink only redraws.
+The sheet and the pages are drawn by a worker (`paint-worker.js`, the canvases
+handed over with `transferControlToOffscreen`; without it on the main thread):
+the writing animation redraws only the box of the word being written. The
+sheet's ink is a stack of strips 512 device px tall, so a frame hands the
+compositor the strip or two the pen is in, not the whole sheet; the paper
+canvas grows by half at a time. Ink and paper hold at most 16 Mpx each; past
+that the ink is drawn again at a lower resolution.
 The UI typeface (Instrument Sans, OFL) is bundled in `web/fonts/`.
 
 ### 2.5.1 Seite: layout and PDF (`js/generate/document.js`, `pdf.js`)
@@ -425,7 +434,8 @@ reloaded.
 
 - Workers: `engine-client.js: createEnginePool`, hardwareConcurrency − 1, at
   most 4, 2 with deviceMemory ≤ 4 and 1 with ≤ 2; each worker holds its own
-  copy of the model. Pieces are handed out in text order; piece i always gets
+  copy of the model, read on its own thread from one Blob of `model.bin`.
+  Pieces are handed out in text order; piece i always gets
   `pieceSeed(seed, i, version)`, so one worker and several write identical pages
   (tested). A rewrite goes ahead of the queue. A piece that fails is tried once
   more; an engine whose worker died is replaced by a fresh one (at most `size`
@@ -434,8 +444,11 @@ reloaded.
   starts with new engines.
 - While writing, the pages show every piece from the start of the text up to
   the first unfinished one (`layoutDocument` stops there); the view follows the
-  last line until the writer scrolls. Only pages within one screen height of
-  the viewport keep a canvas (each at most 8 Mpx). The status reads
+  last line until the writer scrolls. Pages within one screen height of the
+  viewport are drawn (each at most 8 Mpx), a page only with its new words while
+  the text grows; a drawn page keeps its canvas when it scrolls away (three in
+  all), so scrolling draws nothing. The piece picked for rewriting is a box
+  laid over the page (CSS `mix-blend-mode`), not drawn. The status reads
   "schreibt … 26 von 79 · Seite 2 · noch etwa 2 Min." with a bar; the time left
   is (time so far / pieces done) × pieces left, shown once every worker has
   finished one piece. "Abbrechen" stops all workers; what is written stays.
@@ -476,3 +489,73 @@ Units: recordings are converted to **xh units** (1.0 = the writer's x-height,
 baseline at y = 0, y down). The network works in the units of its pretraining
 data; `xh_model` (model units per x-height) in `meta.json` / `model.json`
 connects the two.
+
+## 4. MCP server (`server/`)
+
+Lets an assistant (Claude, ChatGPT, …) turn text into a PDF in the writer's hand
+through the Model Context Protocol. One Python process (ASGI, uvicorn) with the
+official MCP SDK (Streamable HTTP, stateless, JSON responses) and `hw.sampling`;
+planning, layout and PDF come from the app's own modules (`document.js`,
+`pdf.js`), run by `server/pages.mjs` in a node child process, so a server page
+is the page the app would make. Owner's guide: `server/README.md` (German).
+
+- Routes: `/k/<key>/mcp` (POST, DELETE; GET is 405, since a stateless server
+  never sends on a server stream and an open one would stay open) is the MCP
+  endpoint; `/d/<id>` the PDF, or a waiting page (reloads every 3 s, shows pieces
+  done of total) while it is written, 410 with a German page for a job a restart
+  interrupted, a German 404 page for an unknown or expired id;
+  `/healthz` → `{"ok": true, "model": <version|null>, "busy": <bool>}`.
+  Everything else, a wrong or missing key included, is the same plain 404.
+- Keys: 32 random bytes, base64url (43 characters), in the path because most
+  clients cannot send headers. Only SHA-256 hashes are kept: `HANDSCHRIFT_KEY_HASHES`
+  and `mcp/keys.json` in the model repository (`{"keys": [{"sha256", "label",
+  "created"}]}`, read in the background once a minute, never inside a request; a
+  failed read keeps the last list for up to an hour, then its keys no longer
+  count; a missing file means no keys from there). Constant-time comparison;
+  with no key configured every request is refused.
+- One tool, `handschrift_pdf(text, papier = liniert|kariert|blanko, farbe =
+  hell|dunkel, groesse = klein|mittel|gross, stift = fineliner|fueller|bleistift)`;
+  description under 60 words, tool definition under 1,000 bytes (tested). The
+  result is one line: the link and the page count, or that the pages are still
+  being written. Refusals (too long, empty, budget, queue, no model, restart) and
+  unexpected errors are one German line with `isError`, never an exception
+  message. English option values (`dark`, `large`, …) are mapped; unknown ones
+  fall back to the default and are named in the line.
+- Text (`server/text.py`): Markdown marks go (headings, emphasis, back ticks,
+  links, quotes, rules, code fences), bullets become "- ", numbered lists stay,
+  table rows become "cell, cell", runs of empty lines become one; at most
+  12 000 characters after that. Words over 40 characters are cut into parts of
+  22: one word is one piece, and a single 1,600-character word kept the writer
+  busy for over 7 minutes.
+  Characters outside the alphabet are handled by the model's normalisation and
+  named in the result line.
+- Writing (`server/jobs.py`): Lesbarkeit 0.4 (the app's default), pieces in
+  batches of 48 through `Synthesizer.write` (the app's retry policy), then the
+  pieces `preparePiece` flags are written once more and the attempt with fewer
+  flags is kept (as `page-view.js: writeChecked`). One document at a time, at
+  most 3 waiting (a call being planned holds its place); torch uses
+  `HANDSCHRIFT_THREADS` (default: all cores). At most two node processes at
+  once; node gets only PATH, TZ and LANG from the environment. A job checks
+  between batches whether to stop: after `HANDSCHRIFT_MAX_MINUTES` (10) it fails,
+  and on SIGTERM waiting calls answer at once with a German line.
+- Waiting: the tool answers when the PDF is ready, at the latest after
+  `HANDSCHRIFT_WAIT_SECONDS` (40) with the same link.
+- Storage: `<HANDSCHRIFT_DATA>/pdf/<id>.pdf`, id = 16 random bytes base64url;
+  an id not matching `^[A-Za-z0-9_-]{22}$` is answered before the file system is
+  touched (tested). Files older than 7 days go, then the oldest until the total
+  is under `HANDSCHRIFT_MAX_MB` (500), at start, hourly and after every document.
+  A job keeps `<id>.json` (state and time, no text) until its PDF exists, so its
+  link explains a restart instead of answering 404.
+- Model: `HANDSCHRIFT_MODEL_DIR`, or the newest version of
+  `HANDSCHRIFT_MODEL_REPO` (`models/index.json`, then `models/<id>/checkpoint/`,
+  else the root `checkpoint/`), read with `HF_TOKEN`, cached under
+  `<data>/model/`, checked for a newer version at most every 10 minutes.
+- Limits against a leaked link: request bodies ≤ 200 KB (413 with a German
+  JSON-RPC error), 60 tool calls per key and hour, refused ones included
+  (`HANDSCHRIFT_CALLS`), 30 documents per key and hour (`HANDSCHRIFT_BUDGET`),
+  both checked before the text is planned, the queue.
+  No access log (paths carry the key); logs hold lengths, the first 6 hex
+  characters of the key's hash and timings, never the text or the key (tested).
+- Links: `HANDSCHRIFT_PUBLIC_URL`, else the request's `X-Forwarded-Host` /
+  `X-Forwarded-Proto`, else `Host`; only a plain host name and http(s) are taken
+  from headers, because the line goes into the assistant's context.

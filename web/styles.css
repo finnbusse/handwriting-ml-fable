@@ -430,8 +430,12 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
   color-scheme: dark;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 1px 2px rgba(20, 26, 38, .08), 0 14px 30px -14px rgba(20, 26, 38, .3);
 }
-.gen-paper canvas { display: block; width: 100%; }
-.gen-paper #gen-canvas { position: relative; }                 /* the ink, over the paper's lines */
+/* The paper's bitmap can be taller than the sheet (it grows in steps, view.js: GROW): shown
+   at the sheet's width from its top, the rest cut off. */
+.gen-paper canvas { display: block; width: 100%; object-fit: cover; object-position: top; }
+/* the ink, over the paper's lines: strips stacked from the top, the last one cut off */
+.gen-paper #gen-canvas { position: relative; overflow: hidden; }
+.gen-paper #gen-canvas canvas { position: absolute; left: 0; }
 .gen-paper .gen-lines { position: absolute; left: 0; top: 0; border-radius: inherit; }
 .gen-empty {
   position: absolute; inset: 0; display: grid; place-items: center; text-align: center; padding: 24px;
@@ -591,6 +595,9 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
 }
 .pg-pages[data-scheme="light_on_dark"] .pg-page { background: var(--paper-dark-bg); box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 14px 30px -14px rgba(20, 26, 38, .3); }
 .pg-page canvas { display: block; width: 100%; height: 100%; border-radius: inherit; }
+/* The piece picked for rewriting, laid over the page: blended so that the ink stays on top. */
+.pg-mark { position: absolute; pointer-events: none; background: #DCE3F7; mix-blend-mode: darken; }
+.pg-pages[data-scheme="light_on_dark"] .pg-mark { background: #34406A; mix-blend-mode: lighten; }
 .pg-empty { position: absolute; left: 0; right: 0; top: 2.6%; z-index: 1; text-align: center; padding: 0 24px; color: var(--pg-hint); pointer-events: none; }
 .pg-pick {
   position: absolute; left: 0; top: 0; z-index: 3; padding: 4px;

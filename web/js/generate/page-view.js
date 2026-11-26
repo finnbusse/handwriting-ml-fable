@@ -9,21 +9,27 @@ import {
   planDocument, pieceSeed, preparePiece, layoutDocument, wordAt, pieceBoxes, typicalSize,
   PAGE, DOC_PAPERS, DOC_SIZES, TYPICAL_PIECES,
 } from './document.js';
-import { drawDocumentPage, lookColors } from './render.js';
+import { lookColors } from './render.js';
 import { documentToPDF, pdfFileName } from './pdf.js';
 import { createEnginePool, poolSize } from './engine-client.js';
 
 export const PAGE_DEFAULTS = Object.freeze({ text: '', paper: 'liniert', size: 'mittel', textLayer: true });
-const MAX_PIXELS = 8e6;        // per page canvas; only the pages near the viewport keep theirs
+const MAX_PIXELS = 8e6;        // per page canvas
+// Drawn pages kept when they scroll away, the ones seen last first: a page dropped is drawn
+// again on its way back into view (a Bleistift page: 130 ms in the paint worker).  Three is
+// as many as are near the viewport at once anyway, so a document of up to three pages is
+// drawn once and scrolling through it draws nothing.
+const KEEP_PAGES = 3;
 const TAP_MOVE = 10;           // CSS px a tap may move and still count as a tap
 const REACH = { touch: 3, pen: 2, mouse: 1.5 };   // mm around a word that still hits it (a finger is wide)
 
 /**
  * deps: { store, model() -> { entry, info, normalizer } | null, look() -> render.js look,
- * bias() -> number, onIdle() (called when nothing is being written any more) }
+ * bias() -> number, painter (paint-worker.js: draws the pages), onIdle() (called when
+ * nothing is being written any more) }
  */
 export function createPageView(deps) {
-  const { store, model, look, bias } = deps;
+  const { store, model, look, bias, painter } = deps;
   const $ = (id) => document.getElementById(id);
   const el = {
     stage: $('pg-stage'), pages: $('pg-pages'), empty: $('pg-empty'), pick: $('pg-pick'), redo: $('pg-redo'),
@@ -38,8 +44,8 @@ export function createPageView(deps) {
     pool: null, poolSha: null,
     run: null,            // { token, text, seed, bias, plan, written, version, typical, info, sizeByBias, start, done, cancelled }
     doc: null, phase: 'idle', rewriting: new Set(), pick: null, follow: true,
-    frames: [],           // per page: { wrap, canvas, sig }
-    near: new Set(), raf: 0, lastStatus: '',
+    frames: [],           // per page: { wrap, canvas, id, key, drawn: word keys on the canvas, seen }
+    near: new Set(), done: new Set(), seen: 0, raf: 0, lastStatus: '',
   };
   let token = 0;
 
@@ -87,6 +93,7 @@ export function createPageView(deps) {
   /** The pieces written so far laid out with the current paper and size (no writing). */
   function relayout() {
     const r = P.run;
+    P.done.clear();
     if (!r) { P.doc = layoutDocument({ paragraphs: [], pieces: [] }, [], docSettings()); return; }
     // The typical size is fixed as soon as the first pieces are there: from then on
     // nothing shown moves while the rest arrives, and a rewrite moves nothing before it.
@@ -105,22 +112,22 @@ export function createPageView(deps) {
   const cssWidth = () => el.pages.clientWidth;
   const cssPerMm = () => cssWidth() / PAGE.width;
   const lookKey = (l) => [l.pen, l.width, l.scheme, l.ink].join('|');
+  /** A word as laid out: the same key is the same ink at the same place.  While a text is
+   *  written the words on a page only ever grow at its end (document.js), so a page draws
+   *  just its new words; anything else (a rewrite, other paper) draws the page anew. */
+  const wordKeys = (page) => (page ? page.words.map((w, k) => `${w.piece}.${w.word}.${page.strokes[k].length}.${Math.round(w.x * 100)}.${Math.round(w.box[1] * 100)}.${Math.round(w.box[2] * 100)}.${Math.round(w.box[3] * 100)}`) : []);
 
-  /** Cheap fingerprint of what a page shows: changes whenever a word is added or moves. */
-  function pageSig(page) {
-    if (!page) return 'blank';
-    let s = 0;
-    for (const w of page.words) s = (s * 31 + Math.round(w.x * 100) * 7 + Math.round(w.box[1] * 100) + Math.round(w.box[3] * 100) * 3 + w.piece) % 2147483647;
-    return `${page.words.length}:${s}`;
-  }
-
+  // Pages near the viewport (one screen height around it) are drawn; P.done holds the pages
+  // whose canvas shows the current document and look, so scrolling past drawn pages runs no
+  // drawing at all.
   const io = typeof IntersectionObserver === 'function' ? new IntersectionObserver((entries) => {
+    let need = false;
     for (const e of entries) {
       const i = P.frames.findIndex((f) => f.wrap === e.target);
       if (i < 0) continue;
-      if (e.isIntersecting) P.near.add(i); else P.near.delete(i);
+      if (e.isIntersecting) { P.near.add(i); P.frames[i].seen = ++P.seen; if (!P.done.has(i)) need = true; } else P.near.delete(i);
     }
-    schedule();
+    if (need) schedule();
   }, { root: el.stage, rootMargin: '100% 0px' }) : null;
 
   function frames(n) {
@@ -131,15 +138,17 @@ export function createPageView(deps) {
       canvas.setAttribute('aria-hidden', 'true');
       wrap.append(canvas);
       el.pages.insertBefore(wrap, el.pick);
-      const f = { wrap, canvas, sig: '' };
+      const f = { wrap, canvas, id: `page${P.frames.length}`, key: '', drawn: [], seen: 0 };
+      painter.attach(f.id, canvas);
       P.frames.push(f);
       if (io) io.observe(wrap); else P.near.add(P.frames.length - 1);
     }
     while (P.frames.length > n) {
       const f = P.frames.pop();
+      painter.run([{ op: 'free', id: f.id }]);
       if (io) io.unobserve(f.wrap);
       f.wrap.remove();
-      P.near.delete(P.frames.length);
+      P.near.delete(P.frames.length); P.done.delete(P.frames.length);
     }
     P.frames.forEach((f, i) => f.wrap.setAttribute('aria-label', `Seite ${i + 1} von ${n}`));
     if (el.empty.parentNode !== P.frames[0].wrap) P.frames[0].wrap.append(el.empty);   // the hint sits in the first page's top margin
@@ -150,8 +159,6 @@ export function createPageView(deps) {
     P.raf = requestAnimationFrame(() => { P.raf = 0; paint(); });
   }
 
-  const markColor = (l) => (l.scheme === 'light_on_dark' ? '#34406A' : '#DCE3F7');
-
   function paint() {
     if (!P.visible || !P.active) return;
     if (!P.doc) relayout();
@@ -161,29 +168,82 @@ export function createPageView(deps) {
     const w = cssWidth();
     if (!w) return;
     const l = look();
-    const colors = lookColors(l);
-    const marks = P.pick ? pieceBoxes(doc, P.pick.piece) : [];
     const ratio = Math.min(dpr(), Math.sqrt(MAX_PIXELS / (w * w * (PAGE.height / PAGE.width))));
-    const pw = Math.round(w * ratio), ph = Math.round(pw * PAGE.height / PAGE.width);
-    P.frames.forEach((f, i) => {
-      if (!P.near.has(i)) {                       // far away: give the memory back
-        if (f.canvas.width) { f.canvas.width = 0; f.canvas.height = 0; f.sig = ''; }
-        return;
-      }
-      const mark = marks.filter((b) => b.page === i).map((b) => b.box);
-      const sig = [pw, lookKey(l), doc.settings.paper, doc.settings.size, JSON.stringify(mark), pageSig(doc.pages[i])].join('#');
-      if (sig === f.sig) return;
-      if (f.canvas.width !== pw || f.canvas.height !== ph) { f.canvas.width = pw; f.canvas.height = ph; }
-      drawDocumentPage(f.canvas.getContext('2d'), doc, i, { scale: pw / PAGE.width, look: l, colors, mark, markColor: markColor(l) });
-      f.sig = sig;
-    });
+    const pw = Math.round(w * ratio);
+    const o = { doc, pw, ph: Math.round(pw * PAGE.height / PAGE.width), look: l, colors: lookColors(l), key: [pw, lookKey(l), doc.settings.paper, doc.settings.size].join('#') };
+    // the pages on the screen first, then the ones about to come into view
+    const mid = el.stage.scrollTop + el.stage.clientHeight / 2;
+    const away = (i) => { const f = P.frames[i].wrap; return Math.max(0, f.offsetTop - mid, mid - f.offsetTop - f.offsetHeight); };
+    for (const i of [...P.near].filter((k) => k < n && !P.done.has(k)).sort((a, b) => away(a) - away(b))) drawPage(i, o);
+    keep();
     el.empty.hidden = !!(P.run && doc.placed) || P.phase === 'writing';
+    placeMarks();
     placePick();
     follow();
   }
 
+  /** Bring page i up to date: its new words only, or the whole page when anything else
+   *  changed (ink cannot be taken off a canvas).  The steps of one page are drawn together,
+   *  so the page never shows half a redraw. */
+  function drawPage(i, o) {
+    const f = P.frames[i];
+    const page = o.doc.pages[i];
+    const words = wordKeys(page);
+    const scale = o.pw / PAGE.width;
+    const steps = [];
+    if (!(f.key === o.key && f.drawn.length <= words.length && f.drawn.every((k, j) => k === words[j]))) {
+      steps.push({ op: 'size', id: f.id, w: o.pw, h: o.ph }, { op: 'page', id: f.id, doc: { page: o.doc.page, geometry: o.doc.geometry }, scale, look: o.look, colors: o.colors });
+      f.key = o.key; f.drawn = [];
+    }
+    if (page && f.drawn.length < words.length) {
+      steps.push({ op: 'words', id: f.id, words: page.strokes.slice(f.drawn.length), xh: o.doc.geometry.xh, scale, look: o.look, colors: o.colors });
+      f.drawn = words;
+    }
+    painter.run(steps);
+    P.done.add(i);
+  }
+
+  /** Pages that scrolled away keep their canvas, KEEP_PAGES in all, the ones seen last
+   *  first; the others give their memory back. */
+  function keep() {
+    const kept = P.frames.map((f, i) => ({ f, i })).filter(({ f }) => f.key);
+    if (kept.length <= KEEP_PAGES) return;
+    kept.sort((a, b) => (P.near.has(b.i) - P.near.has(a.i)) || b.f.seen - a.f.seen);
+    for (const { f, i } of kept.slice(KEEP_PAGES)) {
+      if (P.near.has(i)) continue;
+      painter.run([{ op: 'free', id: f.id }]);
+      f.key = ''; f.drawn = [];
+      P.done.delete(i);
+    }
+  }
+
+  // The piece picked for rewriting is marked by boxes laid over the page, blended so that
+  // the ink stays on top: picking a word redraws nothing.
+  let marksKey = '';
+  function placeMarks() {
+    const boxes = P.pick && P.doc ? pieceBoxes(P.doc, P.pick.piece) : [];
+    const key = JSON.stringify(boxes);
+    if (key === marksKey) return;
+    marksKey = key;
+    for (const m of el.pages.querySelectorAll('.pg-mark')) m.remove();
+    const pad = P.doc ? 0.12 * P.doc.geometry.pitch : 0;
+    for (const { page, box: [x0, y0, x1, y1] } of boxes) {
+      const f = P.frames[page];
+      if (!f) continue;
+      const m = document.createElement('div');
+      m.className = 'pg-mark';
+      m.style.cssText = `left:${(100 * (x0 - pad)) / PAGE.width}%;top:${(100 * (y0 - pad)) / PAGE.height}%;width:${(100 * (x1 - x0 + 2 * pad)) / PAGE.width}%;height:${(100 * (y1 - y0 + 2 * pad)) / PAGE.height}%`;
+      f.wrap.append(m);
+    }
+  }
+
   /** Redraw everything (look, width or theme changed). */
-  function redraw() { for (const f of P.frames) f.sig = ''; schedule(); }
+  function redraw() { P.done.clear(); schedule(); }
+
+  // The writer scrolling by hand ends the following; listened for only while it is on, so
+  // that scrolling finished pages runs no script at all.
+  function unfollow() { P.follow = false; for (const t of ['wheel', 'touchmove']) el.stage.removeEventListener(t, unfollow); }
+  function followOn() { P.follow = true; for (const t of ['wheel', 'touchmove']) el.stage.addEventListener(t, unfollow, { passive: true }); }
 
   /** Keep the line being written in view while writing, until the writer scrolls. */
   function follow() {
@@ -305,7 +365,7 @@ export function createPageView(deps) {
       sizeByBias: m.entry.manifest.size_by_bias || null, start: performance.now(), done: 0, cancelled: false, workers: pool.size,
     };
     const r = P.run;
-    P.phase = 'writing'; P.follow = true;
+    P.phase = 'writing'; followOn();
     el.stage.scrollTop = 0;
     relayout();
     sync();
@@ -334,6 +394,7 @@ export function createPageView(deps) {
     }
     r.ms = performance.now() - r.start;
     P.phase = 'idle';
+    unfollow();
     relayout();
     sync();
     schedule();
@@ -486,7 +547,6 @@ export function createPageView(deps) {
     });
     el.pages.addEventListener('pointercancel', () => { down = null; });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && P.pick && P.active) choose(null); });
-    for (const type of ['wheel', 'touchmove']) el.stage.addEventListener(type, () => { P.follow = false; }, { passive: true });
     let lastW = 0;
     new ResizeObserver(() => { const w = cssWidth(); if (w !== lastW) { lastW = w; redraw(); } }).observe(el.pages);
     sync();
@@ -499,7 +559,7 @@ export function createPageView(deps) {
     get settings() { return { ...P.settings }; },
     /** The page mode is the one in use (shown when the tab is shown). */
     activate(on) { P.active = on; if (on) { autosize(); redraw(); } },
-    show() { P.visible = true; P.follow = true; autosize(); redraw(); },
+    show() { P.visible = true; if (P.phase === 'writing') followOn(); autosize(); redraw(); },
     hide() { P.visible = false; },
     debug: () => {
       const r = P.run, d = P.doc;
@@ -510,7 +570,7 @@ export function createPageView(deps) {
         pages: d ? d.pages.length : 0, placed: d ? d.placed : 0,
         words: d ? d.pages.flatMap((p, pi) => p.words.map((w) => ({ page: pi, text: w.text, piece: w.piece, line: w.line, x: w.x, baseline: w.baseline, box: w.box }))) : [],
         ink: r ? r.written.map((w) => (w ? w.words.map((x) => Array.from(x.points.slice(0, 12)).map((v) => Math.round(v * 1000))) : null)) : [],
-        drawn: P.frames.map((f) => f.canvas.width > 0),
+        drawn: P.frames.map((f) => !!f.key),
       };
     },
   };

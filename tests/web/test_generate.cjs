@@ -67,9 +67,12 @@ const ready = (page) => page.waitForSelector('#gen-work:not([hidden])', { timeou
 const state = (page) => page.evaluate(() => { const d = window.__hw.generate.debug(); return { phase: d.phase, words: d.page ? d.page.words.length : 0, lines: d.page ? d.page.lines : 0, width: d.page ? d.page.width : 0, seed: d.seed, sha: d.sha, bad: d.bad, settled: d.settled, strokes: d.page ? d.page.strokes.length : 0, first: d.page ? Array.from(d.page.strokes[0] || []).slice(0, 30).map((v) => Math.round(v * 1000)) : [] }; });
 /** Finished: generation over and the pen has caught up. */
 const finished = async (page, timeout = 90000) => L.until(async () => { const s = await state(page); return s.phase === 'idle' && s.words > 0 && s.settled === s.strokes; }, timeout, 100);
-/** Number of inked pixels (alpha > 0) on the sheet canvas, and the colour of the first one. */
-const ink = (page) => page.evaluate(() => {
-  const c = document.getElementById('gen-canvas');
+/** Number of inked pixels (alpha > 0) on the sheet's ink, and the colour of the first one.
+ *  The ink is a stack of strip canvases drawn by a worker (paint-worker.js): its pixels are
+ *  read through a copy of the strips put together. */
+const ink = (page) => page.evaluate(async () => {
+  await window.__hw.generate.painted();
+  const c = window.__hw.generate.inkCopy();
   const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
   let n = 0, rgb = null;
   for (let i = 3; i < d.length; i += 4) if (d[i] > 40) { n++; if (!rgb && d[i] > 200) rgb = [d[i - 3], d[i - 2], d[i - 1]]; }
@@ -352,16 +355,17 @@ async function stateCards(browser, server) {
 // ---------- Stil: pen, stroke width, paper, colours, exports ----------
 
 /** Facts about the two sheet canvases: ink pixels (alpha > 40), their mean brightness, a hash; the paper's lines. */
-const sheet = (page) => page.evaluate(() => {
-  const c = document.getElementById('gen-canvas');
-  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+const sheet = (page) => page.evaluate(async () => {
+  await window.__hw.generate.painted();
+  const read = (c) => { const t = Object.assign(document.createElement('canvas'), { width: c.width, height: c.height }); t.getContext('2d').drawImage(c, 0, 0); return t.getContext('2d').getImageData(0, 0, c.width, c.height).data; };
+  const d = read(window.__hw.generate.inkCopy());
   let n = 0, lum = 0, h = 2166136261;
   for (let i = 0; i < d.length; i += 4) {
     if (d[i + 3] > 40) { n++; lum += (d[i] + d[i + 1] + d[i + 2]) / 3; }
     h = Math.imul(h ^ (d[i] | (d[i + 1] << 8) | (d[i + 2] << 16) | (d[i + 3] << 24)), 16777619);
   }
   const g = document.getElementById('gen-lines');
-  const gd = g.getContext('2d').getImageData(0, 0, g.width, g.height).data;
+  const gd = read(g);
   const at = (x, y) => { const i = 4 * (y * g.width + x); return [gd[i], gd[i + 1], gd[i + 2]]; };
   const bg = at(1, 1);
   const differs = (p) => Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) > 12;

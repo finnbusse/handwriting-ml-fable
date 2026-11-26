@@ -1,6 +1,6 @@
 // Runs the network off the main thread (module worker).
 //
-//   -> { type: 'load', manifest, buffer }                      (buffer is transferred)
+//   -> { type: 'load', manifest, model }                       (model: a Blob of model.bin, read here)
 //   <- { type: 'ready', charset, xhModel, gapXh }
 //   -> { type: 'write', id, text, bias, seed, tries? }           (tries: a cap; without it the app's policy, layout.js: anotherAttempt)
 //   <- { type: 'progress', id, attempt, steps }                 (about ten times a second)
@@ -47,22 +47,22 @@ async function write({ id, text, bias = 0.8, seed, tries }) {
   self.postMessage({ type: 'done', id, result: best }, [best.points.buffer]);
 }
 
+// Pieces wait in order behind the model being read.
 let queue = Promise.resolve();
 self.onmessage = (event) => {
   const msg = event.data;
-  try {
-    if (msg.type === 'load') {
-      model = new HandwritingModel(msg.manifest, msg.buffer);
+  if (msg.type === 'load') {
+    queue = msg.model.arrayBuffer().then((buffer) => {
+      model = new HandwritingModel(msg.manifest, buffer);
       self.postMessage({ type: 'ready', charset: model.charset, xhModel: model.xhModel, gapXh: model.gapXh });
-    } else if (msg.type === 'cancel') {
-      generation++;
-    } else if (msg.type === 'write') {
+    }).catch((e) => self.postMessage({ type: 'error', message: String(e && e.message || e) }));
+  } else if (msg.type === 'cancel') {
+    generation++;
+  } else if (msg.type === 'write') {
+    const mine = generation;
+    queue = queue.then(() => {
       if (!model) throw new Error('model not loaded');
-      const mine = generation;
-      queue = queue.then(() => (mine === generation ? write(msg) : null))
-        .catch((e) => self.postMessage({ type: 'error', id: msg.id, message: String(e && e.message || e) }));
-    }
-  } catch (e) {
-    self.postMessage({ type: 'error', id: msg.id, message: String(e && e.message || e) });
+      return mine === generation ? write(msg) : null;
+    }).catch((e) => self.postMessage({ type: 'error', id: msg.id, message: String(e && e.message || e) }));
   }
 };

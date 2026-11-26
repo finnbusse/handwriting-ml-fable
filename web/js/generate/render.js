@@ -8,7 +8,7 @@
 // smooths it exactly as it smooths a real pen's pressure.  Everything below is a pure
 // function of the page and the look: the same page always gives the same pixels.
 import {
-  schemeColors, createInk, smoothPressure, fuellerWidth, pencilLevel, pencilColor, hexRgb, TONES,
+  schemeColors, smoothPressure, fuellerWidth, pencilLevel, pencilColor, pencilTone, hexRgb, TONES,
 } from '../capture/ink.js';
 
 export const PENS = ['fineliner', 'fueller', 'bleistift'];
@@ -149,7 +149,115 @@ function trace(ctx, line, scale, ox, oy) {
   ctx.lineTo(px(last), py(last));
 }
 
-const inks = new WeakMap();   // one ink.js renderer per 2D context (it keeps its grain patterns)
+// The pressure pens follow capture/ink.js piece for piece (same samples, same pressure
+// smoothing, same widths, tones and grain), but a finished word is not drawn the way the
+// capture sheet draws a live stroke, one stroke() per piece: its pieces are gathered into one
+// path per graphite tone (Bleistift) or per quarter device pixel of width (Füller) and each
+// path is stroked once.  One Bleistift A4 page takes 101 799 stroke() calls piece by piece
+// (3.2 s on a 4x slowed CPU), 1 311 gathered.  A Füller width moves in steps of 1/4 device px.
+const WIDTH_STEPS = 4;      // Füller: width levels per device px
+// Piece by piece, the edge of a stroke is anti-aliased once per overlapping piece (about
+// six), which makes it a little darker and wider than one stroked path: on an A4 page the
+// gathered paths carry 4-20 % less ink (thin widths, small pages most).  Widening them by
+// this much (device px) brings the ink within 3 % of the piecewise drawing for every width.
+const EDGE_PX = { fueller: 0.25, bleistift: 0.4 };
+
+/** Smoothed pressure at every sample of every stroke of a word (cached per word array). */
+const pressureCache = new WeakMap();
+function wordPressures(points) {
+  let out = pressureCache.get(points);
+  if (!out) {
+    out = wordSamples(points).map((s) => {
+      const pe = new Float32Array(s.x.length);
+      let v = 0;
+      for (let i = 0; i < pe.length; i++) pe[i] = v = smoothPressure(v, s, i);
+      return pe;
+    });
+    pressureCache.set(points, out);
+  }
+  return out;
+}
+
+// The Bleistift grain: the tiles of capture/ink.js makeGrain (same noise, seed and tones),
+// so that a page looks like the capture sheet.  Used at device-pixel size from the word's
+// origin, as ink.js uses them.
+const GRAIN = 64;
+function mulberry32(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const grains = new Map();   // paper|graphite -> one pattern per tone level
+function grainPatterns(ctx, colors) {
+  const key = `${colors.paper}|${colors.graphite}`;
+  if (grains.has(key)) return grains.get(key);
+  const rnd = mulberry32(20241125);
+  const n = GRAIN * GRAIN, noise = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const r = rnd(); noise[i] = r * r * r; }
+  const p = hexRgb(colors.paper), g = hexRgb(colors.graphite);
+  const tile = typeof document !== 'undefined' ? Object.assign(document.createElement('canvas'), { width: GRAIN, height: GRAIN }) : new OffscreenCanvas(GRAIN, GRAIN);
+  const tc = tile.getContext('2d');
+  const img = tc.createImageData(GRAIN, GRAIN);
+  const out = [];
+  for (let k = 0; k < TONES; k++) {
+    const tone = pencilTone(k);
+    for (let i = 0; i < n; i++) {
+      const t = tone * (1 - 0.5 * noise[i]);
+      img.data[i * 4] = Math.round(p[0] + (g[0] - p[0]) * t);
+      img.data[i * 4 + 1] = Math.round(p[1] + (g[1] - p[1]) * t);
+      img.data[i * 4 + 2] = Math.round(p[2] + (g[2] - p[2]) * t);
+      img.data[i * 4 + 3] = 255;
+    }
+    tc.putImageData(img, 0, 0);
+    out.push(ctx.createPattern(tile, 'repeat'));
+  }
+  grains.set(key, out);
+  return out;
+}
+
+/** Füller / Bleistift: one word, its pieces gathered by tone or width (see above). */
+function drawPenWord(ctx, points, scale, look, colors, ox, oy) {
+  const pencil = look.pen === 'bleistift', edge = EDGE_PX[look.pen];
+  const lw = Math.max(look.width * scale, MIN_PX);
+  const lines = new Map(), dots = new Map();
+  const at = (m, k) => { let p = m.get(k); if (!p) { p = new Path2D(); m.set(k, p); } return p; };
+  const samples = wordSamples(points), pressures = wordPressures(points);
+  for (let j = 0; j < samples.length; j++) {
+    const s = samples[j], pe = pressures[j];
+    let prev = -1, path = null;
+    for (let i = 0; i < pe.length; i++) {
+      const key = pencil ? pencilLevel(pe[i]) : Math.round(fuellerWidth(lw, pe[i]) * WIDTH_STEPS);
+      const x = s.x[i] * scale, y = s.y[i] * scale;
+      if (i === 0) {             // a stroke starts with a dot, as on the capture sheet
+        const r = ((pencil ? lw : key / WIDTH_STEPS) + edge) / 2, d = at(dots, key);
+        d.moveTo(x + r, y); d.arc(x, y, r, 0, 2 * Math.PI);
+        continue;
+      }
+      if (key !== prev) { path = at(lines, key); path.moveTo(s.x[i - 1] * scale, s.y[i - 1] * scale); prev = key; }
+      path.lineTo(x, y);
+    }
+  }
+  const grain = pencil ? grainPatterns(ctx, colors) : null;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, ox, oy);
+  ctx.globalAlpha = 1;
+  // Graphite: overlapping pieces must not pile up and a faint line under them shows
+  // through, so the darker (on a dark sheet the lighter) of both stays (as ink.js).
+  ctx.globalCompositeOperation = pencil ? (colors.dark ? 'lighten' : 'darken') : 'source-over';
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  for (const [k, p] of lines) {
+    ctx.strokeStyle = pencil ? grain[k] : colors.ink;
+    ctx.lineWidth = (pencil ? lw : k / WIDTH_STEPS) + edge;
+    ctx.stroke(p);
+  }
+  for (const [k, p] of dots) { ctx.fillStyle = pencil ? grain[k] : colors.ink; ctx.fill(p); }
+  ctx.restore();
+}
 
 /**
  * Draw one word array (an entry of page.strokes) onto a 2D context whose transform is the
@@ -170,13 +278,7 @@ export function drawWord(ctx, points, { scale, look, colors, offsetX = 0, offset
     ctx.restore();
     return;
   }
-  let ink = inks.get(ctx);
-  if (!ink) { ink = createInk(ctx); inks.set(ctx, ink); }
-  ctx.save();
-  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-  ink.configure({ pen: l.pen, width: Math.max(l.width, MIN_PX / scale) }, colors, scale);
-  for (const s of wordSamples(points)) ink.draw(s, 0);
-  ctx.restore();
+  drawPenWord(ctx, points, scale, l, colors, offsetX, offsetY);
 }
 
 /** Draw several word arrays, one after the other. */

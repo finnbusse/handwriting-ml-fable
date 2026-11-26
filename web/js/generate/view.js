@@ -16,7 +16,8 @@
 // Schreiben keeps its own (kv `generate`.look).
 import { createNormalizer } from '../engine/engine.js';
 import { createPageWriter } from './page-writer.js';
-import { drawWord, drawWords, drawPartial, drawSheet, toSVG, toCanvas, lookColors, normalizeLook, lookFromCapture, INKS, DEFAULT_LOOK } from './render.js';
+import { toSVG, toCanvas, lookColors, normalizeLook, lookFromCapture, INKS, DEFAULT_LOOK } from './render.js';
+import { createPainterClient, STRIP } from './paint-worker.js';
 import { createEngine } from './engine-client.js';
 import { createModelStore } from './model-store.js';
 import { createPageView } from './page-view.js';
@@ -26,7 +27,17 @@ const PAGE_TOP = 6.5, PAGE_MARGIN = 3;   // first baseline and side margin, x-he
 const MIN_PAGE_WIDTH = 18;         // x-heights
 const BASE_PPS = 260;              // writing animation: points per second when nothing is waiting
 const CATCHUP_S = 1.0;             // ... and never slower than "everything waiting within this many seconds"
-const MAX_PIXELS = 16e6;           // canvas budget (per canvas; there are two)
+// Pixel budget of the paper and of the ink, each.  Twice that for the ink avoided redrawing
+// it at a lower resolution while 1 500 characters were written, but took 450 MB more memory
+// (renderer and GPU process): every strip handed to the compositor is held several times.
+const MAX_PIXELS = 16e6;
+// The paper canvas grows by half at a time, not line by line: a canvas that changes its size
+// is blank and has to be drawn again.  The resolution follows that room, so past the pixel
+// budget it drops in steps too: worked out for the sheet's own height, it would change with
+// every new line and draw the paper and all the ink again each time (24 times while writing
+// 1 500 characters).  The ink is a stack of strips (paint-worker.js: STRIP) that only grows
+// by whole strips, which keeps what is drawn on them.
+const GROW = 1.5;
 const RECHECK_MS = 5 * 60 * 1000;  // look for a newer model at most this often
 
 const DEFAULTS = { text: '', bias: 0.4, size: 11, spacing: 6.5 };   // size: CSS px per x-height
@@ -80,10 +91,16 @@ export function createGenerateView(deps) {
     png: $('gen-png'), inkPng: $('gen-ink-png'), svg: $('gen-svg'), copy: $('gen-copy'),
     gen: $('gen'), modes: document.querySelector('#gen .gen-modes'), pgStage: $('pg-stage'), pgPages: $('pg-pages'),
   };
-  const ctx = el.canvas.getContext('2d');
-  const gctx = el.lines.getContext('2d');               // the paper and its lines, under the ink
-  const layer = document.createElement('canvas');      // everything already written (the animation draws on top of it)
-  const lctx = layer.getContext('2d');
+  // The ink (strips in #gen-canvas) and, under it, the paper and its lines are drawn by
+  // paint-worker.js.
+  const painter = createPainterClient();
+  painter.attach('paper', el.lines);
+  const strips = [];                                    // the ink's canvases, top down
+  const size = { ink: { w: 0, h: 0, css: 0 }, paper: { w: 0, h: 0, css: 0 } };   // bitmaps (device px; ink: all strips), room (CSS px)
+  // The word being written is drawn over a copy of what lies under its box, put back every
+  // frame.  Clearing all the ink every frame and copying it back from a second canvas moves
+  // 2 x 47 MB per frame on 1 500 characters (frames of 130 ms on a 4x slowed CPU).
+  let held = null;                                      // { k: word index } of the box held
   const motion = matchMedia('(prefers-reduced-motion: reduce)');
 
   const S = {
@@ -335,16 +352,39 @@ export function createGenerateView(deps) {
     if (!cssW) return false;
     const cssScale = cssW / (page ? framed(page).width : pageWidth());
     const cssH = page ? Math.max(1, Math.ceil(page.height * cssScale)) : 0;
-    const ratio = ratioFor(cssW, Math.max(cssH, 1));
-    const pw = Math.round(cssW * ratio), ph = Math.max(1, Math.round(cssH * ratio));   // never 0: getImageData must work
-    const changed = el.canvas.width !== pw || el.canvas.height !== ph;
-    if (changed) { el.canvas.width = pw; el.canvas.height = ph; layer.width = pw; layer.height = ph; }
+    const css = room(size.ink.css, Math.max(cssH, 1));
+    const ratio = ratioFor(cssW, css);
+    const pw = Math.round(cssW * ratio);
+    const changed = pw !== size.ink.w;                      // other strips: the ink is gone
+    const n = Math.max(1, Math.ceil((cssH * pw) / cssW / STRIP));
+    if (changed || n !== strips.length) layStrips(n, cssW, pw);
+    size.ink = { w: pw, h: n * STRIP, css };
+    if (changed) held = null;
     el.canvas.style.height = `${cssH}px`;
     S.geo = { scale: cssScale * ratio, cssScale, ratio };
     S.width = cssW;
     paintSheet();
     return changed;
   }
+
+  /** n strips of pw device px across, stacked at the sheet's width cssW (CSS px). */
+  function layStrips(n, cssW, pw) {
+    if (strips.length > n) { painter.run([{ op: 'drop', id: 'ink', from: n }]); for (const c of strips.splice(n)) c.remove(); }
+    while (strips.length < n) {
+      const c = document.createElement('canvas');
+      c.setAttribute('aria-hidden', 'true');
+      el.canvas.append(c);
+      painter.attach('ink', c, strips.length);
+      strips.push(c);
+    }
+    const h = (STRIP * cssW) / pw;
+    strips.forEach((c, k) => { c.style.top = `${k * h}px`; c.style.height = `${h}px`; });
+    painter.run([{ op: 'size', id: 'ink', w: pw, h: STRIP }]);    // new strips; all of them when wider
+  }
+
+  /** Room for `need` CSS px on a canvas with room for `have`: grows by GROW at a time,
+   *  shrinks only below half. */
+  const room = (have, need) => (need > have || need < have / 2 ? (have > 1 && need > have ? Math.max(need, Math.round(have * GROW)) : need) : have);
 
   const sheetGeometry = (scale, lineWidth) => ({ scale, spacing: S.settings.spacing, top: PAGE_TOP, margin: PAGE_MARGIN, lineWidth });
 
@@ -353,30 +393,54 @@ export function createGenerateView(deps) {
     if (!S.geo) return;
     const cssW = el.paper.clientWidth, cssH = el.paper.clientHeight;
     if (!cssW || !cssH) return;
-    const ratio = ratioFor(cssW, cssH);
-    const pw = Math.round(cssW * ratio), ph = Math.round(cssH * ratio);
+    const css = room(size.paper.css, cssH);
+    const ratio = ratioFor(cssW, css);
+    const pw = Math.round(cssW * ratio), ph = Math.ceil((css * pw) / cssW);
     const scale = S.geo.cssScale * ratio;
+    el.lines.style.height = `${cssH}px`;
     const key = [pw, ph, scale, S.look.paper, S.look.scheme, S.settings.spacing].join('|');
     if (key === S.sheetKey) return;
     S.sheetKey = key;
-    if (el.lines.width !== pw || el.lines.height !== ph) { el.lines.width = pw; el.lines.height = ph; }
-    el.lines.style.height = `${cssH}px`;
-    drawSheet(gctx, pw, ph, S.look, lookColors(S.look), sheetGeometry(scale, Math.max(1, Math.round(ratio))));
+    size.paper = { w: pw, h: ph, css };
+    painter.run([{ op: 'size', id: 'paper', w: pw, h: ph }, { op: 'sheet', id: 'paper', look: S.look, colors: lookColors(S.look), g: sheetGeometry(scale, Math.max(1, Math.round(ratio))) }]);
   }
 
   /** The settled words, drawn one by one exactly as the animation draws them. */
   function rebuildLayer() {
-    if (!S.page || !S.geo) return;
-    lctx.clearRect(0, 0, layer.width, layer.height);
-    drawWords(lctx, S.page.strokes.slice(0, S.settled), drawOptions());
+    held = null;
+    const steps = [{ op: 'clear', id: 'ink' }];
+    if (S.page && S.geo && S.settled) steps.push({ op: 'words', id: 'ink', words: S.page.strokes.slice(0, S.settled), ...drawOptions() });
+    painter.run(steps);
   }
 
-  function paint() {
-    if (!S.page || !S.geo) { ctx.clearRect(0, 0, el.canvas.width, el.canvas.height); return; }
-    ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
-    ctx.drawImage(layer, 0, 0);
-    if (S.settled < S.page.strokes.length && S.pos >= 1) drawPartial(ctx, S.page.strokes[S.settled], Math.floor(S.pos), drawOptions());
+  /** Steps that hold what lies under word k's box (with room for the widest pen). */
+  function hold(k) {
+    const sc = S.geo.scale, p = S.page.strokes[k];
+    const pad = Math.ceil(2 * S.look.width * sc) + 3;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (let i = 0; i < p.length; i += 3) { x0 = Math.min(x0, p[i]); x1 = Math.max(x1, p[i]); y0 = Math.min(y0, p[i + 1]); y1 = Math.max(y1, p[i + 1]); }
+    const x = Math.max(0, Math.floor(x0 * sc) - pad), y = Math.max(0, Math.floor(y0 * sc) - pad);
+    const w = Math.min(size.ink.w, Math.ceil(x1 * sc) + pad) - x, h = Math.min(size.ink.h, Math.ceil(y1 * sc) + pad) - y;
+    held = w > 0 && h > 0 ? { k } : null;
+    return held ? [{ op: 'hold', id: 'ink', x, y, w, h }] : [];
   }
+
+  /** Steps that put back what lay under the word being written; keep: hold it on. */
+  function unhold(keep = false) {
+    if (!held) return [];
+    if (!keep) held = null;
+    return [{ op: 'unhold', id: 'ink', keep }];
+  }
+
+  /** Steps for the word being written, as far as the pen has got. */
+  function partial() {
+    if (!S.page || !S.geo || S.settled >= S.page.strokes.length || S.pos < 1) return [];
+    const steps = held && held.k === S.settled ? unhold(true) : [...unhold(), ...hold(S.settled)];
+    steps.push({ op: 'partial', id: 'ink', word: S.page.strokes[S.settled], n: Math.floor(S.pos), ...drawOptions() });
+    return steps;
+  }
+
+  function paint() { painter.run(partial()); }
 
   /** Everything still to be animated is drawn at once. */
   function settleAll() {
@@ -384,10 +448,9 @@ export function createGenerateView(deps) {
     if (!page) return;
     if (S.visible && S.geo) {
       const rest = page.strokes.slice(S.settled);
-      if (rest.length) drawWords(lctx, rest, drawOptions());
+      painter.run([...unhold(), ...(rest.length ? [{ op: 'words', id: 'ink', words: rest, ...drawOptions() }] : [])]);
     }
     S.settled = page.strokes.length; S.pos = 0; S.done = S.total;
-    if (S.visible) paint();
   }
 
   const wordPoints = (words) => words.reduce((n, w) => n + w.length / 3, 0);
@@ -409,18 +472,25 @@ export function createGenerateView(deps) {
     S.last = now;
     let adv = Math.max(BASE_PPS, (S.total - S.done) / CATCHUP_S) * dt;
     const before = S.settled;
+    const steps = [];
     while (adv > 0 && S.settled < page.strokes.length) {
       const w = page.strokes[S.settled];
       const left = w.length / 3 - S.pos;
       if (adv >= left) {
-        drawWord(lctx, w, drawOptions());
+        if (held && held.k === S.settled) steps.push(...unhold());
+        steps.push({ op: 'words', id: 'ink', words: [w], ...drawOptions() });
         S.settled++; S.pos = 0; S.done += left; adv -= left;
       } else { S.pos += adv; S.done += adv; adv = 0; }
     }
-    paint();
+    painter.run([...steps, ...partial()]);   // one frame's steps drawn together
     if (S.settled !== before) follow();
     if (S.settled < page.strokes.length) schedule();
   }
+
+  // The writer scrolling by hand ends the automatic following.  Listened for only while it
+  // is on, so that scrolling a finished sheet runs no script at all.
+  function unfollow() { S.follow = false; for (const t of ['wheel', 'touchmove']) el.stage.removeEventListener(t, unfollow); }
+  function followOn() { S.follow = true; for (const t of ['wheel', 'touchmove']) el.stage.addEventListener(t, unfollow, { passive: true }); }
 
   /** Keep the line being written in view (until the writer scrolls by hand). */
   function follow() {
@@ -535,11 +605,11 @@ export function createGenerateView(deps) {
     const mine = ++S.runId;
     if (matchMedia('(pointer: coarse)').matches) el.text.blur();   // put the on-screen keyboard away: the sheet is the thing to watch
     el.stage.scrollTop = 0;
-    S.phase = 'writing'; S.cancelled = false; S.follow = true;
+    S.phase = 'writing'; S.cancelled = false; followOn();
     S.lastText = text; S.seed = (Math.random() * 2 ** 32) >>> 0;
     if (S.raf) { cancelAnimationFrame(S.raf); S.raf = 0; }
     S.page = null; S.settled = 0; S.pos = 0; S.total = 0; S.done = 0; S.bad = 0;
-    lctx.clearRect(0, 0, layer.width, layer.height); ctx.clearRect(0, 0, el.canvas.width, el.canvas.height);
+    held = null; painter.run([{ op: 'clear', id: 'ink' }]);
     el.canvas.style.height = '0px';
     el.busyText.textContent = 'schreibt …';
     S.pageWriter = S.writer;
@@ -559,6 +629,7 @@ export function createGenerateView(deps) {
     }
     if (mine !== S.runId) return;
     S.phase = 'idle';
+    unfollow();
     if (page) S.page = page;
     if (S.cancelled) { settleAll(); setNote(el.note, S.page ? 'Abgebrochen. Was schon geschrieben ist, bleibt stehen.' : 'Abgebrochen.'); }
     setNote(el.bad, S.bad ? badText(S.bad) : '');
@@ -576,7 +647,7 @@ export function createGenerateView(deps) {
   // ---------- Zettel / Seite ----------
 
   const pageView = createPageView({
-    store, toast,
+    store, toast, painter,
     model: () => (S.engine && S.entry && S.ready ? { entry: S.entry, info: S.ready, normalizer: S.normalizer } : null),
     look: () => S.look,
     bias: () => S.settings.bias,
@@ -784,8 +855,6 @@ export function createGenerateView(deps) {
     el.copy.hidden = !(typeof ClipboardItem !== 'undefined' && navigator.clipboard && navigator.clipboard.write);
     el.signin.addEventListener('click', () => deps.signIn());
     el.retry.addEventListener('click', () => refresh());
-    // The writer scrolling by hand ends the automatic following.
-    for (const type of ['wheel', 'touchmove']) el.stage.addEventListener(type, () => { S.follow = false; }, { passive: true });
     let lastW = 0;
     new ResizeObserver(() => {
       const w = el.paper.clientWidth;
@@ -828,7 +897,7 @@ export function createGenerateView(deps) {
 
   function show() {
     S.visible = true;
-    S.follow = true;
+    if (S.phase === 'writing') followOn();
     pageView.show();
     applyMode();
     autosize();
@@ -843,6 +912,14 @@ export function createGenerateView(deps) {
   return {
     init, show, hide, refresh,
     info: () => ms.info(),
+    /** For tests: resolves once both sheets show everything drawn so far (the drawing runs in a worker). */
+    painted: async () => { await painter.flush(); await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); },
+    /** For tests: the ink's strips put together on one canvas. */
+    inkCopy: () => {
+      const c = Object.assign(document.createElement('canvas'), { width: size.ink.w || 1, height: size.ink.h || 1 });
+      strips.forEach((s, k) => c.getContext('2d').drawImage(s, 0, k * STRIP));
+      return c;
+    },
     /** For tests: the page mode's state. */
     pageDebug: () => Object.assign(pageView.debug(), { mode: S.mode }),
     /** For tests and the diagnostics page. */

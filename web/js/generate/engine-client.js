@@ -6,9 +6,15 @@
 //   engine.cancel();                            // pending writePiece() promises reject with .cancelled = true
 //   engine.terminate();
 //
-// `buffer` stays with the caller: the worker gets a copy.
+// `buffer` stays with the caller: the workers read it from one Blob made of a copy.
 
 function cancelled() { const e = new Error('cancelled'); e.cancelled = true; return e; }
+
+// Copying the 7.6 MB model for every engine on the main thread (slice, then a structured
+// clone) takes 98 ms for four engines on a 4x slowed CPU, a task that stops the page just as
+// writing starts.  One Blob per model is made once; each worker reads it on its own thread.
+const blobs = new WeakMap();
+const modelBlob = (buffer) => { let b = blobs.get(buffer); if (!b) { b = new Blob([buffer]); blobs.set(buffer, b); } return b; };
 
 export function createEngine(manifest, buffer, { workerUrl = new URL('../engine/worker.js', import.meta.url) } = {}) {
   const worker = new Worker(workerUrl, { type: 'module' });
@@ -45,8 +51,7 @@ export function createEngine(manifest, buffer, { workerUrl = new URL('../engine/
     failAll(dead);
   };
 
-  // The worker gets its own copy; the transferred one is gone from here afterwards.
-  worker.postMessage({ type: 'load', manifest, buffer: buffer.slice(0) });
+  worker.postMessage({ type: 'load', manifest, model: modelBlob(buffer) });
 
   return {
     ready,
