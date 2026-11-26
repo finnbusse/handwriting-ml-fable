@@ -4,16 +4,23 @@
 de-core@5 is de-core@4 with two streams woven in after the frozen positions 1-160:
   eszett.txt  ordinary sentences with ß (the recordings held 29 ß in all), ids
               de-core-2808 .. 2880 in file order (ESZETT_IDS);
-  rows.txt    4-6 unrelated words or numbers per line, ids de-core-2881 .. 3252 in
-              file order (ROW_IDS).  They replace about 1,400 older single-word
-              recordings in an older, untidier hand (training cuts a row into its
-              words); the first rows pack the scarcest characters densely.  The
-              first 15 rows (positions 161-220) are picked so that those 60 prompts
-              keep the focus minimums (NEXT_LINES, NEXT_SHORT); two number rows
-              sit two and three rows later than planned, so that no block has more
-              than MAX_DIGIT_LINES lines with digits; and eight rows with a capital
-              umlaut changed places with plain rows of blocks 34-71, where the
-              thinned-out main sequence left two blocks in a row without one.
+  rows.txt    3-6 unrelated words or numbers per line (9 rows with 3), ids
+              de-core-2881 .. 3252 in file order (ROW_IDS).  They replace about
+              1,400 older single-word recordings in an older, untidier hand
+              (training cuts a row into its words); the first rows pack the
+              scarcest characters densely.  Against the order the list was
+              delivered in: the first 15 rows (positions 161-220) are picked so
+              that those 60 prompts keep the focus minimums (NEXT_LINES,
+              NEXT_SHORT); two number rows sit two and three rows later, so that
+              no block has more than MAX_DIGIT_LINES lines with digits; and eight
+              rows with a capital umlaut (delivered as rows 19, 20, 22, 23, 89, 104,
+              110, 111; the first four with three each) changed places with plain
+              rows and sit in blocks 34-70, where the thinned-out main sequence
+              left two blocks in a row without a capital umlaut.
+Ids and texts of de-core@5 are published: a stream line is never moved, changed or
+removed.  A new line goes at the end of its file and takes the next free id after
+the highest one in the set (de-core-3253 on), as a further range of that stream's
+constant; so ESZETT_IDS and ROW_IDS are lists of ranges, and so is "streams".
 In every block after the frozen ones, slots ROW_SLOTS hold the next rows and
 ESZETT_SLOTS the next ß sentences while each stream lasts; every other slot (and a
 stream's slots once it is used up) holds the next prompt of de-core@4 from position
@@ -114,8 +121,9 @@ ROWS_PATH = DATA / "rows.txt"
 SET_NAME = "de-core@5"
 MAIN_SET = "de-core@4"
 N_MAIN = 2807           # prompts of de-core@4, the main sequence
-ESZETT_IDS = (2808, 2880)   # ß sentences, first and last id number
-ROW_IDS = (2881, 3252)      # word rows, first and last id number
+# id ranges (first, last id number) of each stream; its lines take them in file order
+ESZETT_IDS = ((2808, 2880),)   # ß sentences
+ROW_IDS = ((2881, 3252),)      # word rows
 ROW_SLOTS = (3, 7, 11, 15, 19)   # slots (1-20) of a block for rows: a quarter of the block,
 ESZETT_SLOTS = (5, 13)           # ß sentences in between, never two stream lines side by side
 # lines the writer's next 60 prompts (positions 161-220) hold at least, besides the phase-A focus
@@ -400,9 +408,13 @@ def entry_text(pid: str, text: str, lang: str, block: int) -> str:
 
 
 def stream_ranges() -> dict:
-    """The "streams" field of the file: {name: [first id, last id]}."""
-    return {name: [f"de-core-{a:04d}", f"de-core-{b:04d}"]
-            for name, (a, b) in (("eszett", ESZETT_IDS), ("rows", ROW_IDS))}
+    """The "streams" field of the file: {name: [[first id, last id], ...]}."""
+    return {name: [[f"de-core-{a:04d}", f"de-core-{b:04d}"] for a, b in ranges]
+            for name, ranges in (("eszett", ESZETT_IDS), ("rows", ROW_IDS))}
+
+
+def stream_ids(ranges) -> list:
+    return [f"de-core-{n:04d}" for a, b in ranges for n in range(a, b + 1)]
 
 
 def render(entries, set_name=SET_NAME, streams=True) -> str:
@@ -497,9 +509,8 @@ def read_streams(main_texts):
     for t in main_texts:
         compare.add(t)
     out = {}
-    num = ESZETT_IDS[0]
-    for name, path in (("eszett", ESZETT_PATH), ("rows", ROWS_PATH)):
-        out[name] = []
+    for name, path, ranges in (("eszett", ESZETT_PATH, ESZETT_IDS), ("rows", ROWS_PATH, ROW_IDS)):
+        out[name], ids = [], stream_ids(ranges)
         for text in read_lines(path):
             where = f"{path.name}: {text!r}"
             if text != text.strip() or "  " in text:
@@ -519,11 +530,11 @@ def read_streams(main_texts):
                 cat = derived_category(text, "de")
             else:
                 cat = row_category(text)
-            out[name].append((f"de-core-{num:04d}", text, "de", cat))
-            num += 1
-    for name, (a, b) in (("eszett", ESZETT_IDS), ("rows", ROW_IDS)):
-        got = (int(out[name][0][0][-4:]), int(out[name][-1][0][-4:]))
-        assert got == (a, b), f"{name}: ids {got}, the constants say {(a, b)}"
+            if len(out[name]) == len(ids):
+                raise ValueError(f"{where}: no id left in the ranges of {name}")
+            out[name].append((ids[len(out[name])], text, "de", cat))
+        if len(out[name]) != len(ids):
+            raise ValueError(f"{path.name}: {len(out[name])} lines for {len(ids)} ids")
     return out["eszett"], out["rows"]
 
 

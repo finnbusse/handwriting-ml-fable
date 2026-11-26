@@ -11,9 +11,12 @@ Rules
   format      set name, top-level fields set/streams/prompts, "streams" holds the id
               ranges build_prompts.ESZETT_IDS and ROW_IDS, fields id/text/lang/block,
               block = (position - 1) // 20 + 1, ids de-core-0001 .. de-core-NNNN each
-              exactly once.
-  streams     the ids of each range are the lines of its file in file order (text,
-              lang de); without them the set is de-core@4 exactly (ids, texts, langs,
+              exactly once (so a new line can only take the next free id).
+  streams     the ids of each stream's ranges are the lines of its file in file order
+              (text, lang de); every id of de-core@5 as published (git commit
+              SNAPSHOT5_COMMIT, when git is available) keeps its text and lang, so
+              a stream line cannot be moved or changed in both its file and the set;
+              without the streams the set is de-core@4 exactly (ids, texts, langs,
               order), checked against data/prompts/de-core@4.json and that against its
               git commit; from position 161 on, slots ROW_SLOTS of every block hold the
               next row and slots ESZETT_SLOTS the next ß sentence while that stream
@@ -76,6 +79,7 @@ import build_prompts as B  # noqa: E402
 SNAPSHOT_COMMIT = "41764891cce494e7af75bd99bc7c0eeb0dff6b47"   # published de-core@2
 SNAPSHOT3_COMMIT = "20b44f18ff02420068236d68c4ac39a26f295a1c"  # published de-core@3
 SNAPSHOT4_COMMIT = "13c3a1bac72bb606828aa0e3f1d1803b996f6df1"  # published de-core@4
+SNAPSHOT5_COMMIT = "5734f0a7633cd841b283a889b8e0f0fb8b2f7452"  # published de-core@5
 BLOCK = B.BLOCK
 N_OLD, N_FROZEN, N_V1 = B.N_OLD, B.N_FROZEN, 160
 UMLAUTS = "äöüÄÖÜß"
@@ -158,6 +162,27 @@ def check_history(prompts, errs):
     return snap, {pid: cat for pid, _, _, cat in accepted}
 
 
+def check_published5(by_id, errs):
+    """Every id of de-core@5 as published keeps its text and lang (read from git: the stream
+    files can change together with the set, this cannot)."""
+    try:
+        git = subprocess.run(["git", "-C", str(ROOT), "show", f"{SNAPSHOT5_COMMIT}:web/prompts/de-core.json"],
+                             capture_output=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        print("note: git not available, ids of de-core@5 not compared with git")
+        return
+    if git.returncode != 0:
+        print("note: git history not available, ids of de-core@5 not compared with git")
+        return
+    pub = json.loads(git.stdout.decode("utf-8"))["prompts"]
+    bad = [p["id"] for p in pub if (by_id.get(p["id"]) or {}).get("text") != p["text"]
+           or by_id[p["id"]].get("lang") != p["lang"]]
+    for pid in bad[:10]:
+        errs.append(f"{pid} changed or missing against de-core@5 in git ({SNAPSHOT5_COMMIT[:7]})")
+    if not bad:
+        print(f"all {len(pub)} ids of de-core@5 in git commit {SNAPSHOT5_COMMIT[:7]} keep text and lang")
+
+
 def check_streams(data, prompts, errs):
     """Returns (main prompts in their order, eszett ids, row ids, {id: category} of the streams)."""
     compare_with_git(B.SNAPSHOT4_PATH, SNAPSHOT4_COMMIT, B.MAIN_SET, errs)
@@ -172,13 +197,15 @@ def check_streams(data, prompts, errs):
         errs.append(f"stream files: {e}")
         return main4, set(), set(), {}
     by_id = {p.get("id"): p for p in prompts}
-    for (a, b), lines in ((B.ESZETT_IDS, eszett), (B.ROW_IDS, rows)):
-        if len(lines) != b - a + 1:
-            errs.append(f"ids {a}-{b}: {b - a + 1} ids for {len(lines)} lines")
+    for ranges, lines in ((B.ESZETT_IDS, eszett), (B.ROW_IDS, rows)):
+        ids = B.stream_ids(ranges)
+        if [e[0] for e in lines] != ids or any(a <= B.N_MAIN for a, _ in ranges):
+            errs.append(f"ranges {ranges}: {len(ids)} ids after de-core-{B.N_MAIN:04d} for {len(lines)} lines")
         for pid, text, lang, _ in lines:
             p = by_id.get(pid)
             if p is None or (p.get("text"), p.get("lang")) != (text, lang):
                 errs.append(f"{pid}: expected {text!r}/{lang}, got {p and (p.get('text'), p.get('lang'))!r}")
+    check_published5(by_id, errs)
     esz_ids, row_ids = [e[0] for e in eszett], [e[0] for e in rows]
     stream = set(esz_ids) | set(row_ids)
     main = [p for p in prompts if p.get("id") not in stream]

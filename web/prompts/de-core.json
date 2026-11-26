@@ -1,6 +1,6 @@
 {
 "set": "de-core@5",
-"streams": {"eszett": ["de-core-2808", "de-core-2880"], "rows": ["de-core-2881", "de-core-3252"]},
+"streams": {"eszett": [["de-core-2808", "de-core-2880"]], "rows": [["de-core-2881", "de-core-3252"]]},
 "prompts": [
 {
 "id": "de-core-0001",
