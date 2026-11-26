@@ -19,7 +19,7 @@ import { createEngine } from './engine-client.js';
 import { createModelStore } from './model-store.js';
 import { normalize as normalizeDisplay, WIDTHS as CAPTURE_WIDTHS } from '../capture/ink.js';
 
-const PAGE_TOP = 5, PAGE_MARGIN = 3;   // layout.js: first baseline and side margin, x-heights
+const PAGE_TOP = 6.5, PAGE_MARGIN = 3;   // first baseline and side margin, x-heights (ascenders of enlarged words need about 3.5)
 const MIN_PAGE_WIDTH = 18;         // x-heights
 const BASE_PPS = 260;              // writing animation: points per second when nothing is waiting
 const CATCHUP_S = 1.0;             // ... and never slower than "everything waiting within this many seconds"
@@ -539,6 +539,7 @@ export function createGenerateView(deps) {
     try {
       page = await writer.write(text, {
         bias: S.settings.bias, width: pageWidth(), lineHeight: S.settings.spacing, seed: S.seed,
+        top: PAGE_TOP, margin: PAGE_MARGIN,
         onPiece: onPiece,
         onProgress: (done, total) => { if (mine === S.runId) el.busyText.textContent = total > 1 ? `schreibt … ${done} von ${total}` : 'schreibt …'; },
       });
