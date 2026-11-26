@@ -16,9 +16,12 @@ What makes this work with little data
   * held-out lines are judged after correcting for over-confidence: with
     little data the network soon predicts too narrow a spread, which makes the
     plain likelihood worse although the writing keeps getting better.  One
-    constant added to all predicted log standard deviations removes that; it
-    is folded into the saved weights, so the model writes at the writer's
-    letter size
+    constant added to all predicted log standard deviations removes that.  It
+    is only a way of scoring: the saved weights stay as trained.  (Folding the
+    constant into them was tried and made the writing unsteady: 10 % more
+    spread at every pen step let the pen slide off the line in 3.6 % of the
+    written pieces instead of 0.6 %.  The letter size the narrow spread costs
+    is restored by the page layout, see hw/page.py: measure_size.)
 """
 from __future__ import annotations
 
@@ -265,9 +268,9 @@ def main(argv=None, hooks=None):
                     help="stop after this many epochs without a better held-out score (0 = run the whole budget)")
     ap.add_argument("--train-all", action="store_true",
                     help="hold out no real lines: every line is trained on (for the model that is published, "
-                         "once the recipe is settled); needs --sd-shift from a run with held-out lines")
+                         "once the recipe is settled)")
     ap.add_argument("--sd-shift", type=float, default=None,
-                    help="use this spread correction instead of fitting it on the held-out lines")
+                    help="score with this spread correction instead of fitting it on the held-out lines")
     ap.add_argument("--ema", type=float, default=0.995,
                     help="decay of the running average of the weights that is evaluated and saved (0 = off)")
     ap.add_argument("--sample-every", type=int, default=5)
@@ -349,18 +352,15 @@ def main(argv=None, hooks=None):
     ema = None                                   # name -> running average of that parameter
 
     @contextlib.contextmanager
-    def exported(shift: float = 0.0):
+    def exported():
         """The weights as they are judged and saved: the running average of the
-        training weights, with the spread correction folded into the output
-        layer (exact, because log sd = W h + b)."""
+        training weights."""
         params = dict(model.named_parameters())
         backup = {n: p.detach().clone() for n, p in params.items()}
         with torch.no_grad():
             if ema is not None:
                 for n, p in params.items():
                     p.copy_(ema[n])
-            if shift:
-                model.mixture.sd.bias.add_(shift)
         try:
             yield
         finally:
@@ -397,7 +397,7 @@ def main(argv=None, hooks=None):
     shift = 0.0
 
     def sampler(path):
-        with exported(shift):
+        with exported():
             progress_sheet(model, charset, mu, std, meta, corpus, path)
 
     rng = np.random.default_rng(args.seed + 1)
@@ -453,8 +453,8 @@ def main(argv=None, hooks=None):
             v_real, v_comp, shift = validate()
         score = score_of(v_real, v_comp)
         flag = ""
-        extra = {"epoch": epoch, "val_real": v_real, "val_composed": v_comp, "sd_shift": shift}
-        with exported(shift):
+        extra = {"epoch": epoch, "val_real": v_real, "val_composed": v_comp, "spread_fit": shift}
+        with exported():
             if score < best or math.isnan(score):          # without held-out lines the newest epoch is the one to keep
                 best, best_epoch, flag = (best if math.isnan(score) else score), epoch, " *"
                 save("best", extra)
@@ -470,7 +470,7 @@ def main(argv=None, hooks=None):
             json.dump(dict(epoch=epoch, epochs=args.epochs, best=best, best_epoch=best_epoch,
                            minutes=(time.time() - t0) / 60), f)
         if args.sample_every and epoch % args.sample_every == 0:
-            with exported(shift):
+            with exported():
                 sample_sheet(model, charset, mu, std, meta, corpus, os.path.join(args.out, f"samples_{epoch:03d}.png"))
         if hooks and hooks.epoch(dict(info, epoch=epoch, best_epoch=best_epoch, minutes=(time.time() - t0) / 60)):
             print("stop requested, stopping")
