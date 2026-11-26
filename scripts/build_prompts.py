@@ -3,7 +3,7 @@
 
 Inputs (all in data/prompts/):
   de-core@2.json  snapshot of the 800 prompts of de-core@2 (ids de-core-0001..0800).
-                  Ids and texts never change; positions 1-240 (blocks 1-12) are
+                  Ids and texts never change; positions 1-160 (blocks 1-8) are
                   copied byte-for-byte, because the writer may reach them before
                   de-core@3 is live.
   additions.txt   new lines, grouped under "## <category>" headers, in a fixed
@@ -13,7 +13,7 @@ Inputs (all in data/prompts/):
   pool.txt        the candidate pool de-core@2 was drawn from (history only; not
                   read here).
 
-Everything from position 241 on (prompts 241-800 of de-core@2 and all accepted
+Everything from position 161 on (prompts 161-800 of de-core@2 and all accepted
 additions) is put into a new order, slot by slot, deterministically (no
 randomness, ties broken by input order).  Blocks are renumbered by position
 (block = (position - 1) // 20 + 1); the app reads the block from the file.
@@ -31,7 +31,7 @@ Each slot takes the best-scoring line that passes the variety rules:
          choice only when the remaining slots of the block are just enough.
   score  (1) coverage: the greedy n-gram gain of de-core@2 (bigrams/trigrams in
          words, rare single characters) with diminishing returns, measured
-         against positions 1-240;
+         against positions 1-160;
          (2) a schedule for the rarest characters RARE: each has a target count
          that rises by RATE per block until it reaches GOAL (or the supply runs
          out) and then grows steadily, so the rest of the supply is spread over
@@ -72,7 +72,8 @@ POOL_PATH = DATA / "pool.txt"
 
 SET_NAME = "de-core@3"
 N_OLD = 800             # prompts of de-core@2, ids 0001-0800
-N_FROZEN = 240          # positions 1-240 stay exactly where they are
+N_FROZEN = 160          # positions 1-160 stay exactly where they are (the writer was at 164 when
+                        # de-core@3 was built; progress is tracked by id, so anything later may move)
 BLOCK = 20
 MIN_LEN, MAX_LEN = 18, 40
 
@@ -345,8 +346,9 @@ class Schedule:
 
 
 # ---------------------------------------------------------------- ordering
-def order_region(region, frozen_texts):
-    """region: [(id, text, lang, cat)] in input order.  Returns (ordered list, stats)."""
+def order_region(region, frozen_texts, before=None):
+    """region: [(id, text, lang, cat)] in input order.  Returns (ordered list, stats).
+    `before` = (category, first word) of the last frozen prompt, the first region prompt's neighbour."""
     n = len(region)
     texts = [r[1] for r in region]
     langs = [r[2] for r in region]
@@ -456,6 +458,11 @@ def order_region(region, frozen_texts):
                 return False
             if level < 5 and is_en[k] and blk_en >= MAX_EN_BLOCK:
                 return False
+            if prev is None and before is not None:
+                if level < 4 and cats[k] == before[0]:
+                    return False
+                if level < 3 and fws[k] == before[1]:
+                    return False
             if prev is not None:
                 if level < 4 and cats[k] == cats[prev]:
                     return False
@@ -547,15 +554,17 @@ def main() -> int:
     frozen = [(p["id"], p["text"], p["lang"]) for p in old[:N_FROZEN]]
     region = [(p["id"], p["text"], p["lang"], derived_category(p["text"], p["lang"])) for p in old[N_FROZEN:]]
     region += accepted
-    ordered, st = order_region(region, [t for _, t, _ in frozen])
+    last = frozen[-1]
+    ordered, st = order_region(region, [t for _, t, _ in frozen],
+                               before=(derived_category(last[1], last[2]), first_word(last[1])))
     entries = frozen + [(pid, t, lang) for pid, t, lang, _ in ordered]
     out = render(entries)
 
-    # the first 240 entries must be byte-identical to de-core@2 (apart from the header line)
+    # the first 160 entries must be byte-identical to de-core@2 (apart from the header line)
     snap_body = SNAPSHOT_PATH.read_text(encoding="utf-8").split("\n", 3)[3]
     out_body = out.split("\n", 3)[3]
     head = ",\n".join(entry_text(pid, t, lang, i // BLOCK + 1) for i, (pid, t, lang) in enumerate(frozen))
-    assert snap_body.startswith(head) and out_body.startswith(head), "positions 1-240 are not reproduced"
+    assert snap_body.startswith(head) and out_body.startswith(head), "positions 1-160 are not reproduced"
     if not dry:
         JSON_PATH.write_text(out, encoding="utf-8")
 
@@ -569,7 +578,7 @@ def main() -> int:
     print("variety rules relaxed (by level): " + (", ".join(f"{k}:{v}" for k, v in sorted(st["relaxed"].items())) or "never"))
     print("rare-character schedules (offered from position 1; phase 1 ends at position):")
     for ch, sc in st["schedules"].items():
-        print(f"  {ch}: had {sc.have0} in 1-240, supply {sc.supply}, goal {sc.t1} by position {N_FROZEN + sc.p1}")
+        print(f"  {ch}: had {sc.have0} in 1-160, supply {sc.supply}, goal {sc.t1} by position {N_FROZEN + sc.p1}")
     print("rare characters per 100 prompts:")
     print_rare_table(texts, 0, len(texts))
     return 0

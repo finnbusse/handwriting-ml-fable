@@ -8,25 +8,25 @@ Rules
   history     ids 0001-0800 keep text and lang of de-core@2: checked against the
               snapshot data/prompts/de-core@2.json, and the snapshot against the git
               commit that published de-core@2 (when git is available).
-              Positions 1-240 are exactly those of de-core@2.  Ids from 0801 on are
+              Positions 1-160 are exactly those of de-core@2.  Ids from 0801 on are
               exactly the accepted lines of data/prompts/additions.txt.
   lines       18-40 characters, model alphabet only, no stray whitespace.
   duplicates  no two lines equal ignoring case and punctuation; no near-duplicates:
               pairs inside ids 0001-0800 with the de-core@2 rule (only pairs that
               involve ids 0161-0800), every pair that involves an addition with the
               de-core@3 rule (build_prompts.similar).
-  variety     from position 241 on: no two neighbours of the same category or with
+  variety     from position 161 on: no two neighbours of the same category or with
               the same first word; at most one digit-heavy line (3+ digits) among any
               four neighbours and at most four per block; at most two English lines per
               block; every full block has >= 2 lines of <= 28 and >= 2 lines of >= 37
               characters.
-  coverage    from position 241 on: while Ä, Ö or Ü has been offered fewer than 30 times
+  coverage    from position 161 on: while Ä, Ö or Ü has been offered fewer than 30 times
               (counted from position 1 at the start of the block), the block contains it,
               and such blocks have >= 3 capital umlauts; never two blocks in a row
               without a capital umlaut; every rare character (Ä Ö Ü % € C E L N O Q V X Y)
               has been offered min(30, its total in the set) times by position 800.
   early lines the rules of de-core@1/@2 for blocks 1-2, the first 100 lines and
-              blocks 6-8 (all inside the frozen positions 1-240).
+              blocks 6-8 (all inside the frozen positions 1-160).
 
 Usage: python3 scripts/check_prompts.py [--reproduce] [path/to/de-core.json]
   --reproduce  also rebuild the set in memory and compare it byte for byte (slow).
@@ -194,7 +194,7 @@ def main():
         index.add(texts[i])
         pos_of.append(i)
 
-    # ---- variety (positions 241+)
+    # ---- variety (after the frozen positions)
     fw = [B.first_word(t) for t in texts]
     dh = [B.is_digit_heavy(t) for t in texts]
     lc = [B.length_class(t) for t in texts]
@@ -216,7 +216,7 @@ def main():
             ns, nl = sum(lc[i] == "short" for i in sl), sum(lc[i] == "long" for i in sl)
             if ns < B.MIN_SHORT or nl < B.MIN_LONG:
                 errs.append(f"block {b + 1}: {ns} short / {nl} long lines, need >= {B.MIN_SHORT} / {B.MIN_LONG}")
-    # English in blocks 1-12 (unchanged rule of de-core@2)
+    # English in the frozen blocks (unchanged rule of de-core@2)
     for b in range(N_FROZEN // BLOCK):
         k = langs[b * BLOCK:(b + 1) * BLOCK].count("en")
         if not 1 <= k <= 4:
@@ -277,7 +277,8 @@ def main():
         accepted, _ = B.accept_additions([p["text"] for p in old])
         frozen = [(p["id"], p["text"], p["lang"]) for p in old[:N_FROZEN]]
         region = [(p["id"], p["text"], p["lang"], B.derived_category(p["text"], p["lang"])) for p in old[N_FROZEN:]]
-        ordered, _ = B.order_region(region + accepted, [t for _, t, _ in frozen])
+        ordered, _ = B.order_region(region + accepted, [t for _, t, _ in frozen],
+                                    before=(B.derived_category(frozen[-1][1], frozen[-1][2]), B.first_word(frozen[-1][1])))
         rebuilt = B.render(frozen + [(pid, t, lg) for pid, t, lg, _ in ordered])
         if rebuilt != raw:
             errs.append("build_prompts.py does not reproduce the file from its inputs")
@@ -287,7 +288,7 @@ def main():
     # ---- report
     print(f"{path.name}: {n} prompts ({len(new_idx)} added after de-core@2), "
           f"{langs.count('en')} english, lengths {min(map(len, texts))}-{max(map(len, texts))}")
-    print("categories from position 241: " + " ".join(f"{k}:{v}" for k, v in sorted(Counter(cats[N_FROZEN:]).items())))
+    print("categories from position 161: " + " ".join(f"{k}:{v}" for k, v in sorted(Counter(cats[N_FROZEN:]).items())))
     print(f"all {n}")
     call = counts(texts)
     print(line("lower", LOWER, call))
@@ -295,9 +296,9 @@ def main():
     print(line("digits", DIGITS, call))
     print(line("signs", PUNCT + SIGNS + RARE_SIGNS, call))
     snap_texts = [p["text"] for p in snap]
-    print("rare characters, positions 241-440:")
+    print(f"rare characters, positions {B.N_FROZEN + 1}-{B.N_FROZEN + 200}:")
     for label, ts in (("de-core@2", snap_texts), (B.SET_NAME, texts)):
-        c = Counter(ch for t in ts[240:440] for ch in t if ch in B.RARE)
+        c = Counter(ch for t in ts[B.N_FROZEN:B.N_FROZEN + 200] for ch in t if ch in B.RARE)
         print(f"  {label:<10}" + " ".join(f"{ch}:{c[ch]}" for ch in B.RARE))
     print("rare characters per 100 prompts:")
     B.print_rare_table(texts, 0, n)
@@ -312,7 +313,8 @@ def main():
           + " ".join(f"{ch}:{first30.get(ch, '-')}" for ch in B.RARE)
           + "   (total in set: " + " ".join(f"{ch}:{total[ch]}" for ch in B.RARE) + ")")
     um = [sum(t.count(ch) for t in texts[b * BLOCK:(b + 1) * BLOCK] for ch in UMLAUTS) for b in range((n + BLOCK - 1) // BLOCK)]
-    print("umlaut/ß characters per block, blocks 13+: min %d, mean %.1f" % (min(um[12:]), sum(um[12:]) / len(um[12:])))
+    first = B.N_FROZEN // BLOCK
+    print("umlaut/ß characters per block after the frozen blocks: min %d, mean %.1f" % (min(um[first:]), sum(um[first:]) / len(um[first:])))
     if errs:
         print(f"\nFAIL: {len(errs)} violation(s)")
         for e in errs[:200]:

@@ -259,14 +259,14 @@ file: (position − 1) // 20 + 1.
   thoughts, direct speech), some English lines, no real persons, no personal
   data, nothing awkward to write.
 - History: ids 0001–0800 are de-core@2 with unchanged texts (snapshot
-  `data/prompts/de-core@2.json`, checked against git). Positions 1–240
-  (blocks 1–12) are exactly those of de-core@2. Ids from 0801 are the lines of
+  `data/prompts/de-core@2.json`, checked against git). Positions 1–160
+  (blocks 1–8) are exactly those of de-core@2. Ids from 0801 are the lines of
   `data/prompts/additions.txt` (grouped by category) in file order, minus the
   ones that duplicate or nearly duplicate an earlier prompt (same text ignoring
   case and punctuation, nearly the same words, or nearly the same characters).
 - Blocks 1–2 alone contain every lowercase and uppercase letter incl. ä ö ü ß
   Ä Ö Ü, every digit at least 3 times, and `. , ! ? : - ( ) " '`.
-- From position 241 on the order serves two goals at once:
+- From position 161 on the order serves two goals at once:
   - Coverage first: rare character pairs come early, and the rarest characters
     (Ä Ö Ü % € C E L N O Q V X Y) follow a schedule: two more per block until
     each has been offered 30 times (counted from position 1; by about position
