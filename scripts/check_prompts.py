@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify web/prompts/de-core.json (de-core@3) against docs/SPEC.md section 2.4 and
+"""Verify web/prompts/de-core.json (de-core@4) against docs/SPEC.md section 2.4 and
 print coverage.
 
 Rules
@@ -7,7 +7,9 @@ Rules
               ids de-core-0001 .. de-core-NNNN each exactly once.
   history     ids 0001-0800 keep text and lang of de-core@2: checked against the
               snapshot data/prompts/de-core@2.json, and the snapshot against the git
-              commit that published de-core@2 (when git is available).
+              commit that published de-core@2 (when git is available).  Every id of
+              de-core@3 keeps its text and lang: checked against the snapshot
+              data/prompts/de-core@3.json, and that against its git commit.
               Positions 1-160 are exactly those of de-core@2.  Ids from 0801 on are
               exactly the accepted lines of data/prompts/additions.txt.
   lines       18-40 characters, model alphabet only, no stray whitespace.
@@ -17,9 +19,14 @@ Rules
               de-core@3 rule (build_prompts.similar).
   variety     from position 161 on: no two neighbours of the same category or with
               the same first word; at most one digit-heavy line (3+ digits) among any
-              four neighbours and at most four per block; at most two English lines per
-              block; every full block has >= 2 lines of <= 28 and >= 2 lines of >= 37
-              characters.
+              four neighbours and at most four per block; at most six lines with a digit
+              per block; at most two English lines per block; every full block has >= 2
+              lines of <= 28 and >= 2 lines of >= 37 characters.
+  focus       positions 161-220 reach every target of build_prompts.FOCUS, positions
+              221-420 half that rate, and neither falls below what de-core@3 offered over
+              the same number of open prompts (build_prompts.focus_minimums); the prompts
+              in build_prompts.WRITTEN and the next build_prompts.NEXT_IN_LINE open
+              prompts of de-core@3 are not in positions 161-420.
   coverage    from position 161 on: while Ä, Ö or Ü has been offered fewer than 30 times
               (counted from position 1 at the start of the block), the block contains it,
               and such blocks have >= 3 capital umlauts; never two blocks in a row
@@ -47,6 +54,7 @@ from hw.charset import DEFAULT_CHARSET  # noqa: E402
 import build_prompts as B  # noqa: E402
 
 SNAPSHOT_COMMIT = "41764891cce494e7af75bd99bc7c0eeb0dff6b47"   # published de-core@2
+SNAPSHOT3_COMMIT = "20b44f18ff02420068236d68c4ac39a26f295a1c"  # published de-core@3
 BLOCK = B.BLOCK
 N_OLD, N_FROZEN, N_V1 = B.N_OLD, B.N_FROZEN, 160
 UMLAUTS = "äöüÄÖÜß"
@@ -82,20 +90,26 @@ def line(label, chars, c):
     return f"  {label:<8}" + " ".join(f"{ch}:{c.get(ch, 0)}" for ch in chars)
 
 
-def check_history(prompts, errs):
-    snap_raw = B.SNAPSHOT_PATH.read_text(encoding="utf-8")
+def compare_with_git(path, commit, name, errs):
+    raw = path.read_text(encoding="utf-8")
     try:
-        git = subprocess.run(["git", "-C", str(ROOT), "show", f"{SNAPSHOT_COMMIT}:web/prompts/de-core.json"],
+        git = subprocess.run(["git", "-C", str(ROOT), "show", f"{commit}:web/prompts/de-core.json"],
                              capture_output=True, timeout=30)
         if git.returncode == 0:
-            if git.stdout.decode("utf-8") != snap_raw:
-                errs.append(f"snapshot {B.SNAPSHOT_PATH.name} differs from de-core@2 in git ({SNAPSHOT_COMMIT[:7]})")
+            if git.stdout.decode("utf-8") != raw:
+                errs.append(f"snapshot {path.name} differs from {name} in git ({commit[:7]})")
             else:
-                print(f"snapshot matches de-core@2 in git commit {SNAPSHOT_COMMIT[:7]}")
+                print(f"snapshot matches {name} in git commit {commit[:7]}")
         else:
-            print("note: git history not available, snapshot not compared with git")
+            print(f"note: git history not available, {path.name} not compared with git")
     except (OSError, subprocess.SubprocessError):
-        print("note: git not available, snapshot not compared with git")
+        print(f"note: git not available, {path.name} not compared with git")
+    return raw
+
+
+def check_history(prompts, errs):
+    snap_raw = compare_with_git(B.SNAPSHOT_PATH, SNAPSHOT_COMMIT, "de-core@2", errs)
+    compare_with_git(B.SNAPSHOT3_PATH, SNAPSHOT3_COMMIT, "de-core@3", errs)
     snap = json.loads(snap_raw)["prompts"]
     by_id = {p.get("id"): p for p in prompts}
     for sp in snap:
@@ -104,6 +118,12 @@ def check_history(prompts, errs):
             errs.append(f"{sp['id']} of de-core@2 is missing")
         elif (p.get("text"), p.get("lang")) != (sp["text"], sp["lang"]):
             errs.append(f"{sp['id']} changed: {sp['text']!r} -> {p.get('text')!r}")
+    for pid, (text, lang) in B.load_snapshot3().items():
+        p = by_id.get(pid)
+        if p is None:
+            errs.append(f"{pid} of de-core@3 is missing")
+        elif (p.get("text"), p.get("lang")) != (text, lang):
+            errs.append(f"{pid} changed against de-core@3: {text!r} -> {p.get('text')!r}")
     for i in range(min(N_FROZEN, len(prompts))):
         if prompts[i] != snap[i]:
             errs.append(f"position {i + 1}: must stay {snap[i]['id']} (got {prompts[i].get('id')})")
@@ -210,6 +230,8 @@ def main():
         sl = range(b * BLOCK, min(n, (b + 1) * BLOCK))
         if sum(dh[i] for i in sl) > B.MAX_DIGIT_BLOCK:
             errs.append(f"block {b + 1}: {sum(dh[i] for i in sl)} digit-heavy lines, max {B.MAX_DIGIT_BLOCK}")
+        if sum(B.n_digits(texts[i]) > 0 for i in sl) > B.MAX_DIGIT_LINES:
+            errs.append(f"block {b + 1}: {sum(B.n_digits(texts[i]) > 0 for i in sl)} lines with digits, max {B.MAX_DIGIT_LINES}")
         if sum(langs[i] == "en" for i in sl) > B.MAX_EN_BLOCK:
             errs.append(f"block {b + 1}: {sum(langs[i] == 'en' for i in sl)} English lines, max {B.MAX_EN_BLOCK}")
         if len(sl) == BLOCK:
@@ -249,6 +271,21 @@ def main():
         if early[ch] < want:
             errs.append(f"'{ch}' offered {early[ch]}x in positions 1-{COVERAGE_BY}, need >= {want}")
 
+    # ---- focus
+    a0, a1, b1 = N_FROZEN, N_FROZEN + B.FOCUS_A, N_FROZEN + B.FOCUS_A + B.FOCUS_B
+    for (lo, hi), minimum in zip(((a0, a1), (a1, b1)), B.focus_minimums()):
+        c = B.focus_counts(texts[lo:hi])
+        for k, m in minimum.items():
+            if c[k] < m:
+                errs.append(f"positions {lo + 1}-{hi}: focus unit {k!r} {c[k]}x, need >= {m}")
+    for i in range(a0, min(n, b1)):
+        if prompts[i].get("id") in B.WRITTEN:
+            errs.append(f"#{i + 1}: {prompts[i]['id']} is already written, must not be in positions {a0 + 1}-{b1}")
+    next_ids = {pid for pid, _ in B.prev_open()[:B.NEXT_IN_LINE]}
+    for i in range(a0, min(n, b1)):
+        if prompts[i].get("id") in next_ids:
+            errs.append(f"#{i + 1}: {prompts[i]['id']} is next in line in de-core@3, must not be in positions {a0 + 1}-{b1}")
+
     # ---- early lines (frozen, rules of de-core@1/@2)
     b12, b100 = texts[:40], texts[:100]
     c12, c100 = counts(b12), counts(b100)
@@ -273,13 +310,7 @@ def main():
             errs.append(f"'{ch}' must not appear in the first 100 lines")
 
     if "--reproduce" in sys.argv:
-        old = B.load_snapshot()
-        accepted, _ = B.accept_additions([p["text"] for p in old])
-        frozen = [(p["id"], p["text"], p["lang"]) for p in old[:N_FROZEN]]
-        region = [(p["id"], p["text"], p["lang"], B.derived_category(p["text"], p["lang"])) for p in old[N_FROZEN:]]
-        ordered, _ = B.order_region(region + accepted, [t for _, t, _ in frozen],
-                                    before=(B.derived_category(frozen[-1][1], frozen[-1][2]), B.first_word(frozen[-1][1])))
-        rebuilt = B.render(frozen + [(pid, t, lg) for pid, t, lg, _ in ordered])
+        rebuilt = B.build()[0]
         if rebuilt != raw:
             errs.append("build_prompts.py does not reproduce the file from its inputs")
         else:
@@ -302,6 +333,7 @@ def main():
         print(f"  {label:<10}" + " ".join(f"{ch}:{c[ch]}" for ch in B.RARE))
     print("rare characters per 100 prompts:")
     B.print_rare_table(texts, 0, n)
+    B.print_focus(texts)
     first30 = {}
     run = Counter()
     for i, t in enumerate(texts):

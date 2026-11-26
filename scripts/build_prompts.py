@@ -1,22 +1,28 @@
 #!/usr/bin/env python3
-"""Build web/prompts/de-core.json as prompt set de-core@3.
+"""Build web/prompts/de-core.json as prompt set de-core@4.
 
 Inputs (all in data/prompts/):
   de-core@2.json  snapshot of the 800 prompts of de-core@2 (ids de-core-0001..0800).
                   Ids and texts never change; positions 1-160 (blocks 1-8) are
-                  copied byte-for-byte, because the writer may reach them before
-                  de-core@3 is live.
-  additions.txt   new lines, grouped under "## <category>" headers, in a fixed
-                  order.  Accepted lines get ids de-core-0801, 0802, ... in file
-                  order; a line that duplicates or nearly duplicates an existing
-                  prompt (or an earlier accepted addition) is dropped.
+                  copied byte-for-byte, because the writer had written them all.
+  de-core@3.json  snapshot of de-core@3 (2,491 prompts) as published: every id in
+                  it must keep its text and language (checked, not read for the order).
+  additions.txt   new lines, grouped under "## <category>" headers.  Accepted lines
+                  get ids de-core-0801, 0802, ... in file order; a line that
+                  duplicates or nearly duplicates an existing prompt (or an earlier
+                  accepted addition) is dropped.  New lines only ever go at the end
+                  of the file (a header may repeat), so the ids given stay.
   pool.txt        the candidate pool de-core@2 was drawn from (history only; not
                   read here).
 
 Everything from position 161 on (prompts 161-800 of de-core@2 and all accepted
 additions) is put into a new order, slot by slot, deterministically (no
-randomness, ties broken by input order).  Blocks are renumbered by position
-(block = (position - 1) // 20 + 1); the app reads the block from the file.
+randomness, ties broken by input order).  The prompts in WRITTEN (done by the
+writer beyond position 160) are kept out of the focus phases, so the next blocks
+the writer gets are all new to them; so are the next NEXT_IN_LINE open prompts of
+de-core@3, in case the writer goes on in it before de-core@4 is published.  Blocks
+are renumbered by position (block = (position - 1) // 20 + 1); the app reads the
+block from the file.
 
 Each slot takes the best-scoring line that passes the variety rules:
   hard   never two neighbours of the same category; never two neighbours that
@@ -29,6 +35,15 @@ Each slot takes the best-scoring line that passes the variety rules:
          contains it and has >= 3 capital umlauts; after that no two blocks in a
          row are without a capital umlaut.  A block requirement forces the
          choice only when the remaining slots of the block are just enough.
+  focus  positions 161-220 must be rich in what the trained model gets wrong
+         (FOCUS: Ä Ö Ü T at a word start, the 'über' family, Q X Y C J j, ä ü,
+         every digit, the scarce symbols), positions 221-420 at half that rate, and
+         neither below what de-core@3 offered over the same number of open prompts;
+         a line earns a bonus for every focus unit that is behind its target and
+         a larger one for units still missing near the end of a phase; nouns
+         used in the last 60 lines and lines with few letters lose points.
+         The schedules of (2) for the focus characters rest during these phases.
+         At most six lines with a digit per block.
   score  (1) coverage: the greedy n-gram gain of de-core@2 (bigrams/trigrams in
          words, rare single characters) with diminishing returns, measured
          against positions 1-160;
@@ -67,13 +82,25 @@ from hw.charset import DEFAULT_CHARSET  # noqa: E402
 JSON_PATH = ROOT / "web" / "prompts" / "de-core.json"
 DATA = ROOT / "data" / "prompts"
 SNAPSHOT_PATH = DATA / "de-core@2.json"
+SNAPSHOT3_PATH = DATA / "de-core@3.json"
 ADDITIONS_PATH = DATA / "additions.txt"
 POOL_PATH = DATA / "pool.txt"
 
-SET_NAME = "de-core@3"
+SET_NAME = "de-core@4"
 N_OLD = 800             # prompts of de-core@2, ids 0001-0800
-N_FROZEN = 160          # positions 1-160 stay exactly where they are (the writer was at 164 when
-                        # de-core@3 was built; progress is tracked by id, so anything later may move)
+N_FROZEN = 160          # positions 1-160 stay exactly where they are (all written); progress is
+                        # tracked by id, so anything later may move
+N_PREV = 2491           # prompts of de-core@3
+# written by the writer beyond position 160 when de-core@4 was built (de-core@3 positions
+# 168, 183, 196, 545): not placed in the focus phases, where they would be skipped at once,
+# but right after them: the capture screen shows block dots up to the last block with a
+# written line, so one of these at the end of the set would push the current block out of view
+WRITTEN = ("de-core-0161", "de-core-0162", "de-core-0163", "de-core-0164")
+# the writer may write on in de-core@3 until de-core@4 is published.  The next NEXT_IN_LINE open
+# prompts of de-core@3 are treated like WRITTEN, so up to that many such lines cannot thin out
+# the focus phases, and the written ones still sit right after them
+NEXT_IN_LINE = 20
+W_WRITTEN = 20.0        # outscores every other line: the 24 held lines land in 421-461, right after the focus
 BLOCK = 20
 MIN_LEN, MAX_LEN = 18, 40
 
@@ -85,6 +112,32 @@ RATE = {ch: 2 for ch in RARE}   # target increase per block in phase 1
 ABUNDANT = "ELNV"       # no penalty for being ahead of schedule
 MIN_CAPS_PHASE1 = 3    # capital umlauts per block while one of Ä Ö Ü is in phase 1
 STEADY_SLACK = 60      # steady phase planned over this many slots more than there are
+COVER_BY = 800          # each rare character offered min(GOAL, its total) times by this position
+
+# ---- focus: where the model trained on the first 164 lines (+ ~1,500 single words) fails.
+# In that data: Ä 5, Ö 4, Ü 8, Q 5, X 4, Y 3, C 10, J 17; the symbols below 2-9 each.
+# In generated writing the dots are missing on Ä in 96 % of cases, Ü 71 %, Ö 31 %, ä and ü
+# 41 %, j 24 %; 'über' words garbled in 4 of 11, T written like V in 4 of 11, a wrong digit
+# in 7 of 28 pieces with digits.  Targets for positions 161-220 (FOCUS_A slots); positions
+# 221-420 (FOCUS_B slots) get half that rate.
+FOCUS_A, FOCUS_B = 60, 200
+FOCUS_STEP_B = 50       # phase B is checked in four parts, so it stays even
+FOCUS_AIM_B = 1.2       # phase B aims 20 % above its minimum: the variety rules cost up to 3
+                        # units of a symbol or digit over its 200 slots
+FOCUS_LINES = {"Ä-": 10, "Ö-": 10, "Ü-": 10, "T-": 10, "über": 8,   # lines with the unit
+               "Q": 6, "X": 6, "Y": 6, "C": 6, "J": 6, "j": 8, "ä": 20, "ü": 20}
+FOCUS_CHARS = dict({d: 5 for d in "0123456789"},                   # occurrences
+                   **{ch: 3 for ch in "\"#%&'()*+-/;=@[]_€"})
+FOCUS = dict(FOCUS_LINES, **FOCUS_CHARS)
+FOCUS_RARE = "ÄÖÜ%€CQXY"   # their schedules rest while the focus phases run
+W_FOCUS_LINE = 1.5      # per focus line unit behind target
+W_FOCUS_CHAR = 1.3      # per focus character behind target (there are 28 of them)
+W_REPEAT = 2.5         # per noun (or noun stem) already used in the last REPEAT_WINDOW lines
+REPEAT_WINDOW = 60
+FOCUS_CHAR_MAX = 5      # focus characters rewarded per line: a phone number must not win by itself
+MIN_LETTERS = 0.45      # in the focus phases, lines with fewer letters (phone numbers, sums) ...
+W_DENSE = 3.0           # ... lose this much: they are no practice in writing words
+W_URGENT = 30.0         # per unit still missing for the end of the phase, divided by the slots left
 
 # ---- variety
 SHORT_MAX, LONG_MIN = 28, 37
@@ -92,6 +145,7 @@ MIN_SHORT, MIN_LONG = 2, 2
 DIGIT_HEAVY = 3         # digits in a line that make it digit-heavy
 DIGIT_WINDOW = 4        # at most one digit-heavy line among this many neighbours
 MAX_DIGIT_BLOCK = 4
+MAX_DIGIT_LINES = 6     # lines with any digit per block (a third at most)
 MAX_EN_BLOCK = 2
 
 # ---- n-gram demand (as in de-core@2)
@@ -198,6 +252,74 @@ def is_digit_heavy(text: str) -> bool:
     return n_digits(text) >= DIGIT_HEAVY
 
 
+_WORD_START = {ch: re.compile(r"(?<![A-Za-zÄÖÜäöüß])" + ch) for ch in "ÄÖÜT"}
+
+
+def focus_units(text: str) -> dict:
+    """{FOCUS key: count} for one line: 1 for the line units, occurrences for the characters."""
+    u = {ch + "-": 1 for ch, rx in _WORD_START.items() if rx.search(text)}
+    if "über" in text.casefold():
+        u["über"] = 1
+    u.update({ch: 1 for ch in "QXYCJjäü" if ch in text})
+    u.update({ch: text.count(ch) for ch in FOCUS_CHARS if ch in text})
+    return u
+
+
+def focus_minimums():
+    """({unit: minimum over the FOCUS_A slots}, {unit: minimum over the FOCUS_B slots}).  Phase A
+    gets FOCUS.  Phase B gets half that rate, but never less than de-core@3 offered the writer over
+    the same open prompts (its next 61st-260th), nor so little that phases A and B together fall
+    below de-core@3's next 260: no focus unit gets rarer than in the order it replaces.  Phase A
+    is not held to de-core@3 as well: its 18 lines with digits cannot carry de-core@3's digits,
+    % and € besides the 28 focus characters of FOCUS (at best 4 units stayed short)."""
+    nxt = [t for _, t in prev_open()]
+    fb = focus_counts(nxt[FOCUS_A:FOCUS_A + FOCUS_B])
+    fab = focus_counts(nxt[:FOCUS_A + FOCUS_B])
+    return (dict(FOCUS), {k: max(math.ceil(v * FOCUS_B / FOCUS_A / 2), fb[k], fab[k] - v)
+                          for k, v in FOCUS.items()})
+
+
+def focus_target(key: str, s: int, mins):
+    """Target count over the region (from position 161) once slot s is filled; None after the focus."""
+    a = mins[0][key]
+    if s < FOCUS_A:
+        return a * (s + 1) / FOCUS_A
+    if s < FOCUS_A + FOCUS_B:
+        return a + FOCUS_AIM_B * mins[1][key] * (s + 1 - FOCUS_A) / FOCUS_B
+    return None
+
+
+def focus_phase_end(s: int):
+    """(slot where the focus phase of slot s ends, slots left in it incl. s), or None after the focus."""
+    if s >= FOCUS_A + FOCUS_B:
+        return None
+    end = FOCUS_A if s < FOCUS_A else FOCUS_A + FOCUS_STEP_B * ((s - FOCUS_A) // FOCUS_STEP_B + 1)
+    return end, end - s
+
+
+_CAPWORD = re.compile(r"[A-ZÄÖÜ][a-zäöüß]{3,}")
+_NOT_NOUNS = {"eine", "einen", "mein", "meine", "dein", "deine", "heute", "bitte", "wenn", "dann",
+              "noch", "auch", "hast", "habe", "kannst", "wann", "dass", "sind", "gibt", "viele"}
+# word families with many lines in the pool but no common five-letter stem (Öl, Ölbild, Ölpest,
+# Ölsardinen ...; Äpfel, Äpfeln): without a key of their own 4 Öl- lines met in 161-220, with it 2
+FAMILIES = ("öl", "äpfel")
+
+
+def noun_keys(text: str) -> set:
+    """Capitalised words (nouns, names, sentence starts), the first five letters of long ones and
+    FAMILIES: so that 'Äpfel' or 'Übermorgen' does not come back line after line."""
+    ws = [w for w in map(str.casefold, _CAPWORD.findall(text)) if w not in _NOT_NOUNS]
+    fam = {f for w in _WORD.findall(text.casefold()) for f in FAMILIES if w.startswith(f)}
+    return set(ws) | {w[:5] for w in ws if len(w) >= 6} | fam
+
+
+def focus_counts(texts) -> Counter:
+    c = Counter()
+    for t in texts:
+        c.update(focus_units(t))
+    return c
+
+
 def derived_category(text: str, lang: str) -> str:
     if lang == "en":
         return "englisch"
@@ -294,8 +416,21 @@ def accept_additions(old_texts):
     return accepted, dropped
 
 
+def load_snapshot3():
+    """{id: (text, lang)} of de-core@3 as published."""
+    data = json.loads(SNAPSHOT3_PATH.read_text(encoding="utf-8"))
+    assert data["set"] == "de-core@3" and len(data["prompts"]) == N_PREV, "snapshot must hold de-core@3"
+    return {p["id"]: (p["text"], p["lang"]) for p in data["prompts"]}
+
+
+def prev_open():
+    """[(id, text)] of de-core@3 from position 161 on without WRITTEN: what the writer gets next there."""
+    data = json.loads(SNAPSHOT3_PATH.read_text(encoding="utf-8"))
+    return [(p["id"], p["text"]) for p in data["prompts"][N_FROZEN:] if p["id"] not in WRITTEN]
+
+
 def categories():
-    """{id: category} for every prompt of de-core@3 (used by check_prompts.py)."""
+    """{id: category} for every prompt of the set (used by check_prompts.py)."""
     old = load_snapshot()
     accepted, _ = accept_additions([p["text"] for p in old])
     cats = {p["id"]: derived_category(p["text"], p["lang"]) for p in old}
@@ -325,24 +460,26 @@ def make_targets(pool_units_total: Counter) -> dict:
 
 
 class Schedule:
-    """Target count over the region for one rare character."""
+    """Target count over the region for one rare character, from region slot `start` on."""
 
-    def __init__(self, ch, have, supply, n_slots):
-        self.ch, self.have0, self.supply, self.n = ch, have, supply, n_slots
+    def __init__(self, ch, have, supply, n_slots, start=0, rate=None):
+        self.ch, self.have0, self.supply, self.n, self.start = ch, have, supply, n_slots, start
+        self.rate = rate or RATE[ch]
         self.t1 = min(GOAL, have + supply)
         need = max(0, self.t1 - have)
-        self.p1 = min(n_slots, math.ceil(need / RATE[ch]) * BLOCK) if need else 0
+        self.p1 = min(n_slots, math.ceil(need / self.rate) * BLOCK) if need else 0
         self.rest = supply - need
 
     def target(self, s: int) -> float:
         """Target count (from position 1) once slot s (0-based) is filled."""
+        s -= self.start
         if s < self.p1:
-            return min(self.t1, self.have0 + RATE[self.ch] * (s + 1) / BLOCK)
+            return min(self.t1, self.have0 + self.rate * (s + 1) / BLOCK)
         span = max(1, self.n - self.p1 + STEADY_SLACK)  # a little slower, so the supply lasts to the end
         return self.t1 + self.rest * (s + 1 - self.p1) / span
 
     def steady(self, s: int) -> bool:
-        return s >= self.p1
+        return s - self.start >= self.p1
 
 
 # ---------------------------------------------------------------- ordering
@@ -351,6 +488,15 @@ def order_region(region, frozen_texts, before=None):
     `before` = (category, first word) of the last frozen prompt, the first region prompt's neighbour."""
     n = len(region)
     texts = [r[1] for r in region]
+    next_ids = {pid for pid, _ in prev_open()[:NEXT_IN_LINE]}
+    held = [r[0] in WRITTEN or r[0] in next_ids for r in region]
+    mins = focus_minimums()
+    fu = [focus_units(t) for t in texts]
+    have_focus = Counter()
+    has_digit = [n_digits(t) > 0 for t in texts]
+    nouns = [noun_keys(t) for t in texts]
+    dense = [sum(ch.isalpha() for ch in t) < MIN_LETTERS * len(t.replace(" ", "")) for t in texts]
+    recent_nouns = Counter()
     langs = [r[2] for r in region]
     cats = [r[3] for r in region]
     fws = [first_word(t) for t in texts]
@@ -417,22 +563,35 @@ def order_region(region, frozen_texts, before=None):
     groups.append(("umlaut", [any(ch in t for ch in UMLAUT_ALL) for t in texts]))
     g_total = [sum(m) for _, m in groups]
     g_placed = [0] * len(groups)
+    pace0, placed0 = 0, [0] * len(groups)      # pacing restarts after the focus phases
     member_of = [[gi for gi, (_, m) in enumerate(groups) if m[k]] for k in range(n)]
 
     alive = [True] * n
     order = []
     relaxed = Counter()
-    blk_en = blk_dig = blk_short = blk_long = 0
+    blk_en = blk_dig = blk_short = blk_long = blk_dline = 0
     blk_rare = Counter()
 
     for s in range(n):
+        if s == FOCUS_A + FOCUS_B:
+            # the focus took many umlaut, digit and sign lines early: spread the rest evenly from
+            # here, or the next blocks would make up for it with none at all
+            pace0, placed0 = s, list(g_placed)
+            # the focus characters went at their own pace: plan the rest from where they stand,
+            # reaching GOAL evenly by position COVER_BY (check_prompts.py requires it)
+            left = max(BLOCK, COVER_BY - N_FROZEN - s)
+            for ch in FOCUS_RARE:
+                need = max(0, min(GOAL, have_rare[ch] + supply_left[ch]) - have_rare[ch])
+                sched[ch] = Schedule(ch, have_rare[ch], supply_left[ch], n - s, start=s,
+                                     rate=max(RATE[ch] / 4, need * BLOCK / left))
         slot_in_block = (N_FROZEN + s) % BLOCK
         if slot_in_block == 0:
             prev_block_capum = s == 0 or any(blk_rare[ch] for ch in CAP_UMLAUTS)
             # phase 1 for a capital umlaut: offered fewer than GOAL times when the block starts
             phase1_block = [ch for ch in CAP_UMLAUTS if have_rare[ch] < GOAL and supply_left[ch]]
-            blk_en = blk_dig = blk_short = blk_long = 0
+            blk_en = blk_dig = blk_short = blk_long = blk_dline = 0
             blk_rare = Counter()
+        in_focus = s < FOCUS_A + FOCUS_B
         block_len = min(BLOCK, n - (s - slot_in_block))
         left = block_len - slot_in_block          # slots left in this block incl. this one
         prev = order[-1] if order else None
@@ -458,6 +617,8 @@ def order_region(region, frozen_texts, before=None):
                 return False
             if level < 5 and is_en[k] and blk_en >= MAX_EN_BLOCK:
                 return False
+            if level < 5 and has_digit[k] and blk_dline >= MAX_DIGIT_LINES:
+                return False
             if prev is None and before is not None:
                 if level < 4 and cats[k] == before[0]:
                     return False
@@ -473,8 +634,27 @@ def order_region(region, frozen_texts, before=None):
             return True
 
         def score(k):
-            sc = W_GAIN * gain[k] / g_norm
+            sc = W_GAIN * gain[k] / g_norm + W_WRITTEN * held[k]
+            if in_focus:
+                end, left_ph = focus_phase_end(s)
+                chars = []
+                for key, c in fu[k].items():
+                    v = 0.0
+                    d = focus_target(key, s, mins) - have_focus[key]
+                    if d + 1 > 0:                    # +1: also rewards lines that are just on time
+                        v += min(c, 2) * min(d + 1, 3)
+                    short = math.ceil(focus_target(key, end - 1, mins) - 1e-9) - have_focus[key]
+                    if short > 0:
+                        v += W_URGENT * min(c, short) * short / left_ph
+                    if key in FOCUS_LINES:
+                        sc += W_FOCUS_LINE * v
+                    else:
+                        chars.append(v)
+                sc += W_FOCUS_CHAR * sum(sorted(chars, reverse=True)[:FOCUS_CHAR_MAX])
+                sc -= W_REPEAT * sum(recent_nouns[w] for w in nouns[k]) + W_DENSE * dense[k]
             for ch, c in rare_n[k].items():
+                if in_focus and ch in FOCUS_RARE:
+                    continue
                 sch = sched[ch]
                 d = sch.target(s) - have_rare[ch]
                 steady = sch.steady(s) and ch not in ABUNDANT
@@ -484,7 +664,7 @@ def order_region(region, frozen_texts, before=None):
                 elif steady:
                     sc -= W_AHEAD * min(-d, 3)
             for gi in member_of[k]:
-                d = g_total[gi] * (s + 1) / n - g_placed[gi]
+                d = (g_total[gi] - placed0[gi]) * (s + 1 - pace0) / (n - pace0) - (g_placed[gi] - placed0[gi])
                 sc += W_PACE * max(-3.0, min(3.0, d))
             return sc
 
@@ -492,7 +672,7 @@ def order_region(region, frozen_texts, before=None):
         for level in range(6):
             bs = None
             for k in range(n):
-                if alive[k] and ok(k, level):
+                if alive[k] and not (in_focus and held[k]) and ok(k, level):
                     v = score(k)
                     if bs is None or v > bs:
                         bs, best = v, k
@@ -507,6 +687,11 @@ def order_region(region, frozen_texts, before=None):
         blk_dig += dheavy[k]
         blk_short += lclass[k] == "short"
         blk_long += lclass[k] == "long"
+        blk_dline += has_digit[k]
+        have_focus.update(fu[k])
+        recent_nouns.update(nouns[k])
+        if len(order) > REPEAT_WINDOW:
+            recent_nouns.subtract(nouns[order[-REPEAT_WINDOW - 1]])
         for ch, c in rare_n[k].items():
             have_rare[ch] += c
             supply_left[ch] -= c
@@ -545,12 +730,10 @@ def print_rare_table(texts, start, stop, step=100):
 
 
 # ---------------------------------------------------------------- main
-def main() -> int:
-    dry = "--dry-run" in sys.argv
+def build():
+    """Returns (file text, entries [(id, text, lang)], accepted, dropped, stats)."""
     old = load_snapshot()
-    old_texts = [p["text"] for p in old]
-    accepted, dropped = accept_additions(old_texts)
-
+    accepted, dropped = accept_additions([p["text"] for p in old])
     frozen = [(p["id"], p["text"], p["lang"]) for p in old[:N_FROZEN]]
     region = [(p["id"], p["text"], p["lang"], derived_category(p["text"], p["lang"])) for p in old[N_FROZEN:]]
     region += accepted
@@ -558,7 +741,29 @@ def main() -> int:
     ordered, st = order_region(region, [t for _, t, _ in frozen],
                                before=(derived_category(last[1], last[2]), first_word(last[1])))
     entries = frozen + [(pid, t, lang) for pid, t, lang, _ in ordered]
-    out = render(entries)
+    return render(entries), entries, accepted, dropped, st
+
+
+def print_focus(texts):
+    a, b = N_FROZEN + FOCUS_A, N_FROZEN + FOCUS_A + FOCUS_B
+    ma, mb = focus_minimums()
+    rows = [(N_FROZEN, a, ma), (a, b, mb)]
+    print("focus units (lines for " + " ".join(FOCUS_LINES) + "; occurrences for the rest), count/minimum:")
+    for lo, hi, minimum in rows:
+        c = focus_counts(texts[lo:hi])
+        dl = sum(n_digits(t) > 0 for t in texts[lo:hi])
+        print(f"  {lo + 1}-{hi}: " + " ".join(f"{k}:{c[k]}/{minimum[k]}" for k in FOCUS)
+              + f"  lines with digits: {dl} of {hi - lo}")
+
+
+def main() -> int:
+    dry = "--dry-run" in sys.argv
+    out, entries, accepted, dropped, st = build()
+    frozen = entries[:N_FROZEN]
+    prev = load_snapshot3()
+    for pid, t, lang in entries:
+        assert pid not in prev or prev[pid] == (t, lang), f"{pid} changed against de-core@3"
+    assert set(prev) <= {pid for pid, _, _ in entries}, "a prompt of de-core@3 is missing"
 
     # the first 160 entries must be byte-identical to de-core@2 (apart from the header line)
     snap_body = SNAPSHOT_PATH.read_text(encoding="utf-8").split("\n", 3)[3]
@@ -576,11 +781,13 @@ def main() -> int:
     print(f"written {JSON_PATH.relative_to(ROOT)}: {len(texts)} prompts, "
           f"{math.ceil(len(texts) / BLOCK)} blocks, set {SET_NAME}" + (" (dry run, not written)" if dry else ""))
     print("variety rules relaxed (by level): " + (", ".join(f"{k}:{v}" for k, v in sorted(st["relaxed"].items())) or "never"))
-    print("rare-character schedules (offered from position 1; phase 1 ends at position):")
+    print("rare-character schedules (offered from position 1):")
     for ch, sc in st["schedules"].items():
-        print(f"  {ch}: had {sc.have0} in 1-160, supply {sc.supply}, goal {sc.t1} by position {N_FROZEN + sc.p1}")
+        print(f"  {ch}: had {sc.have0} by position {N_FROZEN + sc.start}, supply {sc.supply} after it, "
+              f"goal {sc.t1} by position {N_FROZEN + sc.start + sc.p1}")
     print("rare characters per 100 prompts:")
     print_rare_table(texts, 0, len(texts))
+    print_focus(texts)
     return 0
 
 

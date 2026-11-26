@@ -1745,3 +1745,346 @@ Linie 7 ist mein Lieblingsbus.
 Seit 4 Jahren sitze ich neben Ben.
 Tag 100 ohne Süßigkeiten, geschafft!
 Party bis 23:30 Uhr, dann Heimweg.
+## alltag
+Übermorgen kommt Oma zum Kaffee.
+Das Ärztehaus hat neue Öffnungszeiten.
+Mach öfter mal den Computer aus!
+Tschüss, ich bin jetzt beim Chor.
+Über die Brücke, dann gleich links.
+Ein Ölfleck auf der Jacke, so ein Mist.
+Kannst du die Quittung aufheben?
+Wir treffen uns gegenüber vom Bäcker.
+Ich habe die Tasche im Taxi vergessen.
+Jemand hat geklingelt, machst du auf?
+Kleine Änderung: Der Chor ist dienstags.
+Tante Yvonne ruft später noch an.
+Die Couch steht jetzt am Fenster.
+Die Überweisung für die Miete ist raus.
+Schon wieder Ärger mit dem Drucker.
+Wir haben auf Ökostrom umgestellt.
+Taschengeld gibt es erst im Juli.
+Übrigens, die Tür klemmt schon wieder.
+Clara bringt ihre kleine Tochter mit.
+Die Teekanne bitte von Hand spülen.
+Akku nur noch 5 %, ich melde mich.
+Mach bitte die Tür auf, ich trage Tüten.
+Hat jemand meine Jacke gesehen?
+Die Ärztin sagt: Tee und Bettruhe.
+Ich hab die Äpfel im Auto vergessen.
+Die Übergabe der Wohnung ist am Montag.
+Hast du die Öffnungszeiten vom Amt?
+Die Ämter haben heute geschlossen.
+Oma schickt uns Grüße aus Österreich.
+Kannst du Jonas vom Training abholen?
+Die Ärmel der Jacke sind viel zu lang.
+Im Treppenhaus riecht es nach Kuchen.
+Wir fahren über Ostern zu Oma.
+Ich mache Überstunden, komme später.
+Im Übrigen ist das nicht so schlimm.
+Am Ende war die Überraschung perfekt.
+Die Ärztin hat mir Tropfen verschrieben.
+Wir holen uns Essen beim Chinesen.
+Xenia hat Geburtstag, die Torte ist da.
+Xaver kommt jetzt doch mit zum Zelten.
+Ist Xenias Katze schon wieder draußen?
+Pizza in XXL? Das schaffen wir nie.
+Mein Pulli in XL ist mir zu weit.
+Der Ärger mit dem Vermieter ist vorbei.
+Ähnliche Schuhe hatte ich auch mal.
+Die Ärztin ruft morgen früh zurück.
+Ältere Fotos liegen in der Kiste.
+Kleine Änderung: Treffen um acht.
+Ätsch, ich war zuerst an der Tür!
+Sind die Ärmel zu lang? Oma kürzt sie.
+Machst du Jutta bitte die Tür auf?
+Über den Hof, dann die Treppe hoch.
+Übrigens hat Tante Jutta angerufen.
+Kaufst du bitte Äpfel und Quark?
+Unser Öltank im Keller ist fast leer.
+Der Termin beim Optiker ist um vier.
+Toni bringt die Kinder zur Kita.
+Wer hat den Tesafilm aus dem Regal?
+
+## schule
+Übung 3 ist echt knifflig, hilfst du?
+In Erdkunde nehmen wir Österreich durch.
+Treffen wir uns vor dem Chemieraum?
+Quiz in Bio: Wer weiß die Antwort?
+Unsere Lehrerin heißt Frau Yilmaz.
+Der Termin für das Referat steht: Juni.
+Für Kunst brauchen wir Ölfarben.
+Jonas hat das Projekt fast fertig.
+In den Ferien lese ich drei Bücher.
+Jeden Tag zehn Minuten Vokabeln üben.
+Die Theater-AG probt heute in der Aula.
+Xenia sitzt jetzt neben mir in Mathe.
+Die Übersicht der Klausuren hängt aus.
+Yusuf hat diese Woche Tafeldienst.
+Das Quadrat hat vier gleiche Seiten.
+Chemie mag ich inzwischen ganz gern.
+Bitte äußere dich zur zweiten Frage.
+Tim, darf ich deinen Taschenrechner?
+In Bio geht es um Ökosysteme.
+Die Überschrift fehlt, sonst fertig.
+Die Übersetzung ist bis Juni fällig.
+Wien ist die Hauptstadt von Österreich.
+Am Äquator ist es das ganze Jahr warm.
+Markiert bitte Ähnlichkeiten im Text.
+Im Referat ging es um das alte Ägypten.
+Wer hat die Lösung für die Übung?
+Nach der Übung gehen wir in die Mensa.
+Frau Yilmaz sammelt die Hefte ein.
+Charlotte hat in Chemie eine Eins.
+Mein Tag X ist der letzte Schultag.
+Zur Übung schreibe ich jeden Tag.
+Die Tafel ist noch voll, wer wischt?
+
+## freizeit
+Yoga im Park, kommst du mit?
+Wir übernachten in der Jugendherberge!
+Camping am See war richtig schön.
+Im Museum haben wir den Ötzi gesehen.
+Tischtennis am Samstag? Ich bin dabei.
+Ostern fahren wir nach Österreich.
+Julia und ich gehen ins Theater.
+Yannik übt jeden Tag Querflöte.
+Im Hafen liegt eine weiße Yacht.
+Unser Comic ist fast fertig gezeichnet.
+Quatsch machen gehört auch dazu.
+Am Sonntag ist Turnier, wir sind dabei!
+Nach der Party lag überall Konfetti.
+Wir sollten öfter ins Kino gehen.
+Jakob hat ein neues Brettspiel.
+Tanzkurs ab Januar, machst du mit?
+Ein Clown kommt zu Lenas Geburtstag.
+Nächstes Mal klappt's bestimmt, Jakob!
+Ärgere dich nicht, ist nur ein Spiel!
+Österreich hat tolle Skipisten.
+Übermütig sprang Jonas ins Wasser.
+Hier ist Überholen verboten, Papa!
+Heute läuft der Ötzi-Film im Kino.
+Lea spielt jetzt Xylophon, sehr laut.
+Am Wochenende gibt's eine Überraschung.
+Das Ü-Ei war für meine kleine Schwester.
+Mit dem Chor geht es nach Österreich.
+Die Ölbilder im Museum waren riesig.
+
+## essen
+Quark mit Äpfeln und etwas Honig
+Tee mit Zitrone, bitte ohne Zucker.
+Curry mit Reis, dazu Joghurt-Soße.
+Heute gibt es Tomatensuppe zum Mittag.
+Es ist nur noch ein Croissant übrig.
+Ein Korb Äpfel und Quitten für Oma.
+Torte backen? Ich hole die Sahne.
+Cola oder Saft? Ich nehme Wasser.
+Überbackene Nudeln mit Käse, lecker!
+Ölsardinen mag ich überhaupt nicht.
+Chips und Dips für den Filmabend
+Der Joghurt ist leider abgelaufen.
+Äh, die Milch ist schon sauer.
+Erst Öl in die Pfanne, dann Zwiebeln.
+Tiramisu gibt's nur am Wochenende.
+Jeder bekommt ein Stück Torte.
+Für alle ein Teller Quarkkeulchen.
+Die Äpfel vom Markt sind richtig süß.
+
+## natur
+Über dem See zieht ein Gewitter auf.
+Am Waldrand sehe ich oft Rehe.
+Morgens liegt Tau auf der Wiese.
+Im Zoo gibt es jetzt zwei Yaks.
+Heute treiben Quallen am Strand.
+Für Kunst sammeln wir Tannenzapfen.
+Überall blühen jetzt die Kirschbäume.
+Unter den Schuhen knacken die Äste.
+Junge Enten schwimmen hinter der Mutter.
+Die Ölpest schadet den Vögeln am Meer.
+Guck mal, eine Taube am Fenster!
+Über dem Tal hängt dichter Nebel.
+Ein Bussard kreist über den Feldern.
+Im Juli waren wir im Ötztal wandern.
+Tulpen im Januar? Ganz schön früh.
+Die Ähren wiegen sich im warmen Wind.
+Im Zoo turnen die Äffchen herum.
+Der Flieder im Garten blüht üppig.
+Über Nacht ist der Teich zugefroren.
+Ein Igel überquert langsam den Weg.
+Auf den Äckern liegt noch Schnee.
+
+## gedanken
+Ärger bringt mir jetzt auch nichts.
+Ich sollte öfter mal Nein sagen.
+Über manches muss ich erst schlafen.
+Jetzt oder nie, oder doch morgen?
+Mir ging es auch schon mal ähnlich.
+Tief durchatmen, das wird schon.
+Der Tag lief überraschend gut.
+Chaos im Kopf, Ordnung auf dem Tisch.
+Jeder Fehler ist auch eine Chance.
+Ängste werden kleiner, wenn man redet.
+Trotzdem bleibe ich dabei.
+Ängstlich war ich nicht, nur müde.
+Ärger hält bei mir nie lange an.
+Öfter mal zuhören statt reden.
+Über Geld redet man ungern, oder?
+Den Überblick zu behalten ist schwer.
+Ohne Übung wird das nichts, also los!
+Meine Ängste waren völlig umsonst.
+Ohne Ärger geht es auch, oder?
+
+## rede
+"Übermorgen?", fragte Tante Jutta.
+"Tschüss, bis Juli!", rief Jonas.
+"Ärgere ihn nicht", sagte Mama.
+"Mach mal die Tür auf", bat Opa.
+"Quatsch!", lachte Charlotte.
+"Ja, ich komme gleich", rief Yasmin.
+"Worüber redet ihr?", fragte Tim.
+"Typisch Xaver", sagte Tante Uschi.
+"Das Öl ist alle", rief Papa.
+"Äpfel oder Birnen?", fragte Oma.
+"Über zwei Stunden!", stöhnte Clara.
+
+## englisch
+Thank you, Jack, that's very kind!
+Yes, the shop opens at seven.
+Can you text me the exact time?
+Tea or coffee? Just water, thanks.
+Quick question: is Jo coming too?
+
+## zeichen
+[ ] Quark und Joghurt kaufen
+[x] Termin beim Arzt ausgemacht
+Tom & Jana kommen um acht (mit Kuchen).
+Mo/Di: Chor; Do/Fr: Training
+@Jonas: Treffen wir uns am Kiosk?
+*seufz* Schon wieder Montag.
+Ingwer + Honig = mein Wintertee
+"Übrigens", sagte sie, "danke dir."
+Gibt's noch Tee? Ich hätt' gern einen.
+Notiz: [wichtig] Quittung abheften
+Chor & Orchester: Probe im Saal
+To-do: [ ] Jacke waschen [ ] Tee kaufen
+Theater_AG: Die Probe fällt aus!
+Übersicht: Einnahmen/Ausgaben im Juli
+*Tipp*: Quark kühlt bei Sonnenbrand.
+Tee (Kamille) hilft bei Übelkeit.
+Mama & Papa grüßen euch herzlich.
+Rezept: Mehl + Eier + Milch = Teig
+#Theater: Premiere am Freitag!
+#Klassenfahrt: Wir sind in Österreich!
+Kurz notiert: Brot; Quark; Joghurt
+@Yvonne: Danke für das Paket!
+Wie geht's? Ich hab' dich vermisst!
+Datei: Theater_Plakat_Juli speichern
+[erledigt] Überweisung an Vermieter
+Äpfel/Birnen: je ein Kilo, bitte.
+Dr. Yilmaz (Ärztin) hat heute frei.
+Akku 12 %, gleich ist das Handy aus.
+#Sommerferien: noch 9 Tage!
+Taxi-Gutschein (10 %) liegt im Flur.
+@Tim: Übermorgen ist wieder Chorprobe!
+@alle: Der Termin ist erst im Juli.
+@Xenia: Wann kommst du heute an?
+#Österreich: Tag 3, endlich Schnee!
+#Zeltlager: Übernachtung im Wald!
+*gähn* Schon wieder Mathe um acht.
+Ordner: Quittungen_Juli (Steuer)
+Datei: Übungen_Chemie_neu speichern
+Nur 15 % Akku, ich ruf dich gleich an.
+Ökostrom ist 20 % günstiger als gedacht.
+Übermorgen 30 % Rabatt auf Jacken!
+@Jakob: Täusch dich nicht, es regnet.
+Einkauf: Quark; Tee; Äpfel; Brot
+Hefte / Stifte / Jacke einpacken
+*Achtung*: Treppe ist frisch gewischt!
+Sport/Kunst tauschen wir; Mathe bleibt.
+Jacke = zu warm, Pulli = genau richtig
+Tom/Jana: Wer holt die Torte ab?
+Heute: Chemie; morgen: Sport; dann frei!
+Das war *echt* knapp, Jonas!
+Tschüss *wink* bis übermorgen!
+Mein Benutzername ist jana_2008.
+Datei: Referat_Klasse_7b.pdf
+WLAN: Gast_Netz, Passwort hängt im Flur
+Wetter: 85 % Regen, Schirm einpacken!
+Die Jacke ist um 40 % reduziert!
+Noch 70 % Akku, das reicht bis Köln.
+In Mathe eine 2+, juhu!
+Die E-Mail an jana@schule.de ist raus.
+Zimmer 7 oder 8? Ich weiß es nicht mehr.
+Ölwechsel (Auto) bis Freitag machen!
+
+## zahlen
+Termin: Do, 17.09., um 8:45 Uhr
+Übermorgen um 14:30 Uhr beim Chor
+Öffnungszeiten heute: 9:30 bis 18 Uhr
+Treffpunkt 18:45 Uhr, Gleis 9
+Tasche, Größe 36, für 29 €
+Quittung über 47,80 € aufheben
+Juli 2026: zwei Wochen Ferien am See
+Tee 2,50 €, Croissant 1,90 €
+Jacke 69 €, im Angebot nur 48 €
+Über 30 Grad im Schatten, puh!
+Nach Österreich: 8 Stunden, 2 Pausen
+Tür 3, Zimmer 207, zweiter Stock
+Chor-Probe jeden Mittwoch 19:15 Uhr
+Yoga um 6:45 Uhr? Viel zu früh!
+Bus 38 fährt um 7:12 Uhr ab.
+Quiz-Abend: Team 4 hat 86 Punkte.
+Training Di + Do, 17:30 bis 19 Uhr
+Ü18-Party am 25.10. im Club
+Äpfel: 3 kg für 4,79 €
+Das Taxi kommt um 23:50 Uhr.
+Oma wird am 9. Juni 70 Jahre alt.
+Xaver hat Platz 3 von 58 geholt.
+Ölwechsel bei 96.000 km fällig
+Theaterkarten: Reihe 7, Platz 13 und 14
+Bäcker am Markt: Montag ab 7:30 Uhr
+Übung 12 bis 16 als Hausaufgabe
+Gleis 6, Abfahrt 16:36 Uhr
+Ich bin 1,68 m groß, Jakob 1,76 m.
+Übung 6 auf Seite 64, bitte.
+Die 6 Eier kosten nur 2,16 €.
+Kino um 20:15 Uhr, Karten je 8,50 €
+Pizza für 4: zusammen 37,60 €
+Die S-Bahn kommt 17 Minuten später.
+Am 8. Juli fahren wir an die Ostsee.
+Die Klassenfahrt kostet 186 €.
+Haus Nr. 68, dritter Stock links
+Tschüss, bis 7 Uhr am Bahnhof!
+
+## freizeit
+Ömer kommt heute auch mit zum Fußball.
+Özlem hat 5 Tore geschossen, Wahnsinn!
+
+## zeichen
+*Freu* Am 8. Mai geht's nach Österreich!
+Noch 85 % Akku, wir können los.
+Österreich & Schweiz: 5 Tage Urlaub
+Ich + du = beste Freunde
+Mama & ich backen 58 Plätzchen.
+*hust* Ich bleib heute zu Hause.
+#Kochen: Öl, Knoblauch, Nudeln, fertig!
+Klasse 8b & 8c: Ausflug nach Österreich
+@Ömer: Bringst du den Ball mit?
+Ömer & Paul: Training um 18 Uhr
+Rabatt: 25 % auf alle Schulhefte
+#Schulfest: Kuchen & Waffeln für 1 €
+Ich hab *keine* Lust auf Mathe.
++1 für Pizza heute Abend!
+Nur 25 % der Klasse waren heute da.
+
+## zahlen
+Für den Kuchen: 6 Eier und 250 g Mehl
+Um 6:30 Uhr klingelt mein Wecker.
+
+## zeichen
+Gib's zu, das warst du zu 100 %!
+Ich bin zu 100 % dabei!
+Ich hab's zu 99 % fertig, versprochen.
+*Juhu* 100 % im Vokabeltest!
+Noch 1 % Akku *panik*
+Spielstand 1:1, gleich gibt's Elfmeter!
+Wir haben 5:1 gewonnen, wie toll!
