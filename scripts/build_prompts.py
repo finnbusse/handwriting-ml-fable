@@ -1,7 +1,29 @@
 #!/usr/bin/env python3
-"""Build web/prompts/de-core.json as prompt set de-core@4.
+"""Build web/prompts/de-core.json as prompt set de-core@5.
 
-Inputs (all in data/prompts/):
+de-core@5 is de-core@4 with two streams woven in after the frozen positions 1-160:
+  eszett.txt  ordinary sentences with ß (the recordings held 29 ß in all), ids
+              de-core-2808 .. 2880 in file order (ESZETT_IDS);
+  rows.txt    4-6 unrelated words or numbers per line, ids de-core-2881 .. 3252 in
+              file order (ROW_IDS).  They replace about 1,400 older single-word
+              recordings in an older, untidier hand (training cuts a row into its
+              words); the first rows pack the scarcest characters densely.  The
+              first 15 rows (positions 161-220) are picked so that those 60 prompts
+              keep the focus minimums (NEXT_LINES, NEXT_SHORT); two number rows
+              sit two and three rows later than planned, so that no block has more
+              than MAX_DIGIT_LINES lines with digits; and eight rows with a capital
+              umlaut changed places with plain rows of blocks 34-71, where the
+              thinned-out main sequence left two blocks in a row without one.
+In every block after the frozen ones, slots ROW_SLOTS hold the next rows and
+ESZETT_SLOTS the next ß sentences while each stream lasts; every other slot (and a
+stream's slots once it is used up) holds the next prompt of de-core@4 from position
+161 on, in its order.  Removing the stream entries gives de-core@4 back exactly: the
+de-core@4 order below is rebuilt and compared byte for byte with the snapshot
+data/prompts/de-core@4.json.  Stream lines are checked for whitespace, alphabet,
+length and exact duplicates; ß sentences also for near-duplicates of every other
+sentence.  The rest of this text describes how de-core@4 was ordered.
+
+Inputs of de-core@4 (all in data/prompts/):
   de-core@2.json  snapshot of the 800 prompts of de-core@2 (ids de-core-0001..0800).
                   Ids and texts never change; positions 1-160 (blocks 1-8) are
                   copied byte-for-byte, because the writer had written them all.
@@ -85,8 +107,24 @@ SNAPSHOT_PATH = DATA / "de-core@2.json"
 SNAPSHOT3_PATH = DATA / "de-core@3.json"
 ADDITIONS_PATH = DATA / "additions.txt"
 POOL_PATH = DATA / "pool.txt"
+SNAPSHOT4_PATH = DATA / "de-core@4.json"
+ESZETT_PATH = DATA / "eszett.txt"
+ROWS_PATH = DATA / "rows.txt"
 
-SET_NAME = "de-core@4"
+SET_NAME = "de-core@5"
+MAIN_SET = "de-core@4"
+N_MAIN = 2807           # prompts of de-core@4, the main sequence
+ESZETT_IDS = (2808, 2880)   # ß sentences, first and last id number
+ROW_IDS = (2881, 3252)      # word rows, first and last id number
+ROW_SLOTS = (3, 7, 11, 15, 19)   # slots (1-20) of a block for rows: a quarter of the block,
+ESZETT_SLOTS = (5, 13)           # ß sentences in between, never two stream lines side by side
+# lines the writer's next 60 prompts (positions 161-220) hold at least, besides the phase-A focus
+# minimums of de-core@4 (FOCUS): Ä Ö Ü at a word start and Q X Y C J as there, ß in a quarter
+NEXT_LINES = {"ß": 15, "Ä-": 10, "Ö-": 10, "Ü-": 10, "Q": 6, "X": 6, "Y": 6, "C": 6, "J": 6}
+# what those 60 prompts reach where they stay below a minimum: 21 of the 60 slots go to the
+# streams, rows carry no signs and only two rows a capital X (both among the first 15).  A floor,
+# so that a change can only make them better
+NEXT_SHORT = {"X": 5, "#": 2, "%": 0, "&": 2, "'": 2, "*": 2, "/": 1, "@": 1, "€": 2}
 N_OLD = 800             # prompts of de-core@2, ids 0001-0800
 N_FROZEN = 160          # positions 1-160 stay exactly where they are (all written); progress is
                         # tracked by id, so anything later may move
@@ -361,10 +399,24 @@ def entry_text(pid: str, text: str, lang: str, block: int) -> str:
             % (pid, json.dumps(text, ensure_ascii=False), lang, block))
 
 
-def render(entries) -> str:
+def stream_ranges() -> dict:
+    """The "streams" field of the file: {name: [first id, last id]}."""
+    return {name: [f"de-core-{a:04d}", f"de-core-{b:04d}"]
+            for name, (a, b) in (("eszett", ESZETT_IDS), ("rows", ROW_IDS))}
+
+
+def render(entries, set_name=SET_NAME, streams=True) -> str:
     """entries: list of (id, text, lang) in order; block = (index // 20) + 1."""
     parts = [entry_text(pid, t, lang, i // BLOCK + 1) for i, (pid, t, lang) in enumerate(entries)]
-    return '{\n"set": "%s",\n"prompts": [\n' % SET_NAME + ",\n".join(parts) + "\n]\n}"
+    head = '{\n"set": "%s",\n' % set_name
+    if streams:
+        head += '"streams": %s,\n' % json.dumps(stream_ranges())
+    return head + '"prompts": [\n' + ",\n".join(parts) + "\n]\n}"
+
+
+def body(text: str) -> str:
+    """The file text from the first prompt on (without the header fields)."""
+    return text.split('"prompts": [\n', 1)[1]
 
 
 # ---------------------------------------------------------------- inputs
@@ -429,12 +481,76 @@ def prev_open():
     return [(p["id"], p["text"]) for p in data["prompts"][N_FROZEN:] if p["id"] not in WRITTEN]
 
 
+def read_lines(path):
+    return [t for t in path.read_text(encoding="utf-8").split("\n") if t]
+
+
+def row_category(text: str) -> str:
+    return "zahlen" if is_digit_heavy(text) else "wörter"
+
+
+def read_streams(main_texts):
+    """Returns (eszett [(id, text, lang, cat)], rows [...]).  Raises on a line that breaks a
+    rule: ids are given in file order, so a bad line is fixed in the file, never skipped."""
+    seen = set(main_texts)
+    compare = SimIndex()
+    for t in main_texts:
+        compare.add(t)
+    out = {}
+    num = ESZETT_IDS[0]
+    for name, path in (("eszett", ESZETT_PATH), ("rows", ROWS_PATH)):
+        out[name] = []
+        for text in read_lines(path):
+            where = f"{path.name}: {text!r}"
+            if text != text.strip() or "  " in text:
+                raise ValueError(f"{where}: stray whitespace")
+            if any(ch not in DEFAULT_CHARSET for ch in text):
+                raise ValueError(f"{where}: character outside the model alphabet")
+            if not MIN_LEN <= len(text) <= MAX_LEN:
+                raise ValueError(f"{where}: length {len(text)} outside {MIN_LEN}-{MAX_LEN}")
+            if text in seen:
+                raise ValueError(f"{where}: duplicate")
+            seen.add(text)
+            if name == "eszett":
+                hits = compare.matches(text)
+                if hits:
+                    raise ValueError(f"{where}: near-duplicate of {compare.texts[hits[0]]!r}")
+                compare.add(text)
+                cat = derived_category(text, "de")
+            else:
+                cat = row_category(text)
+            out[name].append((f"de-core-{num:04d}", text, "de", cat))
+            num += 1
+    for name, (a, b) in (("eszett", ESZETT_IDS), ("rows", ROW_IDS)):
+        got = (int(out[name][0][0][-4:]), int(out[name][-1][0][-4:]))
+        assert got == (a, b), f"{name}: ids {got}, the constants say {(a, b)}"
+    return out["eszett"], out["rows"]
+
+
+def weave(main, eszett, rows, start=N_FROZEN):
+    """main, eszett, rows: lists of entries; main starts at position start + 1.  Returns the
+    woven list from position start + 1 on (see the module text)."""
+    streams = [(ROW_SLOTS, list(rows)), (ESZETT_SLOTS, list(eszett))]
+    main = list(main)
+    out = []
+    while main or any(s for _, s in streams):
+        slot = (start + len(out)) % BLOCK + 1
+        src = next((s for slots, s in streams if slot in slots and s), None)
+        if src is None:
+            src = main or next(s for _, s in streams if s)
+        out.append(src.pop(0))
+    return out
+
+
 def categories():
     """{id: category} for every prompt of the set (used by check_prompts.py)."""
     old = load_snapshot()
     accepted, _ = accept_additions([p["text"] for p in old])
     cats = {p["id"]: derived_category(p["text"], p["lang"]) for p in old}
     cats.update({pid: cat for pid, _, _, cat in accepted})
+    main = json.loads(SNAPSHOT4_PATH.read_text(encoding="utf-8"))["prompts"]
+    for s in read_streams([p["text"] for p in main]):
+        cats.update({pid: cat for pid, _, _, cat in s})
     return cats
 
 
@@ -731,7 +847,8 @@ def print_rare_table(texts, start, stop, step=100):
 
 # ---------------------------------------------------------------- main
 def build():
-    """Returns (file text, entries [(id, text, lang)], accepted, dropped, stats)."""
+    """Returns (file text, entries [(id, text, lang)], accepted, dropped, stats); stats also
+    holds "main" (the de-core@4 entries) and "eszett", "rows" (the stream entries)."""
     old = load_snapshot()
     accepted, dropped = accept_additions([p["text"] for p in old])
     frozen = [(p["id"], p["text"], p["lang"]) for p in old[:N_FROZEN]]
@@ -740,7 +857,14 @@ def build():
     last = frozen[-1]
     ordered, st = order_region(region, [t for _, t, _ in frozen],
                                before=(derived_category(last[1], last[2]), first_word(last[1])))
-    entries = frozen + [(pid, t, lang) for pid, t, lang, _ in ordered]
+    main = frozen + [(pid, t, lang) for pid, t, lang, _ in ordered]
+    assert len(main) == N_MAIN, f"de-core@4 order has {len(main)} prompts, expected {N_MAIN}"
+    assert render(main, MAIN_SET, streams=False) == SNAPSHOT4_PATH.read_text(encoding="utf-8"), \
+        "the de-core@4 order is not reproduced (data/prompts/de-core@4.json)"
+    eszett, rows = read_streams([t for _, t, _ in main])
+    strip = lambda es: [e[:3] for e in es]  # noqa: E731
+    entries = frozen + weave(main[N_FROZEN:], strip(eszett), strip(rows))
+    st.update(main=main, eszett=eszett, rows=rows)
     return render(entries), entries, accepted, dropped, st
 
 
@@ -756,6 +880,24 @@ def print_focus(texts):
               + f"  lines with digits: {dl} of {hi - lo}")
 
 
+def next_counts(texts) -> Counter:
+    """focus_counts plus lines with ß."""
+    c = focus_counts(texts)
+    c["ß"] = sum("ß" in t for t in texts)
+    return c
+
+
+def next_targets() -> dict:
+    """{unit: minimum} over the writer's next FOCUS_A prompts of de-core@5 (positions 161-220):
+    the phase-A minimums of de-core@4 and NEXT_LINES."""
+    return dict(focus_minimums()[0], **NEXT_LINES)
+
+
+def print_next(texts):
+    c, m = next_counts(texts[N_FROZEN:N_FROZEN + FOCUS_A]), next_targets()
+    print(f"  {N_FROZEN + 1}-{N_FROZEN + FOCUS_A}: " + " ".join(f"{k}:{c[k]}/{v}" for k, v in m.items()))
+
+
 def main() -> int:
     dry = "--dry-run" in sys.argv
     out, entries, accepted, dropped, st = build()
@@ -765,11 +907,12 @@ def main() -> int:
         assert pid not in prev or prev[pid] == (t, lang), f"{pid} changed against de-core@3"
     assert set(prev) <= {pid for pid, _, _ in entries}, "a prompt of de-core@3 is missing"
 
-    # the first 160 entries must be byte-identical to de-core@2 (apart from the header line)
-    snap_body = SNAPSHOT_PATH.read_text(encoding="utf-8").split("\n", 3)[3]
-    out_body = out.split("\n", 3)[3]
+    # the first 160 entries must be byte-identical to de-core@2 (apart from the header lines)
+    snap_body = body(SNAPSHOT_PATH.read_text(encoding="utf-8"))
     head = ",\n".join(entry_text(pid, t, lang, i // BLOCK + 1) for i, (pid, t, lang) in enumerate(frozen))
-    assert snap_body.startswith(head) and out_body.startswith(head), "positions 1-160 are not reproduced"
+    assert snap_body.startswith(head) and body(out).startswith(head), "positions 1-160 are not reproduced"
+    stream_ids = {e[0] for e in st["eszett"] + st["rows"]}
+    assert [e for e in entries if e[0] not in stream_ids] == st["main"], "the main sequence is disturbed"
     if not dry:
         JSON_PATH.write_text(out, encoding="utf-8")
 
@@ -778,16 +921,22 @@ def main() -> int:
           f"(ids de-core-{N_OLD + 1:04d}..de-core-{N_OLD + len(accepted):04d}), {len(dropped)} dropped")
     for t, why in dropped:
         print(f"  dropped {t!r}: {why}")
+    print(f"de-core@4 order reproduced ({N_MAIN} prompts); streams: {len(st['eszett'])} ß sentences "
+          f"{st['eszett'][0][0]}..{st['eszett'][-1][0]}, {len(st['rows'])} word rows "
+          f"{st['rows'][0][0]}..{st['rows'][-1][0]}")
+    pos = {pid: i + 1 for i, (pid, _, _) in enumerate(entries)}
+    print(f"  ß sentences at positions {pos[st['eszett'][0][0]]}-{pos[st['eszett'][-1][0]]}, "
+          f"rows at {pos[st['rows'][0][0]]}-{pos[st['rows'][-1][0]]}")
     print(f"written {JSON_PATH.relative_to(ROOT)}: {len(texts)} prompts, "
           f"{math.ceil(len(texts) / BLOCK)} blocks, set {SET_NAME}" + (" (dry run, not written)" if dry else ""))
-    print("variety rules relaxed (by level): " + (", ".join(f"{k}:{v}" for k, v in sorted(st["relaxed"].items())) or "never"))
-    print("rare-character schedules (offered from position 1):")
-    for ch, sc in st["schedules"].items():
-        print(f"  {ch}: had {sc.have0} by position {N_FROZEN + sc.start}, supply {sc.supply} after it, "
-              f"goal {sc.t1} by position {N_FROZEN + sc.start + sc.p1}")
+    print("de-core@4 order: variety rules relaxed (by level): "
+          + (", ".join(f"{k}:{v}" for k, v in sorted(st["relaxed"].items())) or "never"))
     print("rare characters per 100 prompts:")
     print_rare_table(texts, 0, len(texts))
-    print_focus(texts)
+    print("de-core@4 order (the main sequence):")
+    print_focus([t for _, t, _ in st["main"]])
+    print(f"{SET_NAME}, the writer's next {FOCUS_A} prompts:")
+    print_next(texts)
     return 0
 
 

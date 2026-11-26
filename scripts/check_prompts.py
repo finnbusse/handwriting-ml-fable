@@ -1,32 +1,52 @@
 #!/usr/bin/env python3
-"""Verify web/prompts/de-core.json (de-core@4) against docs/SPEC.md section 2.4 and
+"""Verify web/prompts/de-core.json (de-core@5) against docs/SPEC.md section 2.4 and
 print coverage.
 
+de-core@5 is the order of de-core@4 (the main sequence) with two streams woven in
+(build_prompts.py): ß sentences (data/prompts/eszett.txt) and word rows
+(data/prompts/rows.txt).  Unless a rule says otherwise, "positions" are those of
+de-core@5 and "blocks" its blocks.
+
 Rules
-  format      set name, fields id/text/lang/block, block = (position - 1) // 20 + 1,
-              ids de-core-0001 .. de-core-NNNN each exactly once.
+  format      set name, top-level fields set/streams/prompts, "streams" holds the id
+              ranges build_prompts.ESZETT_IDS and ROW_IDS, fields id/text/lang/block,
+              block = (position - 1) // 20 + 1, ids de-core-0001 .. de-core-NNNN each
+              exactly once.
+  streams     the ids of each range are the lines of its file in file order (text,
+              lang de); without them the set is de-core@4 exactly (ids, texts, langs,
+              order), checked against data/prompts/de-core@4.json and that against its
+              git commit; from position 161 on, slots ROW_SLOTS of every block hold the
+              next row and slots ESZETT_SLOTS the next ß sentence while that stream
+              lasts, all other slots the main sequence.
   history     ids 0001-0800 keep text and lang of de-core@2: checked against the
               snapshot data/prompts/de-core@2.json, and the snapshot against the git
               commit that published de-core@2 (when git is available).  Every id of
               de-core@3 keeps its text and lang: checked against the snapshot
               data/prompts/de-core@3.json, and that against its git commit.
-              Positions 1-160 are exactly those of de-core@2.  Ids from 0801 on are
+              Positions 1-160 are exactly those of de-core@2.  Ids 0801-2807 are
               exactly the accepted lines of data/prompts/additions.txt.
   lines       18-40 characters, model alphabet only, no stray whitespace.
-  duplicates  no two lines equal ignoring case and punctuation; no near-duplicates:
-              pairs inside ids 0001-0800 with the de-core@2 rule (only pairs that
-              involve ids 0161-0800), every pair that involves an addition with the
+  duplicates  no two texts equal; word rows only that.  Among the sentences: no two
+              equal ignoring case and punctuation; no near-duplicates: pairs inside ids
+              0001-0800 with the de-core@2 rule (only pairs that involve ids
+              0161-0800), every pair that involves an addition or a ß sentence with the
               de-core@3 rule (build_prompts.similar).
-  variety     from position 161 on: no two neighbours of the same category or with
-              the same first word; at most one digit-heavy line (3+ digits) among any
-              four neighbours and at most four per block; at most six lines with a digit
-              per block; at most two English lines per block; every full block has >= 2
-              lines of <= 28 and >= 2 lines of >= 37 characters.
-  focus       positions 161-220 reach every target of build_prompts.FOCUS, positions
-              221-420 half that rate, and neither falls below what de-core@3 offered over
-              the same number of open prompts (build_prompts.focus_minimums); the prompts
-              in build_prompts.WRITTEN and the next build_prompts.NEXT_IN_LINE open
-              prompts of de-core@3 are not in positions 161-420.
+  variety     the main sequence from its position 161 on: no two neighbours of the
+              same category or with the same first word; at most one digit-heavy line
+              (3+ digits) among any four neighbours.  Blocks from 9 on (number rows are
+              digit-heavy): at most four digit-heavy lines and six lines with a digit;
+              at most two English lines.  Reported, not required: neighbours in the
+              woven order that break the neighbour rules next to a stream line, and
+              blocks with fewer than 2 lines of <= 28 or 2 of >= 37 characters (the
+              main sequence has them per block of its own; rows are mostly long).
+  focus       the main sequence: its positions 161-220 reach every target of
+              build_prompts.FOCUS, 221-420 half that rate, and neither falls below what
+              de-core@3 offered over the same number of open prompts
+              (build_prompts.focus_minimums).  Positions 161-220 of de-core@5 reach
+              build_prompts.next_targets(), or for the units in NEXT_SHORT at least
+              that.  The prompts in build_prompts.WRITTEN and the next
+              build_prompts.NEXT_IN_LINE open prompts of de-core@3 are not in positions
+              161-420 (of either order).
   coverage    from position 161 on: while Ä, Ö or Ü has been offered fewer than 30 times
               (counted from position 1 at the start of the block), the block contains it,
               and such blocks have >= 3 capital umlauts; never two blocks in a row
@@ -55,6 +75,7 @@ import build_prompts as B  # noqa: E402
 
 SNAPSHOT_COMMIT = "41764891cce494e7af75bd99bc7c0eeb0dff6b47"   # published de-core@2
 SNAPSHOT3_COMMIT = "20b44f18ff02420068236d68c4ac39a26f295a1c"  # published de-core@3
+SNAPSHOT4_COMMIT = "13c3a1bac72bb606828aa0e3f1d1803b996f6df1"  # published de-core@4
 BLOCK = B.BLOCK
 N_OLD, N_FROZEN, N_V1 = B.N_OLD, B.N_FROZEN, 160
 UMLAUTS = "äöüÄÖÜß"
@@ -137,6 +158,55 @@ def check_history(prompts, errs):
     return snap, {pid: cat for pid, _, _, cat in accepted}
 
 
+def check_streams(data, prompts, errs):
+    """Returns (main prompts in their order, eszett ids, row ids, {id: category} of the streams)."""
+    compare_with_git(B.SNAPSHOT4_PATH, SNAPSHOT4_COMMIT, B.MAIN_SET, errs)
+    main4 = json.loads(B.SNAPSHOT4_PATH.read_text(encoding="utf-8"))["prompts"]
+    if set(data) != {"set", "streams", "prompts"}:
+        errs.append(f"top-level fields must be set, streams, prompts (got {sorted(data)})")
+    if data.get("streams") != B.stream_ranges():
+        errs.append(f"streams {data.get('streams')!r}, expected {B.stream_ranges()!r}")
+    try:
+        eszett, rows = B.read_streams([p["text"] for p in main4])
+    except (ValueError, AssertionError) as e:
+        errs.append(f"stream files: {e}")
+        return main4, set(), set(), {}
+    by_id = {p.get("id"): p for p in prompts}
+    for (a, b), lines in ((B.ESZETT_IDS, eszett), (B.ROW_IDS, rows)):
+        if len(lines) != b - a + 1:
+            errs.append(f"ids {a}-{b}: {b - a + 1} ids for {len(lines)} lines")
+        for pid, text, lang, _ in lines:
+            p = by_id.get(pid)
+            if p is None or (p.get("text"), p.get("lang")) != (text, lang):
+                errs.append(f"{pid}: expected {text!r}/{lang}, got {p and (p.get('text'), p.get('lang'))!r}")
+    esz_ids, row_ids = [e[0] for e in eszett], [e[0] for e in rows]
+    stream = set(esz_ids) | set(row_ids)
+    main = [p for p in prompts if p.get("id") not in stream]
+    strip = lambda p: (p.get("id"), p.get("text"), p.get("lang"))  # noqa: E731
+    if [strip(p) for p in main] != [strip(p) for p in main4]:
+        k = next((i for i, (x, y) in enumerate(zip(main, main4)) if strip(x) != strip(y)), min(len(main), len(main4)))
+        errs.append(f"without the streams the set is not {B.MAIN_SET}: first difference at its position {k + 1}")
+    # weaving: slot by slot from position 161
+    queues = [(B.ROW_SLOTS, list(row_ids), "row"), (B.ESZETT_SLOTS, list(esz_ids), "ß sentence")]
+    main_left = len(main) - N_FROZEN
+    for i in range(N_FROZEN, len(prompts)):
+        slot = i % BLOCK + 1
+        pid = prompts[i].get("id")
+        want = next(((q, name) for slots, q, name in queues if slot in slots and q), None)
+        if want is not None and want[0][0] != pid:
+            errs.append(f"#{i + 1} (slot {slot}): expected {want[1]} {want[0][0]}, got {pid}")
+        elif want is None and pid in stream and main_left:
+            errs.append(f"#{i + 1} (slot {slot}): {pid} is a stream line in a slot of the main sequence")
+        main_left -= pid not in stream
+        for _, q, _ in queues:
+            if q and q[0] == pid:
+                q.pop(0)
+    for p in prompts[:N_FROZEN]:
+        if p.get("id") in stream:
+            errs.append(f"{p['id']}: a stream line in the frozen positions 1-{N_FROZEN}")
+    return main4, set(esz_ids), set(row_ids), {pid: cat for pid, _, _, cat in eszett + rows}
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     path = Path(args[0]) if args else B.JSON_PATH
@@ -182,30 +252,37 @@ def main():
     if n % BLOCK:
         print(f"note: last block {n // BLOCK + 1} has {n % BLOCK} lines")
 
-    # ---- history
+    # ---- history and streams
     snap, new_cats = check_history(prompts, errs)
+    main4, esz_ids, row_ids, stream_cats = check_streams(data, prompts, errs)
+    new_cats.update(stream_cats)
     texts = [p.get("text", "") for p in prompts]
     langs = [p.get("lang") for p in prompts]
     num = [int(p["id"][-4:]) if str(p.get("id", "")).startswith("de-core-") else 0 for p in prompts]
     cats = [new_cats.get(p.get("id")) or B.derived_category(p.get("text", "") or " ", p.get("lang")) for p in prompts]
+    is_row = [p.get("id") in row_ids for p in prompts]
+    is_stream = [p.get("id") in esz_ids or r for p, r in zip(prompts, is_row)]
 
-    # ---- duplicates
+    # ---- duplicates (exact texts above; the rest for sentences only)
     keys = [B.norm_key(t) for t in texts]
     byk = {}
     for i, k in enumerate(keys):
-        byk.setdefault(k, []).append(i)
+        if not is_row[i]:
+            byk.setdefault(k, []).append(i)
     for k, idx in byk.items():
         if len(idx) > 1 and max(num[i] for i in idx) > N_V1:
             errs.append("duplicate lines ignoring case/punctuation: " + ", ".join(f"#{i + 1}" for i in idx))
     wsets = [B.word_set(t) for t in texts]
     old_idx = [i for i in range(n) if num[i] <= N_OLD]
-    new_idx = [i for i in range(n) if num[i] > N_OLD]
+    new_idx = [i for i in range(n) if num[i] > N_OLD and not is_stream[i]]
     for a in old_idx:
         for b in old_idx:
             if num[a] < num[b] and num[b] > N_V1 and keys[a] != keys[b] and B.near_duplicate(wsets[a], wsets[b]):
                 errs.append(f"#{b + 1} is a near-duplicate of #{a + 1}: {texts[b]!r} / {texts[a]!r}")
     index, pos_of = B.SimIndex(), []
     for i in sorted(range(n), key=lambda i: num[i]):          # in id order
+        if is_row[i]:
+            continue
         if num[i] > N_OLD:
             for j in index.matches(texts[i]):
                 a = pos_of[j]
@@ -214,18 +291,32 @@ def main():
         index.add(texts[i])
         pos_of.append(i)
 
-    # ---- variety (after the frozen positions)
+    # ---- variety: neighbours in the main sequence (after its frozen positions)
+    mt = [p["text"] for p in main4]
+    mcat = [new_cats.get(p["id"]) or B.derived_category(p["text"], p["lang"]) for p in main4]
+    mfw = [B.first_word(t) for t in mt]
+    mdh = [B.is_digit_heavy(t) for t in mt]
+    for i in range(N_FROZEN, len(mt)):
+        where = f"{B.MAIN_SET} #{i}/#{i + 1}"
+        if mcat[i] == mcat[i - 1]:
+            errs.append(f"{where}: two neighbours of category {mcat[i]!r}: {mt[i - 1]!r} / {mt[i]!r}")
+        if mfw[i] == mfw[i - 1]:
+            errs.append(f"{where}: both start with {mfw[i]!r}")
+        if mdh[i] and any(mdh[max(N_FROZEN, i - B.DIGIT_WINDOW + 1):i]):
+            errs.append(f"{B.MAIN_SET} #{i + 1}: digit-heavy line within {B.DIGIT_WINDOW} of another: {mt[i]!r}")
+    # neighbours in the woven order next to a stream line: reported only
     fw = [B.first_word(t) for t in texts]
     dh = [B.is_digit_heavy(t) for t in texts]
     lc = [B.length_class(t) for t in texts]
-    for i in range(N_FROZEN, n):
-        if cats[i] == cats[i - 1]:
-            errs.append(f"#{i}/#{i + 1}: two neighbours of category {cats[i]!r}: {texts[i - 1]!r} / {texts[i]!r}")
-        if fw[i] == fw[i - 1]:
-            errs.append(f"#{i}/#{i + 1}: both start with {fw[i]!r}")
-        if dh[i] and any(dh[max(N_FROZEN, i - B.DIGIT_WINDOW + 1):i]):
-            errs.append(f"#{i + 1}: digit-heavy line within {B.DIGIT_WINDOW} of another: {texts[i]!r}")
+    seam = Counter()
+    for i in range(N_FROZEN + 1, n):
+        if is_stream[i] or is_stream[i - 1]:
+            seam["category"] += cats[i] == cats[i - 1]
+            seam["first word"] += fw[i] == fw[i - 1]
+        if dh[i] and any(dh[max(N_FROZEN, i - B.DIGIT_WINDOW + 1):i]) and any(is_stream[max(N_FROZEN, i - B.DIGIT_WINDOW + 1):i + 1]):
+            seam["digit-heavy within 4"] += 1
     blocks = range(N_FROZEN // BLOCK, (n + BLOCK - 1) // BLOCK)
+    short_long = []
     for b in blocks:
         sl = range(b * BLOCK, min(n, (b + 1) * BLOCK))
         if sum(dh[i] for i in sl) > B.MAX_DIGIT_BLOCK:
@@ -237,7 +328,7 @@ def main():
         if len(sl) == BLOCK:
             ns, nl = sum(lc[i] == "short" for i in sl), sum(lc[i] == "long" for i in sl)
             if ns < B.MIN_SHORT or nl < B.MIN_LONG:
-                errs.append(f"block {b + 1}: {ns} short / {nl} long lines, need >= {B.MIN_SHORT} / {B.MIN_LONG}")
+                short_long.append(f"{b + 1} ({ns}/{nl})")
     # English in the frozen blocks (unchanged rule of de-core@2)
     for b in range(N_FROZEN // BLOCK):
         k = langs[b * BLOCK:(b + 1) * BLOCK].count("en")
@@ -271,20 +362,26 @@ def main():
         if early[ch] < want:
             errs.append(f"'{ch}' offered {early[ch]}x in positions 1-{COVERAGE_BY}, need >= {want}")
 
-    # ---- focus
+    # ---- focus: the main sequence as de-core@4 guaranteed it, then the writer's next prompts
     a0, a1, b1 = N_FROZEN, N_FROZEN + B.FOCUS_A, N_FROZEN + B.FOCUS_A + B.FOCUS_B
     for (lo, hi), minimum in zip(((a0, a1), (a1, b1)), B.focus_minimums()):
-        c = B.focus_counts(texts[lo:hi])
+        c = B.focus_counts(mt[lo:hi])
         for k, m in minimum.items():
             if c[k] < m:
-                errs.append(f"positions {lo + 1}-{hi}: focus unit {k!r} {c[k]}x, need >= {m}")
-    for i in range(a0, min(n, b1)):
-        if prompts[i].get("id") in B.WRITTEN:
-            errs.append(f"#{i + 1}: {prompts[i]['id']} is already written, must not be in positions {a0 + 1}-{b1}")
+                errs.append(f"{B.MAIN_SET} positions {lo + 1}-{hi}: focus unit {k!r} {c[k]}x, need >= {m}")
+    c = B.next_counts(texts[a0:a1])
+    for k, m in B.next_targets().items():
+        m = B.NEXT_SHORT.get(k, m)
+        if c[k] < m:
+            errs.append(f"positions {a0 + 1}-{a1}: unit {k!r} {c[k]}x, need >= {m}")
     next_ids = {pid for pid, _ in B.prev_open()[:B.NEXT_IN_LINE]}
-    for i in range(a0, min(n, b1)):
-        if prompts[i].get("id") in next_ids:
-            errs.append(f"#{i + 1}: {prompts[i]['id']} is next in line in de-core@3, must not be in positions {a0 + 1}-{b1}")
+    for label, seq in ((B.MAIN_SET + " ", main4), ("", prompts)):
+        for i in range(a0, min(len(seq), b1)):
+            pid = seq[i].get("id")
+            if pid in B.WRITTEN:
+                errs.append(f"{label}#{i + 1}: {pid} is already written, must not be in positions {a0 + 1}-{b1}")
+            if pid in next_ids:
+                errs.append(f"{label}#{i + 1}: {pid} is next in line in de-core@3, must not be in positions {a0 + 1}-{b1}")
 
     # ---- early lines (frozen, rules of de-core@1/@2)
     b12, b100 = texts[:40], texts[:100]
@@ -317,7 +414,8 @@ def main():
             print("reproduced byte for byte by build_prompts.py")
 
     # ---- report
-    print(f"{path.name}: {n} prompts ({len(new_idx)} added after de-core@2), "
+    print(f"{path.name}: {n} prompts ({len(new_idx)} sentences added after de-core@2, "
+          f"{len(esz_ids)} ß sentences, {len(row_ids)} word rows), "
           f"{langs.count('en')} english, lengths {min(map(len, texts))}-{max(map(len, texts))}")
     print("categories from position 161: " + " ".join(f"{k}:{v}" for k, v in sorted(Counter(cats[N_FROZEN:]).items())))
     print(f"all {n}")
@@ -333,7 +431,17 @@ def main():
         print(f"  {label:<10}" + " ".join(f"{ch}:{c[ch]}" for ch in B.RARE))
     print("rare characters per 100 prompts:")
     B.print_rare_table(texts, 0, n)
-    B.print_focus(texts)
+    print(f"{B.MAIN_SET} order (the main sequence):")
+    B.print_focus(mt)
+    print(f"{B.SET_NAME}, the writer's next {B.FOCUS_A} prompts (count/minimum; floors from NEXT_SHORT: "
+          + " ".join(f"{k}:{v}" for k, v in B.NEXT_SHORT.items()) + "):")
+    B.print_next(texts)
+    print("reported, not required: neighbours next to a stream line with the same "
+          + ", ".join(f"{k}: {v}" for k, v in seam.items() if k != "digit-heavy within 4")
+          + f"; digit-heavy lines within {B.DIGIT_WINDOW} of another with a stream line among them: "
+          + str(seam["digit-heavy within 4"]))
+    print(f"reported, not required: blocks with < {B.MIN_SHORT} short or < {B.MIN_LONG} long lines "
+          f"(short/long): {len(short_long)}: " + ", ".join(short_long))
     first30 = {}
     run = Counter()
     for i, t in enumerate(texts):
