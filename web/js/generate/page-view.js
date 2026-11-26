@@ -112,6 +112,7 @@ export function createPageView(deps) {
   function relayout() {
     const r = P.run;
     P.done.clear();
+    P.stale = false;
     if (!r) { P.doc = layoutDocument({ paragraphs: [], pieces: [] }, [], docSettings()); return; }
     // The typical size is fixed as soon as the first pieces are there: from then on
     // nothing shown moves while the rest arrives, and a rewrite moves nothing before it.
@@ -225,7 +226,7 @@ export function createPageView(deps) {
 
   function paint() {
     if (!P.visible || !P.active) return;
-    if (!P.doc) relayout();
+    if (!P.doc || P.stale) { relayout(); sync(); }
     const doc = P.doc;
     const n = Math.max(1, doc.pages.length);
     frames(n);
@@ -269,6 +270,9 @@ export function createPageView(deps) {
       for (const [k, n] of left) if (n) gone.push(f.drawn.get(k).box);
       dirty = disjoint([...gone, ...added.filter((it) => it.band).map((it) => it.box)]);
       if (dirty.reduce((a, b) => a + (b[2] - b[0]) * (b[3] - b[1]), 0) > REGION_MAX * o.pw * o.ph) fresh = true;
+      // a plain text redraws its whole page whenever something went, as it always did:
+      // a clipped region would change the edge pixels of the ink it cuts
+      if (!o.doc.rich && dirty.length) fresh = true;
     }
     const steps = [];
     if (fresh) {
@@ -425,8 +429,10 @@ export function createPageView(deps) {
 
   // The note line holds a message (an error, "Abgebrochen", a cut paste) and after it what
   // the marks of the text written could not do; either goes without the other.
+  // A note is one short sentence; the format it names already stands beside the button.
+  const sentence = (s) => { const t = s.replace(/^(Markdown|LaTeX): /, ''); return t.charAt(0).toUpperCase() + t.slice(1) + (/[.…]$/.test(t) ? '' : '.'); };
   const showNote = () => {
-    const text = [P.message, ...P.notes].filter(Boolean).join(' ');
+    const text = [P.message, ...P.notes].filter(Boolean).map(sentence).join(' ');
     el.note.textContent = text; el.note.hidden = !text;
   };
   const note = (text) => { P.message = text || ''; showNote(); };
@@ -480,7 +486,9 @@ export function createPageView(deps) {
       if (r !== P.run || r.version[i]) return;            // replaced meanwhile by a rewrite
       r.written[i] = w;
       r.done = r.written.filter(Boolean).length;
-      relayout();
+      // laid out once per frame, not once per piece: a 2-page document takes 9 ms (Node)
+      // to lay out, and 3-4 engines often finish within the same frame
+      P.stale = true;
       sync();
       schedule();
     }));
@@ -631,7 +639,8 @@ export function createPageView(deps) {
     const f = text.trim() ? source(text).format : 'text';
     el.detected.textContent = FORMAT_NAMES[f] || '';
   }
-  const detectSoon = () => { clearTimeout(detectTimer); detectTimer = setTimeout(detect, 250); };
+  // a long text waits longer: one parse of 40 000 characters takes 42 ms (Node)
+  const detectSoon = () => { clearTimeout(detectTimer); detectTimer = setTimeout(detect, el.text.value.length > 5000 ? 1000 : 250); };
 
   async function init() {
     try {

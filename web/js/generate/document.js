@@ -612,8 +612,11 @@ function planRich(doc, normalize) {
 // Block geometry in x-heights of the page, chosen by looking at proof pages.
 export const H1_SCALE = 1.45;            // a title is written this much larger
 export const INDENT = 4.2;               // one list level
-export const BULLET_ADVANCE = 2.6;       // bullet to text
-export const CHECK_ADVANCE = 4.8;        // check box (decor.js: CHECK_SIZE 2.8) to text
+// Marker to text: this hand's letters stand about 1.5 x-heights tall and its word gap is
+// 3.4 (example at seed 7); 2.6 and 4.8 left 1.85 and 1.6 of paper, half a word gap, and
+// bullets and boxes read as touching their first letter.  These leave about 3.
+export const BULLET_ADVANCE = 3.6;       // bullet (0.8 wide) to text
+export const CHECK_ADVANCE = 6.0;        // check box (decor.js: CHECK_SIZE 2.8) to text
 export const BOX_PAD = [1.6, 0.6];       // frame to text: sideways, and the least above / below the ink
 // A frame runs this share of the line pitch above its first and below its last
 // row, measured from 0.7 x-heights over the baseline (the middle of the writing),

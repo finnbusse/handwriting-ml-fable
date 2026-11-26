@@ -654,6 +654,7 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
   /* the four formats need the whole width; the radiogroup keeps its name for screen readers */
   .pg-fmt-top .gen-opt { grid-template-columns: minmax(0, 1fr); }
   .pg-fmt-top .gen-opt-l { display: none; }
+  .pg-fmt-top .gen-choice { padding: 0 6px; }      /* all four on one row at 360 px */
   .pg-ref { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
   .pg-ref dt { white-space: pre-wrap; margin-top: 8px; }
   .pg-ref dt:first-child { margin-top: 0; }

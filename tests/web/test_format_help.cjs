@@ -90,6 +90,7 @@ async function desktop(browser, server) {
   await page.click('#pg-example');
   const ex = await page.evaluate(() => window.__fh.EXAMPLE_TEXT);
   L.check('empty field: "Beispiel einsetzen" puts the example in at once and calls onText', (await page.inputValue('#pg-text')) === ex && (await fh(page)).onText === 1);
+  L.check('under "Nur Text" the example sets the choice back to Automatisch', (await fh(page)).format === 'auto' && (await checked()).includes('auto:true'));
   L.check('nothing was replaced, so there is nothing to bring back', await page.isHidden('#pg-example-undo') && await page.isHidden('#pg-example-keep'));
 
   // ---- into a filled field only after the second step ----

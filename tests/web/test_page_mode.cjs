@@ -422,32 +422,39 @@ async function plainSame(browser, server) {
   await new Promise((r) => srv.listen(0, '127.0.0.1', r));
   closers.push(() => new Promise((r) => { srv.closeAllConnections(); srv.close(r); }));
   const other = { url: `http://localhost:${srv.address().port}/index.html` };
-  const out = [];
-  for (const s of [server, other]) {
-    const hf = await modelRepo();
-    const { page, ctx, errors } = await L.newApp(browser, s, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
-    await ready(page);
-    await page.click('.gen-modes [data-mode="seite"]');
-    await page.fill('#pg-text', LETTER);
-    // the document seed comes from Math.random: fixed for this one click (and the field left
-    // first, so that it shrinks now and not under the next click)
-    await page.evaluate(() => { document.activeElement.blur(); const r = Math.random; Math.random = () => 0.25; document.getElementById('pg-write').click(); Math.random = r; });
-    await idle(page);
-    const c = await page.evaluate(async () => {
-      await window.__hw.generate.painted();
-      const src = document.querySelector('#pg-pages .pg-page canvas');
-      const t = Object.assign(document.createElement('canvas'), { width: src.width, height: src.height });
-      t.getContext('2d').drawImage(src, 0, 0);
-      const a = t.getContext('2d').getImageData(0, 0, t.width, t.height).data;
-      return [t.width, t.height, Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', a))).map((v) => v.toString(16).padStart(2, '0')).join('')].join(' ');
-    });
-    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#pg-pdf')]);
-    out.push({ canvas: c, pdf: fs.readFileSync(await dl.path()), errors: noErrors(errors) });
-    await ctx.close();
+  // the second look: a text long enough that lines are laid out again once the typical
+  // size is fixed (the case where a region repaint would differ from a whole redraw)
+  const looks = [['default', LETTER, []], ['Bleistift, kariert, dunkel', `${LETTER}\n\n${WORDS.split('\n').slice(0, 18).join(' ')}`, [['pen', 'bleistift'], ['paper', 'kariert'], ['scheme', 'light_on_dark']]]];
+  for (const [tag, text, sets] of looks) {
+    const out = [];
+    for (const s of [server, other]) {
+      const hf = await modelRepo();
+      const { page, ctx, errors } = await L.newApp(browser, s, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
+      await ready(page);
+      await page.click('.gen-modes [data-mode="seite"]');
+      for (const [k, v] of sets) await pick(page, k, v);
+      if (sets.length) await page.click('#gen-style-btn');
+      await page.fill('#pg-text', text);
+      // the document seed comes from Math.random: fixed for this one click (and the field left
+      // first, so that it shrinks now and not under the next click)
+      await page.evaluate(() => { document.activeElement.blur(); const r = Math.random; Math.random = () => 0.25; document.getElementById('pg-write').click(); Math.random = r; });
+      await idle(page);
+      const c = await page.evaluate(async () => {
+        await window.__hw.generate.painted();
+        const src = document.querySelector('#pg-pages .pg-page canvas');
+        const t = Object.assign(document.createElement('canvas'), { width: src.width, height: src.height });
+        t.getContext('2d').drawImage(src, 0, 0);
+        const a = t.getContext('2d').getImageData(0, 0, t.width, t.height).data;
+        return [t.width, t.height, Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', a))).map((v) => v.toString(16).padStart(2, '0')).join('')].join(' ');
+      });
+      const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#pg-pdf')]);
+      out.push({ canvas: c, pdf: fs.readFileSync(await dl.path()), errors: noErrors(errors) });
+      await ctx.close();
+    }
+    L.check(`plain text (${tag}): the same canvas pixels as before marks`, out[0].canvas === out[1].canvas, `${out[0].canvas} | ${out[1].canvas}`);
+    L.check(`plain text (${tag}): the same PDF bytes as before marks`, out[0].pdf.equals(out[1].pdf), `${out[0].pdf.length} | ${out[1].pdf.length}`);
+    L.check(`plain text (${tag}): no page errors`, !out[0].errors.length && !out[1].errors.length, [...out[0].errors, ...out[1].errors].join(' | '));
   }
-  L.check('plain text: the same canvas pixels as before marks', out[0].canvas === out[1].canvas, `${out[0].canvas} | ${out[1].canvas}`);
-  L.check('plain text: the same PDF bytes as before marks', out[0].pdf.equals(out[1].pdf), `${out[0].pdf.length} | ${out[1].pdf.length}`);
-  L.check('plain text: no page errors', !out[0].errors.length && !out[1].errors.length, [...out[0].errors, ...out[1].errors].join(' | '));
 }
 
 async function phoneDark(browser, server) {

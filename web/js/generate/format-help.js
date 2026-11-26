@@ -100,6 +100,8 @@ export function createFormatHelp({ text, getFormat, setFormat, onText }) {
     show();
   });
   example.addEventListener('click', () => {
+    // the example shows the marks at work: under 'Nur Text' it would be written mark by mark
+    if (getFormat() === 'text') { setFormat('auto'); show(); }
     if (text.value === EXAMPLE_TEXT) return;
     if (text.value.trim() && !asking) { asking = true; show(); keep.focus({ preventScroll: true }); return; }
     const before = text.value.trim() ? text.value : null;

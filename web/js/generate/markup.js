@@ -187,7 +187,7 @@ function markdownBlocks(lines, st) {
   // a line of paragraph or heading text: {mitte} and {rechts} inside it start its parts
   const inlineParts = (s, align) => finishParts(inlineMarkdown(s, st, align), align);
   for (let k = 0; k < lines.length; k++) {
-    const raw = lines[k];
+    let raw = lines[k];
     const was = open;
     open = null;
     if (!raw.trim()) { blocks.push({ type: 'blank', lines: [] }); continue; }
@@ -220,7 +220,14 @@ function markdownBlocks(lines, st) {
     }
     if (RULE.test(raw)) { blocks.push({ type: 'rule', lines: [] }); indents = []; continue; }
     if (PAGE.test(raw)) { blocks.push({ type: 'pagebreak', lines: [] }); indents = []; continue; }
-    if (/^\s*\|.*\|\s*$/.test(raw)) st.notes.add('Markdown: Tabellen werden als Text geschrieben');
+    if (/^\s*\|.*\|\s*$/.test(raw)) {
+      // until tables are drawn, a row is written as a line of its cells: the pipes come out
+      // of this hand as strokes like an n, and the |---| line under the head as a scrawl
+      st.notes.add('Markdown: Tabellen werden als Zeilen geschrieben');
+      if (/^[\s|:-]+$/.test(raw)) { open = was; continue; }
+      raw = raw.trim().slice(1, -1).split('|').map((c) => c.trim()).filter(Boolean).join('  ');
+      if (!raw) continue;
+    }
 
     const item = listItem(raw);
     if (item) {
@@ -923,7 +930,7 @@ function parseLatex(src, today) {
       if (BOX_ENVS.has(name)) { const o = optArg(k, to); if (o) k = o.next; b.close(); ctx.box = b.newBox(); return k; }
       if (MATH_ENVS.has(name)) { b.close(); ctx.math = true; return k; }
       if (TABLE_ENVS.has(name)) {
-        notes.add(`LaTeX: Tabellen (${name}) werden als Text geschrieben`);
+        notes.add(`LaTeX: Tabellen (${name}) werden als Zeilen geschrieben`);
         b.close(); ctx.table = true;
         const o = optArg(k, to); if (o) k = o.next;
         const args = name === 'tabular' || name === 'array' || name === 'longtable' ? 1 : 2;

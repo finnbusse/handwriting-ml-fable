@@ -468,8 +468,22 @@ reloaded.
   a stroke went or a band came (a frame growing with its box, an underline run getting
   longer, a rewritten piece and its neighbours) each such box (joined where they overlap)
   is drawn anew on its own, clipped to it: paper, ruling, bands, then every stroke that
-  meets it. More than 40 % of the page: the whole page. A plain text draws exactly what
-  it drew before (same pixels, tested against the earlier app).
+  meets it. More than 40 % of the page: the whole page. A plain text (no `rich`) draws
+  the whole page whenever anything on it went, as before: same pixels, tested against
+  the earlier app in two looks. A document is laid out again at most once per frame
+  while pieces arrive, not once per piece.
+- Formatierung (`js/generate/format-help.js`): a quiet button under the Seite text field
+  opens a panel in the style of Stil (one of the two at a time) that scrolls inside
+  itself; Escape, a tap outside or the button close it, and focus goes in on opening and
+  back to the button on closing. It shows `CHEAT_SHEET` of `markup.js` as a two-column
+  list (what to type in monospace, what it gives; one column on a phone), the choice of
+  format (Automatisch, Markdown, LaTeX, Nur Text; stored with the page settings,
+  `format`, default auto; beside the button the detected format is named, nothing for
+  plain text) and "Beispiel einsetzen", which puts a short page of school notes into the
+  field and sets "Nur Text" back to Automatisch. On a filled field it first asks
+  ("Text ersetzen" / "Behalten"); the replaced text comes back once with "Rückgängig" in
+  the panel as long as the example is unedited (setting the field clears the browser's
+  undo, and Android keyboards have none).
 - "PDF herunterladen" (phone: "PDF") saves `handschrift-YYYY-MM-DD.pdf` from the
   same document object; "Teilen" appears only where the browser can share files.
 
@@ -510,7 +524,8 @@ seeds, positions and PDF bytes as its text (tested).
   An empty line before heading 1, before heading 2 unless it follows another
   heading, and after heading 1 (none at the top of a page). List items: level k indented (k − 1) × 4.2 x-heights;
   the bullet (dot, level 2 a dash) or check box sits at the indent, the text of
-  every row of the item starts 2.6 / 4.8 x-heights after it. A numbered item's
+  every row of the item starts 3.6 / 6.0 x-heights after it (this hand's letters
+  stand about 1.5 x-heights tall: 2.6 / 4.8 read as touching). A numbered item's
   label (it stays text) is written with the item's first words but placed on
   its own: at the indent, set on the line by the lowest point of its digits
   (`sitLine` reads the inner turns of a 3 or 5 as letter bottoms), and the
@@ -612,11 +627,13 @@ seeds, positions and PDF bytes as its text (tested).
   `format-help.js`, chooses it); a text that comes out as plain paragraphs, or the choice
   "Nur Text", is written as the text itself, exactly as before marks. `{datum}` and
   `\today` are the day "Schreiben" was pressed. The detected format ("Markdown",
-  "LaTeX") stands beside the field. What the marks could not do (`notes`) follows the
+  "LaTeX") stands beside the field. What the marks could not do (`notes`, each shown as a sentence without the format's
+  name; a Markdown table row is written as a line of its cells) follows the
   note line's message. The length limit stays 40 000 typed characters, marks included
   (they rarely add a tenth); the characters the model cannot write are looked for in
-  the words only, not in the marks. The PDF is written from the same document and is
-  named after the first heading (in a header line its title, not the date). The
+  the words only, not in the marks. The PDF is written from the same document; its title (and the
+  share title) is the first heading (in a header line its title, not the date), the file
+  name stays `handschrift-YYYY-MM-DD.pdf`. The
   screen draws what the PDF holds: bands under the ink (multiply / screen at the
   marker's opacity), named inks in the scheme's value, bold 1.5 / 1.4 / 1.3 × wider
   and, in Bleistift, two tones darker, decorations as ink of the chosen pen.

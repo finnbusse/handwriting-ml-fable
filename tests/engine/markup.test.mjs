@@ -92,7 +92,8 @@ same(parseMarkup('# **x** -> y', 'text').blocks, [P([T('# **x** -> y')])], "'tex
 same(parseMarkup('', 'auto').blocks, [], 'empty text');
 same(parseMarkup(null).blocks, [], 'null');
 same(md('```\n**nicht fett**\n  - kein Punkt\n```'), [P([T('**nicht fett**')], [T('- kein Punkt')])], 'a code block is written as typed');
-check(parseMarkup('| a | b |\n|---|---|', 'markdown').notes.includes('Markdown: Tabellen werden als Text geschrieben'), 'a table gets a note');
+check(parseMarkup('| a | b |\n|---|---|', 'markdown').notes.includes('Markdown: Tabellen werden als Zeilen geschrieben'), 'a table gets a note');
+same(md('| Stoff | Menge |\n|:--|--:|\n| Wasser | viel |').map((b) => b.lines.map((l) => l.map((sp) => sp.text).join(''))), [['Stoff  Menge', 'Wasser  viel']], 'a table: one line per row, cells apart, no pipes, no |---| line');
 const link = parseMarkup('Siehe [die Quelle](https://x.de/a_b) und ![Bild](b.png).', 'markdown');
 same(link.blocks, [P([T('Siehe die Quelle und .')])], 'links keep their text, images go');
 check(link.notes.length === 2, `links and images are named in notes (${link.notes})`);
