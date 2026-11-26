@@ -22,9 +22,10 @@ def main():
     ap.add_argument("name")
     ap.add_argument("--upload", action="store_true")
     ap.add_argument("--seeds", type=int, default=3)
-    ap.add_argument("train_args", nargs=argparse.REMAINDER, help="after --: arguments for hw.train")
-    args = ap.parse_args()
-    extra = [a for a in args.train_args if a != "--"]
+    # everything after "--" belongs to hw.train (argparse's REMAINDER would also swallow our own options)
+    argv = sys.argv[1:]
+    cut = argv.index("--") if "--" in argv else len(argv)
+    args, extra = ap.parse_args(argv[:cut]), argv[cut + 1:]
     out = os.path.join("runs", "exp", args.name)
     env = dict(os.environ, PYTHONPATH=ROOT)
     threads = str(os.cpu_count() or 2)
