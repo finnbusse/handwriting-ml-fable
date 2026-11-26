@@ -10,8 +10,9 @@ try several variants side by side on free runners.
 
     python scripts/experiment.py old-s1 --code-ref 5c53252 -- --epochs 30 --seed 1
 
-trains with hw/ as it was at that commit; the evaluation always uses the
-current code, so that recipes of different dates are measured alike.
+trains with hw/ as it was at that commit (or, with --code-paths, with single
+files from it); the evaluation always uses the current code, so that recipes
+of different dates are measured alike.
 """
 import argparse
 import json
@@ -28,6 +29,9 @@ def main():
     ap.add_argument("--upload", action="store_true")
     ap.add_argument("--seeds", type=int, default=3)
     ap.add_argument("--code-ref", default=None, help="train with hw/ as it was at this commit")
+    ap.add_argument("--code-paths", nargs="+", default=["hw"],
+                    help="take only these paths from --code-ref (e.g. hw/dataset.py: the old data preparation with "
+                         "the current training loop)")
     # everything after "--" belongs to hw.train (argparse's REMAINDER would also swallow our own options)
     argv = sys.argv[1:]
     cut = argv.index("--") if "--" in argv else len(argv)
@@ -42,13 +46,13 @@ def main():
             shallow = subprocess.run(["git", "rev-parse", "--is-shallow-repository"], cwd=ROOT, capture_output=True,
                                      text=True).stdout.strip() == "true"
             git("fetch", *(["--depth", "1"] if shallow else []), "origin", args.code_ref)
-        git("checkout", args.code_ref, "--", "hw")
+        git("checkout", args.code_ref, "--", *args.code_paths)
     try:
         subprocess.run([sys.executable, "-m", "hw.train", "--out", out, "--threads", threads, "--sample-every", "0"] + extra,
                        check=True, env=env, cwd=ROOT)
     finally:
         if args.code_ref:
-            git("checkout", "HEAD", "--", "hw")
+            git("checkout", "HEAD", "--", *args.code_paths)
 
     def epoch_of(which):
         with open(os.path.join(out, which, "meta.json"), encoding="utf-8") as f:
@@ -62,7 +66,8 @@ def main():
     if os.path.exists(os.path.join(out, "last", "meta.json")) and epoch_of("last") != epoch_of("best"):
         evaluate("last", "eval_last")              # the end of the budget, when an earlier epoch was kept
     with open(os.path.join(out, "args.json"), "w") as f:
-        json.dump({"name": args.name, "train_args": extra, "code_ref": args.code_ref}, f)
+        json.dump({"name": args.name, "train_args": extra, "code_ref": args.code_ref,
+                   "code_paths": args.code_paths if args.code_ref else None}, f)
     if args.upload:
         from huggingface_hub import HfApi
 
