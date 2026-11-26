@@ -1,7 +1,7 @@
 """Lay out longer text as a page of handwriting.
 
-The network writes one short piece at a time (it was trained on word groups of
-at most ~27 characters).  A page is built by
+The network writes one short piece at a time (it is trained on pieces of real
+lines of about 17 to 31 characters and is steadiest on the shorter ones).  A page is built by
   1. splitting the text into such pieces at word boundaries,
   2. writing all pieces,
   3. straightening each piece on its own baseline and
@@ -21,7 +21,12 @@ import numpy as np
 from . import dataset, prep
 from .ink import Ink
 
-MAX_PIECE_CHARS = 27
+# Longest piece written in one go.  Shorter pieces come out sounder: measured on
+# the steadiest model, 13 % of the text sat in a faulty first attempt with
+# pieces of up to 27 characters (pen off the line in 1.2 %), 8 % (0.3 %) with 22
+# and 6 % with 18, and the retries of failed pieces cost less.  22 keeps two to
+# four words together, so most word spacing is still the network's own.
+MAX_PIECE_CHARS = 22
 
 
 def split_pieces(text: str, max_chars: int = MAX_PIECE_CHARS) -> list[list[str]]:

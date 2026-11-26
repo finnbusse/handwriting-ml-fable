@@ -5,7 +5,8 @@
 // An "ink" here is { text, points: Float32Array [x, y, eos, ...], ok } in xh
 // units (1.0 = the writer's x-height, y pointing down).
 
-export const MAX_PIECE_CHARS = 27;
+// Longest piece written in one go (hw/page.py: MAX_PIECE_CHARS explains the choice).
+export const MAX_PIECE_CHARS = 22;
 
 const X = (p, i) => p[3 * i], Y = (p, i) => p[3 * i + 1], E = (p, i) => p[3 * i + 2];
 const count = (p) => p.length / 3;
