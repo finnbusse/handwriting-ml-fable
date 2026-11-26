@@ -9,11 +9,18 @@ import {
   planDocument, pieceSeed, preparePiece, layoutDocument, wordAt, pieceBoxes, typicalSize,
   PAGE, DOC_PAPERS, DOC_SIZES, TYPICAL_PIECES,
 } from './document.js';
-import { lookColors } from './render.js';
+import { lookColors, drawDocumentPage, BOLD } from './render.js';
 import { documentToPDF, pdfFileName } from './pdf.js';
 import { createEnginePool, poolSize } from './engine-client.js';
+import { parseMarkup, plainText } from './markup.js';
+import { createFormatHelp } from './format-help.js';
 
-export const PAGE_DEFAULTS = Object.freeze({ text: '', paper: 'liniert', size: 'mittel', textLayer: true });
+export const PAGE_DEFAULTS = Object.freeze({ text: '', paper: 'liniert', size: 'mittel', textLayer: true, format: 'auto' });
+const FORMATS = ['auto', 'markdown', 'latex', 'text'];
+const FORMAT_NAMES = { markdown: 'Markdown', latex: 'LaTeX' };
+// A region repainted on a page (what a later piece moved or put under the ink) larger than
+// this share of the page: the whole page is drawn instead, in one step.
+const REGION_MAX = 0.4;
 const MAX_PIXELS = 8e6;        // per page canvas
 // Drawn pages kept when they scroll away, the ones seen last first: a page dropped is drawn
 // again on its way back into view (a Bleistift page: 130 ms in the paint worker).  Three is
@@ -22,6 +29,16 @@ const MAX_PIXELS = 8e6;        // per page canvas
 const KEEP_PAGES = 3;
 const TAP_MOVE = 10;           // CSS px a tap may move and still count as a tap
 const REACH = { touch: 3, pen: 2, mouse: 1.5 };   // mm around a word that still hits it (a finger is wide)
+
+const squash = (s) => s.split('\n').map((l) => l.trim().replace(/\s+/gu, ' ')).join('\n').replace(/\n+$/, '');
+/** A parsed text with nothing in it but its words and lines: written as the text itself. */
+function plainDoc(doc, text) {
+  const plainSpan = (sp) => Object.keys(sp).every((k) => k === 'text');
+  return doc.blocks.every((b) => (b.type === 'paragraph' || b.type === 'blank') && b.box == null && (!b.align || b.align === 'left') && (b.lines || []).every((l) => l.every(plainSpan)))
+    && squash(plainText(doc)) === squash(text.replace(/^\uFEFF/, ''));
+}
+/** The words a document writes (for the characters the model cannot write). */
+const docText = (doc) => doc.blocks.flatMap((b) => (b.lines || []).map((l) => l.map((sp) => sp.text).join(''))).join('\n');
 
 /**
  * deps: { store, model() -> { entry, info, normalizer } | null, look() -> render.js look,
@@ -36,7 +53,7 @@ export function createPageView(deps) {
     text: $('pg-text'), write: $('pg-write'), cancel: $('pg-cancel'),
     busy: $('pg-busy'), busyText: $('pg-busy-text'), info: $('pg-info'), bar: $('pg-bar'), fill: $('pg-fill'),
     pdf: $('pg-pdf'), share: $('pg-share'), note: $('pg-note'), chars: $('pg-chars'),
-    textLayer: $('pg-textlayer'),
+    textLayer: $('pg-textlayer'), detected: $('pg-detected'),
   };
   const P = {
     settings: { ...PAGE_DEFAULTS },
@@ -44,8 +61,9 @@ export function createPageView(deps) {
     pool: null, poolSha: null,
     run: null,            // { token, text, seed, bias, plan, written, version, typical, info, sizeByBias, start, done, cancelled }
     doc: null, phase: 'idle', rewriting: new Set(), pick: null, follow: true,
-    frames: [],           // per page: { wrap, canvas, id, key, drawn: word keys on the canvas, seen }
+    frames: [],           // per page: { wrap, canvas, id, key, drawn: Map key -> { n, box } of what is on the canvas, seen }
     near: new Set(), done: new Set(), seen: 0, raf: 0, lastStatus: '',
+    message: '', notes: [],   // the note line: a message, and what the marks of the text written could not do
   };
   let token = 0;
 
@@ -112,10 +130,56 @@ export function createPageView(deps) {
   const cssWidth = () => el.pages.clientWidth;
   const cssPerMm = () => cssWidth() / PAGE.width;
   const lookKey = (l) => [l.pen, l.width, l.scheme, l.ink].join('|');
-  /** A word as laid out: the same key is the same ink at the same place.  While a text is
-   *  written the words on a page only ever grow at its end (document.js), so a page draws
-   *  just its new words; anything else (a rewrite, other paper) draws the page anew. */
-  const wordKeys = (page) => (page ? page.words.map((w, k) => `${w.piece}.${w.word}.${page.strokes[k].length}.${Math.round(w.x * 100)}.${Math.round(w.box[1] * 100)}.${Math.round(w.box[2] * 100)}.${Math.round(w.box[3] * 100)}`) : []);
+  /**
+   * What a page shows, entry by entry: its highlighter bands, then its strokes (the words'
+   * and what is drawn around them), each with a key that is the same for the same ink at the
+   * same place in the same style, and a box in device px that holds its ink.  A plain text
+   * only ever adds strokes at a page's end; a document also replaces some while it is
+   * written (a frame that grows with its box, an underline whose run gets longer, a line in
+   * parts that appears at once) and a rewritten piece moves its neighbours and their
+   * decorations, so the canvas is compared by keys, not by position.
+   */
+  function pageItems(page, o) {
+    const items = [];
+    if (!page) return items;
+    const s = o.pw / PAGE.width;
+    const pad = 2 * o.look.width * o.doc.geometry.xh * BOLD[o.look.pen] * s + 4;     // the widest pen around the points
+    const rect = (x0, y0, x1, y1, d) => [Math.max(0, Math.floor(x0 * s - d)), Math.max(0, Math.floor(y0 * s - d)), Math.min(o.pw, Math.ceil(x1 * s + d)), Math.min(o.ph, Math.ceil(y1 * s + d))];
+    const extent = (p, step, d) => {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = 0; i < p.length; i += step) { if (p[i] < x0) x0 = p[i]; if (p[i] > x1) x1 = p[i]; if (p[i + 1] < y0) y0 = p[i + 1]; if (p[i + 1] > y1) y1 = p[i + 1]; }
+      return rect(x0, y0, x1, y1, d);
+    };
+    // the exact first, middle and last points: a stroke that moves or changes changes them
+    const sig = (p, step) => { const n = p.length, m = step * Math.floor(n / (2 * step)); return `${n}:${p[0]},${p[1]},${p[m]},${p[m + 1]},${p[n - step]},${p[n - step + 1]}`; };
+    for (const b of page.bands || []) items.push({ band: b, key: `b${b.color}:${sig(b.points, 2)}`, box: extent(b.points, 2, 2) });
+    // the box from the points themselves: a word's laid-out box can be narrower than its ink,
+    // and a stroke drawn anew only inside a too small box leaves a seam of old ink around it
+    page.strokes.forEach((q, i) => {
+      if (!q.length) return;
+      const st = page.styles ? page.styles[i] : null;
+      items.push({ i, key: `${st ? `${st.color || ''}${st.bold ? '+' : ''}` : ''}:${sig(q, 3)}`, box: extent(q, 3, pad) });
+    });
+    return items;
+  }
+
+  const meets = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+  /** Overlapping boxes joined until none overlap (each is drawn anew once). */
+  function disjoint(boxes) {
+    const out = boxes.filter((b) => b[2] > b[0] && b[3] > b[1]).map((b) => b.slice());
+    for (let joined = true; joined;) {
+      joined = false;
+      for (let a = 0; a < out.length; a++) {
+        for (let b = a + 1; b < out.length; b++) {
+          if (!meets(out[a], out[b])) continue;
+          const x = out[a], y = out[b];
+          out[a] = [Math.min(x[0], y[0]), Math.min(x[1], y[1]), Math.max(x[2], y[2]), Math.max(x[3], y[3])];
+          out.splice(b, 1); b = a; joined = true;
+        }
+      }
+    }
+    return out;
+  }
 
   // Pages near the viewport (one screen height around it) are drawn; P.done holds the pages
   // whose canvas shows the current document and look, so scrolling past drawn pages runs no
@@ -138,7 +202,7 @@ export function createPageView(deps) {
       canvas.setAttribute('aria-hidden', 'true');
       wrap.append(canvas);
       el.pages.insertBefore(wrap, el.pick);
-      const f = { wrap, canvas, id: `page${P.frames.length}`, key: '', drawn: [], seen: 0 };
+      const f = { wrap, canvas, id: `page${P.frames.length}`, key: '', drawn: new Map(), seen: 0 };
       painter.attach(f.id, canvas);
       P.frames.push(f);
       if (io) io.observe(wrap); else P.near.add(P.frames.length - 1);
@@ -182,23 +246,47 @@ export function createPageView(deps) {
     follow();
   }
 
-  /** Bring page i up to date: its new words only, or the whole page when anything else
-   *  changed (ink cannot be taken off a canvas).  The steps of one page are drawn together,
-   *  so the page never shows half a redraw. */
+  /** Bring page i up to date: its new strokes only; where something went or a band came
+   *  (ink cannot be taken off a canvas, and a band lies under the ink) that region is drawn
+   *  anew, clipped to it, and the new strokes around it; the whole page only for other paper,
+   *  pen or size, or when the region is most of the page.  The steps of one page are drawn
+   *  together, so the page never shows half a redraw. */
   function drawPage(i, o) {
     const f = P.frames[i];
     const page = o.doc.pages[i];
-    const words = wordKeys(page);
-    const scale = o.pw / PAGE.width;
+    const items = pageItems(page, o);
+    const scale = o.pw / PAGE.width, paper = { page: o.doc.page, geometry: o.doc.geometry };
+    const pen = { xh: o.doc.geometry.xh, scale, look: o.look, colors: o.colors };
+    const ink = (list) => ({ words: list.map((it) => page.strokes[it.i]), ...(page && page.styles ? { styles: list.map((it) => page.styles[it.i]) } : {}) });
+    const strokes = (list) => list.filter((it) => !it.band);
+    let fresh = f.key !== o.key, added = items, dirty = [];
+    if (!fresh) {
+      const left = new Map();
+      for (const [k, d] of f.drawn) left.set(k, d.n);
+      added = [];
+      for (const it of items) { const n = left.get(it.key); if (n) left.set(it.key, n - 1); else added.push(it); }
+      const gone = [];
+      for (const [k, n] of left) if (n) gone.push(f.drawn.get(k).box);
+      dirty = disjoint([...gone, ...added.filter((it) => it.band).map((it) => it.box)]);
+      if (dirty.reduce((a, b) => a + (b[2] - b[0]) * (b[3] - b[1]), 0) > REGION_MAX * o.pw * o.ph) fresh = true;
+    }
     const steps = [];
-    if (!(f.key === o.key && f.drawn.length <= words.length && f.drawn.every((k, j) => k === words[j]))) {
-      steps.push({ op: 'size', id: f.id, w: o.pw, h: o.ph }, { op: 'page', id: f.id, doc: { page: o.doc.page, geometry: o.doc.geometry }, scale, look: o.look, colors: o.colors });
-      f.key = o.key; f.drawn = [];
+    if (fresh) {
+      steps.push({ op: 'size', id: f.id, w: o.pw, h: o.ph }, { op: 'page', id: f.id, doc: paper, scale, look: o.look, colors: o.colors });
+      if (page && page.bands && page.bands.length) steps.push({ op: 'bands', id: f.id, bands: page.bands, scale, colors: o.colors });
+      if (page && page.strokes.length) steps.push({ op: 'words', id: f.id, ...ink(strokes(items)), ...pen });
+      f.key = o.key;
+    } else {
+      // the new strokes first, then every region drawn anew with all it holds, new strokes too
+      const more = strokes(added);
+      if (more.length) steps.push({ op: 'words', id: f.id, ...ink(more), ...pen });
+      for (const d of dirty) {
+        const inside = items.filter((it) => meets(d, it.box));
+        steps.push({ op: 'region', id: f.id, rect: [d[0], d[1], d[2] - d[0], d[3] - d[1]], doc: paper, bands: inside.filter((it) => it.band).map((it) => it.band), ...ink(strokes(inside)), ...pen });
+      }
     }
-    if (page && f.drawn.length < words.length) {
-      steps.push({ op: 'words', id: f.id, words: page.strokes.slice(f.drawn.length), xh: o.doc.geometry.xh, scale, look: o.look, colors: o.colors });
-      f.drawn = words;
-    }
+    f.drawn = new Map();
+    for (const it of items) { const d = f.drawn.get(it.key); if (d) d.n++; else f.drawn.set(it.key, { n: 1, box: it.box }); }
     painter.run(steps);
     P.done.add(i);
   }
@@ -212,7 +300,7 @@ export function createPageView(deps) {
     for (const { f, i } of kept.slice(KEEP_PAGES)) {
       if (P.near.has(i)) continue;
       painter.run([{ op: 'free', id: f.id }]);
-      f.key = ''; f.drawn = [];
+      f.key = ''; f.drawn = new Map();
       P.done.delete(i);
     }
   }
@@ -335,20 +423,38 @@ export function createPageView(deps) {
 
   // ---------- writing ----------
 
-  const note = (text) => { el.note.textContent = text || ''; el.note.hidden = !text; };
+  // The note line holds a message (an error, "Abgebrochen", a cut paste) and after it what
+  // the marks of the text written could not do; either goes without the other.
+  const showNote = () => {
+    const text = [P.message, ...P.notes].filter(Boolean).join(' ');
+    el.note.textContent = text; el.note.hidden = !text;
+  };
+  const note = (text) => { P.message = text || ''; showNote(); };
   const charsNote = (list) => {
     const set = [...new Set(list)];
     el.chars.textContent = set.length ? `Diese Zeichen kann ich nicht schreiben und lasse sie weg: ${set.slice(0, 8).map((c) => `„${c}“`).join(', ')}${set.length > 8 ? ' …' : ''}` : '';
     el.chars.hidden = !set.length;
   };
 
+  /** What a typed text is written as: the text itself when it has no marks (exactly as
+   *  before there were marks) or the choice is 'text', else the document of its marks.
+   *  today: what {datum} and \today write. */
+  function source(text, today = new Date()) {
+    if (P.settings.format === 'text') return { text, format: 'text', notes: [] };
+    const doc = parseMarkup(text, P.settings.format, { today });
+    return plainDoc(doc, text) ? { text, format: 'text', notes: doc.notes } : { doc, format: doc.format, notes: doc.notes };
+  }
+
   async function write() {
     const m = model();
     if (!m || P.phase === 'writing') return;
     const text = String(el.text.value || '').replace(/\r\n?/g, '\n');
+    const src = source(text);
+    P.notes = src.notes;
     note('');
-    charsNote(m.normalizer.unsupported(text));
-    const plan = planDocument(text, m.normalizer.normalize);
+    // only what is written is checked, not the marks around it
+    charsNote(m.normalizer.unsupported(src.doc ? docText(src.doc) : text));
+    const plan = planDocument(src.doc || text, m.normalizer.normalize);
     if (!plan.pieces.length) {
       note(text.trim() ? 'In diesem Text steht nichts, was ich schreiben kann.' : 'Bitte tippe oder füge zuerst einen Text ein.');
       if (!text.trim()) el.text.focus();
@@ -360,7 +466,7 @@ export function createPageView(deps) {
     P.pick = null;
     P.rewriting.clear();
     P.run = {
-      token: mine, sha: m.entry.manifest.sha256, text, seed: (Math.random() * 2 ** 32) >>> 0, bias: bias(), plan,
+      token: mine, sha: m.entry.manifest.sha256, text, doc: src.doc || null, seed: (Math.random() * 2 ** 32) >>> 0, bias: bias(), plan,
       written: [], version: [], typical: undefined, info: m.info,
       sizeByBias: m.entry.manifest.size_by_bias || null, start: performance.now(), done: 0, cancelled: false, workers: pool.size,
     };
@@ -448,7 +554,11 @@ export function createPageView(deps) {
   // ---------- PDF ----------
 
   function title() {
-    const line = ((P.run && P.run.text) || '').split('\n').map((s) => s.trim()).find(Boolean) || 'Handschrift';
+    const r = P.run, d = r && r.doc;
+    // a document: its first heading (the title of a header line, not its date), else its first line
+    const head = d && d.blocks.find((b) => b.type === 'heading');
+    const text = head ? head.lines[0].filter((sp) => !sp.body).map((sp) => sp.text).join('') : d ? plainText(d) : (r && r.text) || '';
+    const line = text.split('\n').map((s) => s.trim()).find(Boolean) || 'Handschrift';
     const chars = [...line];                          // by characters: never half an emoji
     return chars.length > 60 ? `${chars.slice(0, 59).join('')}…` : line;
   }
@@ -489,8 +599,8 @@ export function createPageView(deps) {
   function save() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      const { paper, size, textLayer } = P.settings;
-      store.kvSet('page', { text: el.text.value, paper, size, textLayer }).catch(() => {});
+      const { paper, size, textLayer, format } = P.settings;
+      store.kvSet('page', { text: el.text.value, paper, size, textLayer, format }).catch(() => {});
     }, 300);
   }
 
@@ -511,6 +621,18 @@ export function createPageView(deps) {
     el.text.style.height = `${el.text.scrollHeight + 2}px`;
   }
 
+  // Beside the counter: the format the text will be read as ("Markdown", "LaTeX"; nothing
+  // for a plain text or the choice 'text'), read again a moment after typing stops.
+  let detectTimer = null;
+  function detect() {
+    clearTimeout(detectTimer);
+    if (!el.detected) return;
+    const text = String(el.text.value || '');
+    const f = text.trim() ? source(text).format : 'text';
+    el.detected.textContent = FORMAT_NAMES[f] || '';
+  }
+  const detectSoon = () => { clearTimeout(detectTimer); detectTimer = setTimeout(detect, 250); };
+
   async function init() {
     try {
       const v = await store.kvGet('page', null);
@@ -519,15 +641,24 @@ export function createPageView(deps) {
         if (DOC_PAPERS.includes(v.paper)) P.settings.paper = v.paper;
         if (DOC_SIZES.includes(v.size)) P.settings.size = v.size;
         P.settings.textLayer = v.textLayer !== false;
+        if (FORMATS.includes(v.format)) P.settings.format = v.format;
       }
     } catch (_) { /* defaults */ }
+    const help = createFormatHelp({
+      text: el.text,
+      getFormat: () => P.settings.format,
+      setFormat: (f) => { if (FORMATS.includes(f)) { P.settings.format = f; save(); detect(); } },
+      onText: () => { autosize(); save(); detect(); },
+    });
+    help.refresh();
+    detect();
     el.textLayer.checked = P.settings.textLayer;
     el.share.hidden = !canShareFiles();
     el.write.addEventListener('click', write);
     el.cancel.addEventListener('click', cancel);
     el.text.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); write(); } });
     // maxlength cuts a long paste without a word: say so
-    el.text.addEventListener('input', () => { note(el.text.maxLength > 0 && el.text.value.length >= el.text.maxLength ? `Der Text ist auf ${el.text.maxLength.toLocaleString('de-DE')} Zeichen gekürzt.` : ''); autosize(); save(); });
+    el.text.addEventListener('input', () => { note(el.text.maxLength > 0 && el.text.value.length >= el.text.maxLength ? `Der Text ist auf ${el.text.maxLength.toLocaleString('de-DE')} Zeichen gekürzt.` : ''); autosize(); save(); detectSoon(); });
     // Away from the keyboard the field shows two lines: from the start, not a line cut in half.
     el.text.addEventListener('blur', () => { el.text.scrollTop = 0; });
     el.pdf.addEventListener('click', downloadPdf);
@@ -568,10 +699,30 @@ export function createPageView(deps) {
         seed: r ? r.seed : null, total: r ? r.plan.pieces.length : 0, done: r ? r.done : 0, workers: r ? r.workers : 0, ms: r ? r.ms : null, retried: r ? r.retried || 0 : 0,
         versions: r ? r.plan.pieces.map((_, i) => r.version[i] || 0) : [], settings: { ...P.settings },
         pages: d ? d.pages.length : 0, placed: d ? d.placed : 0,
-        words: d ? d.pages.flatMap((p, pi) => p.words.map((w) => ({ page: pi, text: w.text, piece: w.piece, line: w.line, x: w.x, baseline: w.baseline, box: w.box }))) : [],
+        words: d ? d.pages.flatMap((p, pi) => p.words.map((w) => ({ page: pi, text: w.text, piece: w.piece, line: w.line, x: w.x, baseline: w.baseline, box: w.box, ...(d.rich ? { block: w.block, frame: w.frame, size: w.size, style: w.style, strokes: w.strokes } : {}) }))) : [],
         ink: r ? r.written.map((w) => (w ? w.words.map((x) => Array.from(x.points.slice(0, 12)).map((v) => Math.round(v * 1000))) : null)) : [],
         drawn: P.frames.map((f) => !!f.key),
+        format: r ? (r.doc ? r.doc.format : 'text') : null,
+        rich: d && d.rich ? {
+          blocks: d.blocks.map((b) => ({ type: b.type, level: b.level, marker: b.marker, box: b.box })),
+          pages: d.pages.map((p) => ({
+            strokes: p.styles.map((st, i) => { const q = p.strokes[i]; let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for (let k = 0; k < q.length; k += 3) { x0 = Math.min(x0, q[k]); x1 = Math.max(x1, q[k]); y0 = Math.min(y0, q[k + 1]); y1 = Math.max(y1, q[k + 1]); } return { ...st, box: [x0, y0, x1, y1] }; }),
+            bands: p.bands.map((b) => { const xs = b.points.filter((_, k) => k % 2 === 0), ys = b.points.filter((_, k) => k % 2); return { color: b.color, line: b.line, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] }; }),
+            frames: p.frames, markers: p.markers, arrows: p.arrows,
+          })),
+        } : null,
       };
+    },
+    /** Page i drawn whole on the main thread at the size of its canvas (tests: what an
+     *  incremental drawing must equal). */
+    snapshot(i) {
+      const f = P.frames[i], w = cssWidth();
+      if (!f || !P.doc || !w) return null;
+      const ratio = Math.min(dpr(), Math.sqrt(MAX_PIXELS / (w * w * (PAGE.height / PAGE.width))));
+      const pw = Math.round(w * ratio), l = look();
+      const c = Object.assign(document.createElement('canvas'), { width: pw, height: Math.round(pw * PAGE.height / PAGE.width) });
+      drawDocumentPage(c.getContext('2d'), P.doc, i, { scale: pw / PAGE.width, look: l, colors: lookColors(l) });
+      return c;
     },
   };
 }

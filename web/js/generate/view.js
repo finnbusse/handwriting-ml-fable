@@ -922,6 +922,7 @@ export function createGenerateView(deps) {
     },
     /** For tests: the page mode's state. */
     pageDebug: () => Object.assign(pageView.debug(), { mode: S.mode }),
+    pageSnapshot: (i) => pageView.snapshot(i),
     /** For tests and the diagnostics page. */
     debug: () => ({ choice: S.choice, version: S.version ? S.version.id : null, models: ((S.index && S.index.models) || []).map((m) => m.id), phase: S.phase, page: S.page, seed: S.seed, sha: S.sha, settings: S.settings, look: Object.assign({}, S.look), ownLook: S.ownLook, runs: S.runId, scale: S.geo ? S.geo.scale : 0, text: S.lastText, bad: S.bad, settled: S.settled, total: S.total, done: S.done }),
   };

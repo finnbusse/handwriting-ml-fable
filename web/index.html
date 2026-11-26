@@ -327,6 +327,24 @@
           <button class="gen-go" id="pg-write" type="button" title="Strg + Eingabe">Schreiben</button>
           <button class="gen-go stop" id="pg-cancel" type="button" hidden><i aria-hidden="true"></i>Abbrechen</button>
         </div>
+        <!-- Formatierung: what to type for headings, lists, marks; the format; an example (format-help.js) -->
+        <div class="pg-fmt-row" data-only="seite">
+          <button class="gen-tool" id="pg-format" type="button" aria-expanded="false" aria-controls="pg-format-panel">Formatierung</button>
+          <span class="pg-detected" id="pg-detected"></span>
+        </div>
+        <div class="pg-fmt" id="pg-format-panel" data-only="seite" role="region" aria-label="Formatierung" hidden>
+          <div class="pg-fmt-top">
+            <div class="gen-opt"><span class="gen-opt-l" id="pg-format-l">Format</span>
+              <div class="gen-choices pg-fmt-choices" role="radiogroup" aria-labelledby="pg-format-l"></div>
+            </div>
+            <div class="pg-fmt-example">
+              <button class="gen-tool" id="pg-example" type="button">Beispiel einsetzen</button>
+              <button class="gen-tool" id="pg-example-keep" type="button" hidden>Behalten</button>
+              <button class="gen-tool" id="pg-example-undo" type="button" hidden><svg class="ic" aria-hidden="true"><use href="#i-undo"/></svg><span>Rückgängig</span></button>
+            </div>
+          </div>
+          <dl class="pg-ref"></dl>
+        </div>
         <p class="gen-note" id="gen-note" data-only="zettel" role="status" hidden></p>
         <p class="gen-note" id="gen-chars" data-only="zettel" hidden></p>
         <p class="gen-note" id="gen-bad" data-only="zettel" hidden></p>

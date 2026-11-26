@@ -403,7 +403,7 @@ geometry is in millimetres, y down, from the top left corner.
   effect is modest: an independent x-height fit per piece spreads by sd 0.133
   (log) without evening and 0.112 with it; letter size still varies by about
   ×1.5 between the 5th and 95th percentile of pieces.
-- The layout is a plain object `{ settings, page, geometry, typical, pages:
+- The layout is a plain object (a structured document adds to it, 2.5.3) `{ settings, page, geometry, typical, pages:
   [{ strokes: Float32Array[x, y, penUp…] per word in mm, words: [{ text, piece,
   word, line, x, width, baseline, box }] }], pieces }`. The screen
   (`render.js: drawDocumentPage`) and the PDF read the same object; pens, widths
@@ -463,8 +463,163 @@ reloaded.
 - Paper and letter size lay the written pieces out again; pen, width, ink and
   colours redraw; a new text or Lesbarkeit needs "Schreiben". A newer model
   waits until nothing is being written.
+- Drawn by keys: every stroke and highlighter band of a page has a key (its style and
+  its exact first, middle and last points) and a box. A page draws its new strokes; where
+  a stroke went or a band came (a frame growing with its box, an underline run getting
+  longer, a rewritten piece and its neighbours) each such box (joined where they overlap)
+  is drawn anew on its own, clipped to it: paper, ruling, bands, then every stroke that
+  meets it. More than 40 % of the page: the whole page. A plain text draws exactly what
+  it drew before (same pixels, tested against the earlier app).
 - "PDF herunterladen" (phone: "PDF") saves `handschrift-YYYY-MM-DD.pdf` from the
   same document object; "Teilen" appears only where the browser can share files.
+
+### 2.5.3 Seite: documents with structure (`document.js`, `decor.js`, `pdf.js`)
+
+`planDocument` also takes the document model of `markup.js` (`{ format, blocks:
+[{ type, level, marker, align, box, lines: [[span]] }], notes }`); a string
+behaves as before, and a document of plain paragraphs gives the same pieces,
+seeds, positions and PDF bytes as its text (tested).
+
+- Pieces: as for text, per typed line; a piece never crosses a block or a line.
+  An arrow is a piece border unless a side of it has 3 characters or fewer:
+  then both sides are one piece ("A -> B" is the piece "A B", "CO2 -> O2 und
+  Wasser" one piece) and the layout places the written piece in two parts
+  with the arrow between them (`piece.cuts`, the word indices where it is cut,
+  and `piece.ats`; a line's items are `{ piece, from, to }` word ranges and
+  `{ arrow }`). A run of words in one style (bold, underline, strike, highlighter,
+  colour) of 4 or more characters gets piece borders of its own, so its
+  decoration lands exactly even where the network's word gaps are unclear; a
+  plain stretch of 3 characters or fewer between such runs joins the next piece
+  (pieces that short write badly), so that border then relies on the word cut.
+  Shorter runs stay inside a piece. Where a border falls inside a piece written
+  as one (the cut failed), it is put at the clearest gap in the ink within 3 x-heights
+  of where its letters should be (letter widths weighted: narrow i, l, t …,
+  wide m, w); inside a word (`**Wort**.`) by the letter widths alone.
+  `plan.stats` and `doc.stats` count runs, runs on piece borders, short runs
+  inside pieces, and borders placed by `guessed` (gap) / `inWord`, and pieces
+  written as one that had to be `cut` for an arrow or a label (`uncut` where
+  one side would have held no ink: the arrow then follows the whole piece). On the
+  proof documents (5 runs of 4+ characters out of 7 on borders in the lecture
+  notes, 12 of 12 in the two-page text; one short run, cut cleanly) nothing
+  had to be guessed.
+- Blocks: heading 1 is written 1.45× larger, headings have a firmer stroke;
+  heading 1 gets a double underline, heading 2 a single one, heading 3 none.
+  A heading 1 that wraps puts an empty line between its rows (at 1.45× on
+  8 mm ruling the rows' ink overlapped by up to 5 mm) and draws one line under
+  each row, the double one under the last.
+  An empty line before heading 1, before heading 2 unless it follows another
+  heading, and after heading 1 (none at the top of a page). List items: level k indented (k − 1) × 4.2 x-heights;
+  the bullet (dot, level 2 a dash) or check box sits at the indent, the text of
+  every row of the item starts 2.6 / 4.8 x-heights after it. A numbered item's
+  label (it stays text) is written with the item's first words but placed on
+  its own: at the indent, set on the line by the lowest point of its digits
+  (`sitLine` reads the inner turns of a 3 or 5 as letter bottoms), and the
+  text of every item of the list at that level, and of every later row, starts
+  in one column, a word gap after the widest label. Where the label could not
+  be cut off, the item hangs after it as written. Boxes (blocks with the same
+  `box`): text 1.6 x-heights inside the frame, an empty line before and after;
+  the frame runs 0.65 line pitches above the first row's and below the last
+  row's middle of the writing (0.7 x-heights over the baseline), at least 0.6
+  x-heights from the ink, with as much room above the ink as below, but never
+  more than 1.25 pitches from those baselines. Centred and right-aligned rows are
+  shifted after they are filled (±0.25 mm by eye). Rules take a row and are
+  drawn at mid-letter height. Baselines stay on the ruling.
+- Lines in parts (the school notebook's header: date left, title centred;
+  name left, date right; subject, topic, class). Typed: `{mitte}` and
+  `{rechts}` inside a paragraph or heading line split it into parts (at the
+  start of a line they still align the whole line; a mark that would go back
+  to the left, a repeated one, one after `\` or in code, and any in a list item
+  stay as typed); `{datum}` anywhere is the date as written in a notebook,
+  `26.11.2026` (`parseMarkup` option `today`); LaTeX: `a \hfill b` left and
+  right, `a \hfill b \hfill c` left, centre, right (a third `\hfill` and any
+  in a list item is a space). Model: spans with `part: 'center' | 'right'`
+  (none = left) in that order; in a heading the centred part is the heading,
+  else the left one, and the other parts' spans carry `body: true`. A line
+  left with one part is an ordinary line (a leading mark: the block's `align`).
+  Plan: a part border is a word and piece border; a part of 3 characters or
+  fewer is written with its neighbour ("Erörterung 7b") and cut there again,
+  as for arrows; the plan's line has `parts: true` and its items `part` /
+  `body`. Layout: every part is first laid out as a line of its own alignment
+  (left at the block's left edge, centre on the text width, right ending at
+  the right edge, ±0.25 mm by eye); when each took one row and 3 letter widths
+  of the writing (`PART_GAP`, measured on the parts' own words at body size)
+  stay clear between them, they share one row and one baseline. A centred
+  part is never moved off the middle to make room. A level-1 title that does
+  not fit at its full size (1.45) is tried at 1.3, 1.15 and body size
+  (`TITLE_FIT`) before the row is given up, the way a long title is written
+  less large in a notebook: this hand writes "Die Weimarer Republik" 112 mm
+  wide at full size and the date 32 mm, so on liniert (175 mm of text width)
+  it shares the row at 1.15. Parts that fit at none of these sizes go onto
+  rows of their own in reading order, each keeping its alignment, the title
+  at full size, an empty line between a large title row and its neighbours. Body parts in a heading row are written
+  at body size and stroke; the heading's underline (double for level 1) spans
+  its part only; marks, highlighter and strike runs end at a part border. A
+  line in parts is shown only once all its pieces are written. Text layer:
+  the parts of a shared row on one line in reading order (`pdftotext -raw`,
+  pypdf; `pdftotext` without `-raw` reads the wide gap as a column break).
+- Pages: as before (an empty line never opens a page), plus explicit page
+  breaks; a heading moves on with the next row rather than stand alone at the
+  bottom; a box that fits on a page is not split. While pieces are missing a
+  box is paginated by its rows so far, so it can still move once it is complete.
+- Drawn by hand (`decor.js`): one generator for every line – a slow wobble
+  (one wave about as long as the line, one of a few letters), a small turn and
+  bow, ends that overshoot or stop short (sd 0.22 x-heights), and the speed of a
+  hand (points close at the ends, about twice the writing speed in the middle),
+  so that Füller and Bleistift draw it firmer where it starts and stops. It
+  makes underlines (0.42 x-heights under the baseline, through the descenders),
+  the double underline, strike-throughs, rules, frames (four lines whose corners
+  do not close, the first set down with a small hook), bullets, check boxes
+  (2.8 x-heights, about a capital of the writing; two strokes, left side and
+  bottom, then top and right side, crossing at the corners by 0.25–0.55
+  x-heights, sides ±8 %,
+  turned up to 3°), ticks (from inside the box up and out past its top right
+  corner), arrows (shaft 4.4
+  x-heights at mid-height, two head strokes; `=>` two shafts; `<->` two heads).
+  All of them are ordinary ink strokes of the document seed and their block,
+  never of what comes before. A turn given in degrees moves the far end of a
+  long line a lot (0.9° over 150 mm is 2.4 mm, through the letters), so an
+  underline may leave its straight course by at most 0.16 x-heights and a
+  strike by 0.25 (over 1000 seeds up to 150 mm the underline stays 0.26
+  x-heights under the baseline; tested). Highlighter: per row of a run a filled outline
+  from 0.5 x-heights under the baseline to 1.8 above, with a chisel's slanted
+  ends and slightly uneven edges.
+- Colours (`decor.js: INK_COLORS`, `MARKER_COLORS`): rot, blau, gruen,
+  schwarz, orange, lila, grau, each with a light-paper and a dark-paper value;
+  a span without colour keeps the document's ink. Highlighters gelb, gruen,
+  rosa, blau, orange: multiplied at opacity 0.5–0.55 on light paper, screened at
+  0.4–0.48 on dark paper. On the dark paper a band bright enough to glow takes
+  the light ink's contrast away; the values keep the ink #C9D4FF at a contrast
+  of 3.2 (gelb, leaning to gold, where a paler yellow read as olive) to 5
+  (rosa).
+- The document object additionally carries `rich: true`, `blocks`, `styles`,
+  `notes`, `stats`, and per page `styles` (one `{ color, bold, kind }` per entry
+  of `strokes`; kind word / underline / strike / rule / frame / bullet / check /
+  tick / arrow), `bands` (`{ color, points: [x, y, …] mm, line, block }`),
+  `arrows` (`{ text: '->', line, x, width, baseline }`), `markers` (the list
+  markers for the text layer: `{ text: '-' | '[ ]' | '[x]', line, x, width,
+  baseline }`) and `frames` (`{ box, rect }`). Words keep their fields and add `block`, `frame`, `size`, `style`
+  and `strokes: [from, to)` (a word whose ink changes colour or weight is split
+  into several stroke entries); the drawn strokes follow the words.
+- PDF: bands first, filled with their opacity and blend (ExtGState `/ca`, `/BM
+  /Multiply` or `/Screen`), then the ink grouped by colour and weight. Bold:
+  the line 1.5× (Fineliner), 1.4× (Füller), 1.3× and two tone levels darker
+  (Bleistift) – chosen by looking: firmer, still the same pen. Transparency and
+  extra colours appear only when used. The text layer holds the words,
+  arrows (as `->`, `=>`, `<-`, `<->`) and list markers (`-`, `[ ]`, `[x]`)
+  row by row; struck words stay in it as typed.
+- In the page mode (`page-view.js`): the text is read with `parseMarkup` in the stored
+  format (`kv: page.format`: auto, markdown, latex, text; the "Formatierung" panel,
+  `format-help.js`, chooses it); a text that comes out as plain paragraphs, or the choice
+  "Nur Text", is written as the text itself, exactly as before marks. `{datum}` and
+  `\today` are the day "Schreiben" was pressed. The detected format ("Markdown",
+  "LaTeX") stands beside the field. What the marks could not do (`notes`) follows the
+  note line's message. The length limit stays 40 000 typed characters, marks included
+  (they rarely add a tenth); the characters the model cannot write are looked for in
+  the words only, not in the marks. The PDF is written from the same document and is
+  named after the first heading (in a header line its title, not the date). The
+  screen draws what the PDF holds: bands under the ink (multiply / screen at the
+  marker's opacity), named inks in the scheme's value, bold 1.5 / 1.4 / 1.3 × wider
+  and, in Bleistift, two tones darker, decorations as ink of the chosen pen.
 
 ### 2.6 Engine
 

@@ -3,6 +3,10 @@
 //   - Seite, Bleistift, two pages: a page is not drawn anew for every piece that arrives;
 //     scrolling the finished pages draws nothing and blocks nothing; one redrawn page takes a
 //     bounded number of canvas calls per word.
+//   - Seite, Bleistift, a document with marks over two pages: scrolling its finished pages
+//     draws nothing and blocks nothing for 50 ms; while it is written, the budget of the
+//     plain pages above (the layout of a piece runs on the page; on a loaded 4-core machine
+//     the plain pages too have tasks of 50-120 ms then).
 //   - Zettel, a sheet of many lines: a frame of the writing animation draws on a small part
 //     of the ink (paint-worker.js: STRIP), and never copies the whole sheet.
 // Canvas calls are counted on the page and in the paint worker (paint-worker.js), so the
@@ -188,6 +192,56 @@ async function pages(browser, server) {
   await ctx.close();
 }
 
+// A document with marks over two squared pages: a header line, headings, lists, check boxes,
+// arrows, boxes, highlighter, colour, strike-throughs and rules.
+const RICH = `# {datum} {mitte} Wiederholung\n${[1, 2, 3].map((n) => `## Teil ${n}
+Die ==Zelle== ist die *kleinste* Einheit.
+- Kern und Plasma
+  - Erbgut im Kern
+- [x] Text gelesen
+- [ ] Skizze zeichnen
+Licht -> Zucker
+> Merke: alles Leben aus Zellen
+Das ist [wichtig]{rot} und ~~falsch~~.
+---`).join('\n')}`;
+
+async function rich(browser, server) {
+  const { page, ctx, errors } = await open(browser, server);
+  await pick(page, 'pen', 'bleistift');
+  await page.click('.gen-modes [data-mode="seite"]');
+  await pick(page, 'paper', 'kariert');
+  await pick(page, 'docsize', 'gross');
+  await closeStyle(page);
+  await page.fill('#pg-text', RICH);
+  await page.evaluate(() => document.getElementById('pg-text').blur());
+  const l0 = await now(page);
+  await page.click('#pg-write');
+  await page.waitForTimeout(500);
+  await L.until(async () => !(await progress(page)).writing, 300000, 150);
+  await settled(page);
+  const writingLong = await longSince(page, l0);
+  const d = await page.evaluate(() => window.__hw.generate.pageDebug());
+  L.check('rich: a document of two pages written', d.format === 'markdown' && d.pages === 2 && d.placed === d.total, JSON.stringify([d.format, d.pages, d.placed, d.total]));
+  console.log(`      rich, Bleistift: longest task on the page while writing ${writingLong} ms`);
+  L.check('rich, Bleistift: no task over 250 ms on the page while writing', writingLong <= 250, `${writingLong} ms`);
+  await page.evaluate(() => { document.getElementById('pg-stage').scrollTop = 0; });
+  await settled(page);
+  const s0 = await counts(page);
+  const l1 = await now(page);
+  const box = await page.evaluate(() => { const r = document.getElementById('pg-stage').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+  await page.mouse.move(box[0], box[1]);
+  for (const sign of [1, -1, 1, -1]) {
+    for (let k = 0; k < 40; k++) { await page.mouse.wheel(0, 60 * sign); await page.waitForTimeout(16); }
+  }
+  await settled(page);
+  const s1 = minus(await counts(page), s0);
+  const scrollLong = await longSince(page, l1);
+  console.log(`      rich, Bleistift: longest task on the page while scrolling ${scrollLong} ms`);
+  L.check('rich, Bleistift: scrolling the finished pages draws nothing, no task over 50 ms', s1.pages === 0 && s1.stroke + s1.fill === 0 && scrollLong <= 50, JSON.stringify({ scrollLong, pages: s1.pages, calls: s1.stroke + s1.fill }));
+  L.check('rich: no errors', errors.filter((e) => !/Failed to load resource|ERR_/.test(e)).length === 0, errors.join(' | '));
+  await ctx.close();
+}
+
 async function sheet(browser, server) {
   const { page, ctx, errors } = await open(browser, server);
   await pick(page, 'pen', 'bleistift');
@@ -221,7 +275,7 @@ async function sheet(browser, server) {
   const browser = await L.launch();
   const only = process.argv.slice(2);
   try {
-    for (const part of [pages, sheet]) if (!only.length || only.includes(part.name)) await part(browser, server);
+    for (const part of [pages, rich, sheet]) if (!only.length || only.includes(part.name)) await part(browser, server);
   } catch (e) {
     console.error(e);
     L.check('no exception', false, String(e && e.message));

@@ -2,7 +2,7 @@
 // Usage: node tests/web/run.cjs
 const { spawnSync } = require('child_process');
 const path = require('path');
-const tests = ['test_capture.cjs', 'test_undo.cjs', 'test_erase.cjs', 'test_erase_edges.cjs', 'test_display.cjs', 'test_qa.cjs', 'test_outbox.cjs', 'test_safety.cjs', 'test_library.cjs', 'test_offline.cjs', 'test_writers.cjs', 'test_screens.cjs', 'test_generate.cjs', 'test_page_mode.cjs', 'perf_write.cjs', 'test_models.cjs', 'test_training.cjs'];
+const tests = ['test_capture.cjs', 'test_undo.cjs', 'test_erase.cjs', 'test_erase_edges.cjs', 'test_display.cjs', 'test_qa.cjs', 'test_outbox.cjs', 'test_safety.cjs', 'test_library.cjs', 'test_offline.cjs', 'test_writers.cjs', 'test_screens.cjs', 'test_generate.cjs', 'test_page_mode.cjs', 'test_format_help.cjs', 'perf_write.cjs', 'test_models.cjs', 'test_training.cjs'];
 let failed = [];
 for (const t of tests) {
   console.log(`\n== ${t}`);

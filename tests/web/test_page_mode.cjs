@@ -1,6 +1,7 @@
 // Schreiben, page mode ("Seite"): mode switch, writing with several engines, pages,
 // progress, cancel, tap to rewrite, PDF download, settings, touch targets, themes,
-// a dying worker.
+// a dying worker, documents with marks (PAGE_BASE=<web/ of an older app>: a plain text
+// compared with it pixel for pixel and byte for byte).
 // Needs the small test model in tests/engine/fixtures (not in git); without it the file is skipped.
 const fs = require('fs');
 const path = require('path');
@@ -72,6 +73,38 @@ const wordPoint = (page, w) => page.evaluate(({ p, box }) => {
 const smallTargets = (page) => page.evaluate(() => [...document.querySelectorAll('#v-schreiben button, #v-schreiben a.btn, #v-schreiben input[type=range], #v-schreiben .pg-switch')]
   .filter((e) => e.offsetParent && !e.hidden).map((e) => { const r = e.getBoundingClientRect(); return [e.id || e.textContent.trim().slice(0, 16) || e.className, Math.round(r.width), Math.round(r.height)]; })
   .filter(([, w, h]) => h < 47.5 || w < 47.5));
+/** Page canvas i as drawn (a copy: the worker owns the canvas) against the same page drawn
+ *  whole on the main thread: pixels that differ (diff) and that differ like ink from paper
+ *  (big: a leftover or a missing stroke), and a hash of what is drawn. */
+const canvasData = (page, i = 0) => page.evaluate(async (k) => {
+  await window.__hw.generate.painted();
+  const c = document.querySelectorAll('#pg-pages .pg-page canvas')[k];
+  const read = (src) => { const t = Object.assign(document.createElement('canvas'), { width: src.width, height: src.height }); t.getContext('2d').drawImage(src, 0, 0); return t.getContext('2d').getImageData(0, 0, src.width, src.height).data; };
+  const a = read(c), b = read(window.__hw.generate.pageSnapshot(k));
+  let diff = 0;
+  let big = 0;
+  for (let j = 0; j < a.length; j += 4) { const e = Math.abs(a[j] - b[j]) + Math.abs(a[j + 1] - b[j + 1]) + Math.abs(a[j + 2] - b[j + 2]); if (e > 24) diff++; if (e > 150) big++; }
+  const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', a))).map((v) => v.toString(16).padStart(2, '0')).join('');
+  return { w: c.width, h: c.height, diff, big, hash };
+}, i);
+/** Pixels in a box (mm) of page canvas i that pass a colour test (name of a test below). */
+const countIn = (page, i, box, test) => page.evaluate(async ({ k, box, test }) => {
+  await window.__hw.generate.painted();
+  const c = document.querySelectorAll('#pg-pages .pg-page canvas')[k];
+  const s = c.width / 210, x = Math.max(0, Math.floor(box[0] * s)), y = Math.max(0, Math.floor(box[1] * s));
+  const w = Math.max(1, Math.ceil(box[2] * s) - x), h = Math.max(1, Math.ceil(box[3] * s) - y);
+  const t = Object.assign(document.createElement('canvas'), { width: c.width, height: c.height });
+  t.getContext('2d').drawImage(c, 0, 0);
+  const d = t.getContext('2d').getImageData(x, y, w, h).data;
+  const tests = {
+    marker: (r, g, b) => Math.abs(r - 255) < 14 && Math.abs(g - 238) < 14 && Math.abs(b - 144) < 22,     // gelb multiplied on white
+    red: (r, g, b) => r > 120 && r > g + 60 && r > b + 60,
+    ink: (r, g, b) => r + g + b < 330,
+  };
+  let n = 0;
+  for (let j = 0; j < d.length; j += 4) if (tests[test](d[j], d[j + 1], d[j + 2])) n++;
+  return n;
+}, { k: i, box, test });
 const pdfFacts = (buf) => {
   const s = buf.toString('latin1');
   return { head: s.slice(0, 5), pages: (s.match(/\/Type \/Page\b(?!s)/g) || []).length, count: Number((s.match(/\/Count (\d+)/) || [])[1]), eof: s.trimEnd().endsWith('%%EOF') };
@@ -272,6 +305,151 @@ async function robustness(browser, server) {
   await ctx.close();
 }
 
+const RICH = `# {datum} {mitte} Zellatmung
+Die ==Mitochondrien== sind die *Kraftwerke* der Zelle.
+- Glukose wird abgebaut
+  - in mehreren Schritten
+- [x] Text gelesen
+- [ ] Skizze zeichnen
+Glukose -> Energie
+> Merke: ohne Sauerstoff keine Atmung
+Das ist [wichtig]{rot} fuer uns.
+---
+Ende`;
+// "Now" for new Date() is 26.11.2026 10:00 ({datum}, \today, the PDF's date); Date.now and
+// the timers run on, so nothing that measures time is touched.
+const FIXED_DAY = `{ const D = Date, at = new D(2026, 10, 26, 10, 0).getTime();
+  window.Date = new Proxy(D, { construct: (t, a) => (a.length ? new D(...a) : new D(at)), apply: () => new D(at).toString() }); }`;
+const inflated = (buf) => {
+  const zlib = require('zlib'), s = buf.toString('latin1'), out = [];
+  const re = /stream\n/g;
+  let m;
+  while ((m = re.exec(s))) {
+    const end = s.indexOf('\nendstream', m.index);
+    const raw = buf.subarray(m.index + 7, end);
+    try { out.push(zlib.inflateSync(raw).toString('latin1')); } catch (_) { out.push(raw.toString('latin1')); }
+  }
+  return s + out.join('\n');
+};
+
+/** A document with marks: what the screen shows, the PDF, a tap inside a list, the choice 'text'. */
+async function rich(browser, server) {
+  const hf = await modelRepo();
+  const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
+  await ready(page);
+  await page.click('.gen-modes [data-mode="seite"]');
+  await page.fill('#pg-text', RICH);
+  await page.waitForTimeout(400);
+  L.check('rich: the detected format is named beside the field', (await page.textContent('#pg-detected')).trim() === 'Markdown', await page.textContent('#pg-detected'));
+  await page.click('#pg-write');
+  await idle(page);
+  const d = await dbg(page);
+  L.check('rich: written as a document, all placed on one page', d.format === 'markdown' && !!d.rich && d.placed === d.total && d.pages === 1, JSON.stringify([d.format, d.placed, d.total, d.pages]));
+  const rp = d.rich.pages[0], kinds = rp.strokes.map((s) => s.kind);
+  L.check('rich: underlines, bullets, check boxes, a tick, an arrow, a frame and a rule are drawn', ['underline', 'bullet', 'check', 'tick', 'arrow', 'frame', 'rule'].every((k) => kinds.includes(k)) && rp.bands.length === 1, JSON.stringify([...new Set(kinds)]));
+  // the school header: the date at the left edge, the title centred on the same line
+  const head = d.words.filter((w) => w.block === 0), date = head.filter((w) => /2026/.test(w.text)), title = head.filter((w) => !/2026/.test(w.text));
+  const tl = Math.min(...title.map((w) => w.box[0])), tr = Math.max(...title.map((w) => w.box[2]));
+  L.check('rich: {datum} is the day of writing, at the left edge', date.length === 1 && date[0].text === '26.11.2026' && Math.abs(date[0].x - 20) < 1, JSON.stringify(date.map((w) => [w.text, w.x])));
+  L.check('rich: the title is centred on the same line as the date', title.length >= 1 && Math.abs((tl + tr) / 2 - (20 + 195) / 2) < 1.5 && title.every((w) => w.line === date[0].line), JSON.stringify([tl, tr]));
+  // the canvas
+  const band = rp.bands[0].box;
+  L.check('canvas: the marker colour under the highlighted word', (await countIn(page, 0, band, 'marker')) > 200, String(await countIn(page, 0, band, 'marker')));
+  const red = d.words.find((w) => w.style && w.style.color === 'rot');
+  L.check('canvas: the coloured word in its colour', !!red && (await countIn(page, 0, red.box, 'red')) > 40, red && String(await countIn(page, 0, red.box, 'red')));
+  const fr = rp.frames[0].rect, boxed = d.words.filter((w) => w.frame != null);
+  L.check('rich: the boxed words lie inside their frame', boxed.length >= 3 && boxed.every((w) => w.box[0] > fr[0] && w.box[2] < fr[2] && w.box[1] > fr[1] && w.box[3] < fr[3]), JSON.stringify(fr));
+  const leftEdge = await countIn(page, 0, [fr[0] - 1, fr[1] + 2, fr[0] + 1, fr[3] - 2], 'ink'), rightEdge = await countIn(page, 0, [fr[2] - 1, fr[1] + 2, fr[2] + 1, fr[3] - 2], 'ink');
+  L.check('canvas: frame strokes left and right of the boxed words', leftEdge > 30 && rightEdge > 30, JSON.stringify([leftEdge, rightEdge]));
+  const bullet = rp.strokes.find((s) => s.kind === 'bullet'), item = d.words.filter((w) => d.rich.blocks[w.block].type === 'item' && w.line === d.words.find((x) => x.text === 'Glukose').line);
+  L.check('canvas: a bullet left of its item', !!bullet && item.length && bullet.box[2] < Math.min(...item.map((w) => w.x)) && (await countIn(page, 0, [bullet.box[0] - 0.3, bullet.box[1] - 0.3, bullet.box[2] + 0.3, bullet.box[3] + 0.3], 'ink')) > 10, JSON.stringify(bullet && bullet.box));
+  const c1 = await canvasData(page, 0);
+  // A region drawn anew is clipped, and a clipped path is rasterised a little differently at
+  // its edges (measured: 8-70 of 4.4 M pixels, by up to 120 of 765 levels summed): fine, but
+  // old ink left over or ink missing would differ like ink from paper.
+  L.check('canvas: written piece by piece, it equals the page drawn whole (no leftovers)', c1.big === 0 && c1.diff < 400, JSON.stringify(c1));
+  // the PDF
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#pg-pdf')]);
+  const pdf = inflated(fs.readFileSync(await dl.path()));
+  L.check('PDF: the highlighter band, the red ink and the frame strokes', /\/BM \/Multiply/.test(pdf) && /0\.77 0\.16 0\.16 RG/.test(pdf) && /0 J/.test(pdf), '');
+  L.check('PDF: the text layer holds the words, the date, the markers and the arrow', ['(26.11.2026 ', '(Zellatmung)', '(Mitochondrien', '([x] ', '(-> '].every((t) => pdf.includes(t)) && /3 Tr/.test(pdf), ['(26.11.2026 ', '(Zellatmung)', '(Mitochondrien', '([x] ', '(-> '].filter((t) => !pdf.includes(t)).join(' '));
+  L.check('PDF: named after the title of the header line', /Zellatmung/.test(Buffer.from(pdf.match(/\/Title <FEFF([0-9A-F]+)>/)[1], 'hex').swap16().toString('utf16le')));
+
+  // a tap on a word inside a list: its piece is written again, the list stays drawn
+  const target = d.words.find((w) => w.text === 'mehreren');
+  const pt = await wordPoint(page, target);
+  await page.mouse.click(pt.x, pt.y);
+  await page.waitForTimeout(200);
+  L.check('rich: a tap in a list item marks its piece', (await dbg(page)).pick === target.piece);
+  await page.click('#pg-redo');
+  await idle(page, 60000);
+  const d2 = await dbg(page);
+  const kinds2 = d2.rich.pages[0].strokes.map((s) => s.kind);
+  L.check('rich: the list item is written again, the rest stays', d2.versions[target.piece] === 1 && d2.versions.every((v, i) => i === target.piece || v === 0) && JSON.stringify(d2.ink[target.piece]) !== JSON.stringify(d.ink[target.piece]), JSON.stringify(d2.versions));
+  L.check('rich: after the rewrite the decorations are all there', JSON.stringify(kinds.filter((k) => k !== 'word').sort()) === JSON.stringify(kinds2.filter((k) => k !== 'word').sort()));
+  const c2 = await canvasData(page, 0);
+  L.check('canvas: after the rewrite it equals the page drawn whole (no leftovers)', c2.big === 0 && c2.diff < 400 && c2.hash !== c1.hash, JSON.stringify(c2));
+
+  // the choice 'text': marks are written as typed
+  await page.click('#pg-format');
+  await page.click('#pg-format-panel [data-v="text"]');
+  await page.click('#pg-format');
+  await page.fill('#pg-text', '**fett** und ==gelb==');
+  await page.waitForTimeout(400);
+  L.check('choice "Nur Text": nothing named beside the field', (await page.textContent('#pg-detected')).trim() === '');
+  await page.click('#pg-write');
+  await idle(page);
+  const d3 = await dbg(page);
+  L.check('choice "Nur Text": the marks are written as typed', d3.format === 'text' && !d3.rich && d3.words.map((w) => w.text).join(' ') === '**fett** und ==gelb==', JSON.stringify(d3.words.map((w) => w.text)));
+  L.check('rich: no page errors', noErrors(errors).length === 0, noErrors(errors).join(' | '));
+  await ctx.close();
+}
+
+/** A text without marks gives the same canvas pixels and PDF bytes as the app before marks
+ *  (PAGE_BASE: the web/ folder of that app; skipped without it). */
+async function plainSame(browser, server) {
+  const base = process.env.PAGE_BASE;
+  if (!base) { console.log('SKIP plainSame: set PAGE_BASE to the web/ folder of the app to compare with'); return; }
+  const srv = http.createServer((req, res) => {
+    const u = new URL(req.url, 'http://localhost');
+    if (u.pathname === '/') { res.writeHead(302, { location: '/index.html' }); res.end(); return; }
+    const f = path.join(base, decodeURIComponent(u.pathname));
+    if (!f.startsWith(path.resolve(base) + path.sep) || !fs.existsSync(f) || !fs.statSync(f).isFile()) { res.writeHead(404); res.end(); return; }
+    const types = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png' };
+    res.writeHead(200, { 'content-type': types[path.extname(f)] || 'application/octet-stream' });
+    fs.createReadStream(f).pipe(res);
+  });
+  await new Promise((r) => srv.listen(0, '127.0.0.1', r));
+  closers.push(() => new Promise((r) => { srv.closeAllConnections(); srv.close(r); }));
+  const other = { url: `http://localhost:${srv.address().port}/index.html` };
+  const out = [];
+  for (const s of [server, other]) {
+    const hf = await modelRepo();
+    const { page, ctx, errors } = await L.newApp(browser, s, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
+    await ready(page);
+    await page.click('.gen-modes [data-mode="seite"]');
+    await page.fill('#pg-text', LETTER);
+    // the document seed comes from Math.random: fixed for this one click (and the field left
+    // first, so that it shrinks now and not under the next click)
+    await page.evaluate(() => { document.activeElement.blur(); const r = Math.random; Math.random = () => 0.25; document.getElementById('pg-write').click(); Math.random = r; });
+    await idle(page);
+    const c = await page.evaluate(async () => {
+      await window.__hw.generate.painted();
+      const src = document.querySelector('#pg-pages .pg-page canvas');
+      const t = Object.assign(document.createElement('canvas'), { width: src.width, height: src.height });
+      t.getContext('2d').drawImage(src, 0, 0);
+      const a = t.getContext('2d').getImageData(0, 0, t.width, t.height).data;
+      return [t.width, t.height, Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', a))).map((v) => v.toString(16).padStart(2, '0')).join('')].join(' ');
+    });
+    const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#pg-pdf')]);
+    out.push({ canvas: c, pdf: fs.readFileSync(await dl.path()), errors: noErrors(errors) });
+    await ctx.close();
+  }
+  L.check('plain text: the same canvas pixels as before marks', out[0].canvas === out[1].canvas, `${out[0].canvas} | ${out[1].canvas}`);
+  L.check('plain text: the same PDF bytes as before marks', out[0].pdf.equals(out[1].pdf), `${out[0].pdf.length} | ${out[1].pdf.length}`);
+  L.check('plain text: no page errors', !out[0].errors.length && !out[1].errors.length, [...out[0].errors, ...out[1].errors].join(' | '));
+}
+
 async function phoneDark(browser, server) {
   for (const [tag, viewport, scheme] of [['phone', { width: 412, height: 915 }, 'light'], ['tablet-dark', { width: 800, height: 1280 }, 'dark']]) {
     const hf = await modelRepo();
@@ -312,7 +490,7 @@ async function phoneDark(browser, server) {
   const browser = await L.launch();
   try {
     const only = (process.env.PAGE_ONLY || '').split(',').filter(Boolean);
-    for (const part of [tablet, workersAgree, robustness, phoneDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
+    for (const part of [tablet, workersAgree, robustness, rich, plainSame, phoneDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
   } catch (e) {
     console.error(e); L.check('test ran without exception', false, String(e));
   } finally {

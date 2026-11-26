@@ -624,6 +624,41 @@ body[data-route="schreiben"] { height: 100dvh; overflow: hidden; }
 /* Away from the keyboard the text steps back to two lines: the pages are the thing to look at. */
 /* (25 px lines: 11 + 2 x 25 shows exactly two; the bottom padding moves out of the box so no third line peeks in) */
 .pg-composer:not(:focus-within) #pg-text { max-height: 61px; padding-bottom: 0; margin-bottom: 11px; }
+/* Formatierung: a quiet tool under the text line; its panel opens there, in the style of
+   Stil, and scrolls inside itself.  What to type is set in the system's monospace, so
+   that marks like ** and == read exactly as they must be typed. */
+.pg-fmt-row { display: flex; align-items: center; gap: 12px; margin: -4px 0 -6px -8px; }
+.pg-fmt-row .gen-tool { font-size: 14px; padding: 0 10px; }
+.pg-fmt-row .gen-tool::before { inset: 8px 0; }
+.pg-detected { margin-left: auto; padding-right: 4px; font-size: 14px; color: var(--muted); }
+.pg-fmt {
+  --gen-label: 104px;
+  max-height: min(46dvh, 420px); overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin;
+  padding: 2px 12px 10px; margin: 0 -8px;      /* room for the choices' marks, which reach 10 px left of their text */
+}
+.pg-fmt-top { display: flex; flex-wrap: wrap; align-items: center; column-gap: 24px; }
+.pg-fmt-top .gen-opt { flex: 1 1 420px; }
+.pg-fmt-example { display: flex; flex-wrap: wrap; margin-left: -12px; }
+.pg-fmt-example .gen-tool .ic { width: 16px; height: 16px; }
+.pg-fmt-example .pg-ask { color: var(--accent); }
+.pg-ref {
+  display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: 24px; row-gap: 9px;
+  margin: 8px 0 0; padding-top: 14px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.45;
+}
+.pg-ref dt { font-family: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace; font-size: 13.5px; color: var(--ink); white-space: pre; }
+.pg-ref dd { margin: 0; color: var(--muted); }
+@media (max-width: 760px) {
+  .pg-fmt { --gen-label: 100px; max-height: min(38dvh, 340px); }
+}
+@media (max-width: 560px) {
+  /* the four formats need the whole width; the radiogroup keeps its name for screen readers */
+  .pg-fmt-top .gen-opt { grid-template-columns: minmax(0, 1fr); }
+  .pg-fmt-top .gen-opt-l { display: none; }
+  .pg-ref { grid-template-columns: minmax(0, 1fr); row-gap: 2px; }
+  .pg-ref dt { white-space: pre-wrap; margin-top: 8px; }
+  .pg-ref dt:first-child { margin-top: 0; }
+  .gen:has(> .gen-dock #pg-format-panel:not([hidden])) .gen-modes { display: none; }
+}
 .pg-switch { display: inline-flex; align-items: center; gap: 12px; min-height: 48px; font-size: 15px; color: var(--ink); cursor: pointer; justify-self: start; }
 .pg-short { display: none; }
 @media (max-width: 560px) {

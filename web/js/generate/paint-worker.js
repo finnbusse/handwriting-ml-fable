@@ -15,7 +15,7 @@
 //
 // Steps of one run() are drawn in one task, so the page shows all of them or none.  Where a
 // browser cannot hand a canvas over, the same steps are drawn on the main thread.
-import { drawWord, drawPartial, drawSheet, drawDocumentPage, docWordXh } from './render.js';
+import { drawWord, drawPartial, drawSheet, drawDocumentPage, drawBands, docWordXh } from './render.js';
 
 // The quick sheet's ink is a stack of strips this many device px tall.  A canvas that was
 // drawn on is copied whole for the compositor, so with one canvas for the sheet every frame
@@ -51,14 +51,34 @@ export function createPainter() {
     page(c, { doc, scale, look, colors }) {
       drawDocumentPage(c.canvas.getContext('2d'), { ...doc, settings: { look }, pages: [] }, 0, { scale, look, colors, ink: false });
     },
-    /** Whole words; xh: document words in mm, drawn with the page's x-height as unit. */
-    words(c, { words, scale, look, colors, xh }) {
+    /** Whole words; xh: document words in mm, drawn with the page's x-height as unit;
+     *  styles: a document's stroke styles, parallel to words. */
+    words(c, { words, styles, scale, look, colors, xh }) {
       const ctx = c.canvas.getContext('2d');
-      const o = { scale: xh ? scale * xh : scale, look, colors, offsetY: -c.y };
-      for (const w of words) {
+      const o = { scale: xh ? scale * xh : scale, look, colors, offsetY: -c.y, style: null };
+      words.forEach((w, i) => {
         const p = xh ? docWordXh(w, xh) : w;
+        o.style = styles ? styles[i] : null;
         if (meets(c, rows(p, o.scale, look))) drawWord(ctx, p, o);
-      }
+      });
+    },
+    /** A document page's highlighter bands (mm), under the ink drawn after them. */
+    bands(c, { bands, scale, colors }) { drawBands(c.canvas.getContext('2d'), bands, { scale, colors, offsetY: -c.y }); },
+    /** Paper, ruling, bands and ink anew inside one device px rect [x, y, w, h] only: what
+     *  a later piece took away or put under the ink, without drawing the page again.  One
+     *  rect per step: a clip of several rects changed the edges of all the ink inside it
+     *  (up to 3 levels on 34 pixels of a plain page), one rect only those of strokes it
+     *  cuts (8-70 pixels of an A4 page, up to 120 of 765 levels summed; no visible seam). */
+    region(c, { rect: [x, y, w, h], doc, bands, words, styles, scale, look, colors, xh }) {
+      const ctx = c.canvas.getContext('2d');
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(x, y - c.y, w, h);
+      ctx.clip();
+      drawDocumentPage(ctx, { ...doc, settings: { look }, pages: [] }, 0, { scale, look, colors, ink: false, offsetY: -c.y });
+      if (bands.length) drawBands(ctx, bands, { scale, colors, offsetY: -c.y });
+      steps.words(c, { words, styles, scale, look, colors, xh });
+      ctx.restore();
     },
     /** Keep a copy of a box (device px) to draw a growing word over, again and again. */
     hold(c, { x, y, w, h }) {

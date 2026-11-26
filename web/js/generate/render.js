@@ -10,6 +10,7 @@
 import {
   schemeColors, smoothPressure, fuellerWidth, pencilLevel, pencilColor, pencilTone, hexRgb, TONES,
 } from '../capture/ink.js';
+import { inkColor, markerColor } from './decor.js';
 
 export const PENS = ['fineliner', 'fueller', 'bleistift'];
 // Stroke widths in x-heights: the capture widths (0.75 .. 3 CSS px) on its writing of
@@ -220,8 +221,9 @@ function grainPatterns(ctx, colors) {
   return out;
 }
 
-/** Füller / Bleistift: one word, its pieces gathered by tone or width (see above). */
-function drawPenWord(ctx, points, scale, look, colors, ox, oy) {
+/** Füller / Bleistift: one word, its pieces gathered by tone or width (see above).
+ *  tone: graphite levels darker (a bold stroke). */
+function drawPenWord(ctx, points, scale, look, colors, ox, oy, tone = 0) {
   const pencil = look.pen === 'bleistift', edge = EDGE_PX[look.pen];
   const lw = Math.max(look.width * scale, MIN_PX);
   const lines = new Map(), dots = new Map();
@@ -231,7 +233,7 @@ function drawPenWord(ctx, points, scale, look, colors, ox, oy) {
     const s = samples[j], pe = pressures[j];
     let prev = -1, path = null;
     for (let i = 0; i < pe.length; i++) {
-      const key = pencil ? pencilLevel(pe[i]) : Math.round(fuellerWidth(lw, pe[i]) * WIDTH_STEPS);
+      const key = pencil ? Math.min(pencilLevel(pe[i]) + tone, TONES - 1) : Math.round(fuellerWidth(lw, pe[i]) * WIDTH_STEPS);
       const x = s.x[i] * scale, y = s.y[i] * scale;
       if (i === 0) {             // a stroke starts with a dot, as on the capture sheet
         const r = ((pencil ? lw : key / WIDTH_STEPS) + edge) / 2, d = at(dots, key);
@@ -259,13 +261,27 @@ function drawPenWord(ctx, points, scale, look, colors, ox, oy) {
   ctx.restore();
 }
 
+// Bold ("pressed harder", a document's titles and **words**): the line this much wider
+// per pen, Bleistift also this many tone levels darker.  The values of pdf.js, so that
+// the screen and the file agree.
+export const BOLD = { fineliner: 1.5, fueller: 1.4, bleistift: 1.3 };
+export const BOLD_TONE = 2;
+
 /**
  * Draw one word array (an entry of page.strokes) onto a 2D context whose transform is the
- * identity.  o = { scale (device px per x-height), look, colors }.  Each word is drawn on
+ * identity.  o = { scale (device px per x-height), look, colors, style }.  style: a document
+ * stroke's { color (decor.js ink name, null: the look's ink), bold }.  Each word is drawn on
  * its own, so drawing word by word and drawing a whole page give the same pixels.
  */
-export function drawWord(ctx, points, { scale, look, colors, offsetX = 0, offsetY = 0 }) {
-  const l = look;
+export function drawWord(ctx, points, { scale, look, colors, offsetX = 0, offsetY = 0, style = null }) {
+  let l = look;
+  if (style && (style.color || style.bold)) {
+    // the PDF's colours: a named ink in the scheme's value, the graphite or ink otherwise
+    const c = inkColor(style.color, colors.dark, strokeColor(l, colors));
+    if (c !== strokeColor(l, colors)) colors = { ...colors, ink: c, graphite: c };
+    if (style.bold) l = { ...l, width: l.width * BOLD[l.pen] };
+    if (l.pen !== 'fineliner') { drawPenWord(ctx, points, scale, l, colors, offsetX, offsetY, style.bold && l.pen === 'bleistift' ? BOLD_TONE : 0); return; }
+  }
   if (l.pen === 'fineliner') {
     ctx.save();
     ctx.globalCompositeOperation = 'source-over';
@@ -519,8 +535,33 @@ export function drawDocumentPage(ctx, doc, pageIndex, { scale, look, colors, off
   ctx.restore();
   const page = doc.pages[pageIndex];
   if (!ink || !page) return;
-  const o = { scale: scale * g.xh, look: l, colors: c, offsetX, offsetY };
-  for (const points of page.strokes) drawWord(ctx, docWordXh(points, g.xh), o);
+  if (page.bands && page.bands.length) drawBands(ctx, page.bands, { scale, colors: c, offsetX, offsetY });
+  drawDocStrokes(ctx, page.strokes, page.styles, { scale, xh: g.xh, look: l, colors: c, offsetX, offsetY });
+}
+
+/** Document strokes (mm) with their styles (page.styles, parallel; none: the look's ink).
+ *  o = { scale (device px per mm), xh, look, colors, offsetX, offsetY }. */
+export function drawDocStrokes(ctx, strokes, styles, { scale, xh, look, colors, offsetX = 0, offsetY = 0 }) {
+  const o = { scale: scale * xh, look, colors, offsetX, offsetY, style: null };
+  strokes.forEach((points, i) => { o.style = styles ? styles[i] : null; drawWord(ctx, docWordXh(points, xh), o); });
+}
+
+/** Highlighter bands (page.bands: outlines in mm) as the PDF fills them: multiplied on
+ *  light paper, screened on dark paper, at the marker's opacity.  Drawn before the ink. */
+export function drawBands(ctx, bands, { scale, colors, offsetX = 0, offsetY = 0 }) {
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  for (const band of bands) {
+    const m = markerColor(band.color, colors.dark), p = band.points;
+    ctx.globalCompositeOperation = m.blend === 'Screen' ? 'screen' : 'multiply';
+    ctx.globalAlpha = m.alpha;
+    ctx.fillStyle = m.color;
+    ctx.beginPath();
+    for (let i = 0; i < p.length; i += 2) ctx[i ? 'lineTo' : 'moveTo'](p[i] * scale + offsetX, p[i + 1] * scale + offsetY);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
 }
 
 /** One document page in a new canvas, `scale` device px per mm (PNG export). */
