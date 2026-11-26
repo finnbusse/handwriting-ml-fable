@@ -182,7 +182,9 @@ def load_hwline_v1(root: str, source: str, include_flagged: bool = False,
                               "created_at": r.get("created_at", ""),
                               "prompt_id": r.get("prompt", {}).get("id", ""),
                               "writer": r.get("writer_id", ""),
-                              "flags": r.get("flags", [])}))
+                              "flags": r.get("flags", []),
+                              # what the writer removed (counts; removed strokes are never stored)
+                              "edits": r.get("edits") or {}}))
     return inks
 
 

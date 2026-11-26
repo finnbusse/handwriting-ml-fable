@@ -11,6 +11,8 @@ export const LIMITS = {
   strayFarXh: 2.5,        // ... and at least this many typical stroke heights
   strayTinyXh: 0.35,      // tiny = bbox smaller than this many typical stroke heights ...
   strayTinyMinPx: 6,      // ... or than this many px
+  lateMinPx: 30,          // a late stroke ends at least this far left of the ink before it ...
+  lateXh: 4,              // ... and at least this many median stroke heights
 };
 
 /** German hint per flag, shown on the confirm screen. */
@@ -23,6 +25,7 @@ export const HINTS = {
   button_pressed: 'Die Taste am Stift war gedrückt.',
   low_rate: 'Der Stift hat nur wenige Punkte geliefert. Die Zeile ist vielleicht ungenau.',
   layout_changed: 'Die Ansicht hat sich beim Schreiben verändert.',
+  late_stroke: 'Ein Strich wurde weiter links nachgetragen. Für das Training zählt die Reihenfolge. Tippe auf „Zurück zum Blatt“, radiere bis zu der Stelle und schreib ab dort neu.',
 };
 
 function bbox(s) {
@@ -79,6 +82,29 @@ export function strayStrokes(strokes) {
 }
 
 /**
+ * Indices of strokes added later further left: a stroke whose right edge lies well left of
+ * the rightmost ink written before it (more than max(lateMinPx, lateXh x the median stroke
+ * height)). Dots and crosses right after a word stay well inside that; a word written into
+ * the middle after the end of the line does not. The model learns strokes in the order they
+ * were written, so such a line teaches the wrong order.
+ */
+export function lateStrokes(strokes) {
+  if (strokes.length < 2) return [];
+  const boxes = strokes.map(bbox);
+  const typical = median(boxes.map((b) => b.h));
+  const margin = Math.max(LIMITS.lateMinPx, LIMITS.lateXh * (typical > 0 ? typical : 0));
+  const stray = new Set(strayStrokes(strokes));   // flagged on their own; they set no right edge
+  const out = [];
+  let right = -Infinity;
+  boxes.forEach((b, i) => {
+    if (stray.has(i)) return;
+    if (b.x1 < right - margin) out.push(i);
+    if (b.x1 > right) right = b.x1;
+  });
+  return out;
+}
+
+/**
  * line: {text, strokes, canvas: [w,h], layoutChanged, rate}
  * returns sorted unique flag names
  */
@@ -92,6 +118,7 @@ export function check(line) {
     if (per > LIMITS.strokesPerCharMax) flags.add('stroke_count_high');
   }
   if (strayStrokes(strokes).length) flags.add('stray_stroke');
+  if (lateStrokes(strokes).length) flags.add('late_stroke');
   if (line.canvas) {
     const [w, h] = line.canvas;
     const out = strokes.some((s) => s.x.some((x, i) => x < 0 || x > w || s.y[i] < 0 || s.y[i] > h));

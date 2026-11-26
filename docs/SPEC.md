@@ -158,17 +158,72 @@ Rules that come from measurements on this writer's earlier recordings:
   `ink_width_css`, `pressure_width`, `paper`, `spacing_css`, `scheme`,
   `extra_lines_y`/`extra_lines_x`, `display_changed`).
 - Buttons sit outside the canvas and are ignored for 300 ms after a stroke
-  ends, so a resting pen never becomes a "stroke" or a click.
+  (or an eraser contact) ends, so a resting pen never becomes a "stroke" or a
+  click; during that time they do not look pressed either. A button pressed
+  by a touch while another touch rests on the screen (a palm) is ignored, and
+  only that contact's click. Instant actions (Rückgängig, Wiederholen,
+  Radieren and its bar) have no double-activation lock: every tap does
+  exactly one step.
 - Flow: write → **Fertig** → confirm screen shows prompt and ink side by side
-  ("Genau so geschrieben?") → **Ja, weiter** / **Nochmal**. No auto-advance.
-  Undo last stroke, clear line, skip prompt (comes back later).
+  ("Genau so geschrieben?") → **Ja, weiter** / **Nochmal** / **Zurück zum
+  Blatt** (back to writing with the line and its history kept, e.g. to erase
+  a flagged stroke). No auto-advance. Skip prompt (comes back later).
+- The toolbar is one row of fixed height at every width, every button at least
+  48x48. `view.js fitTools()` measures it and, only as far as needed, tightens
+  the spacing, drops the labels of the rarer buttons, then all tool labels, and
+  on a phone puts Überspringen, Stift & Papier and Vollbild behind **Mehr**.
+- Removing writing. Rule: **removing never reorders, new strokes always go at
+  the end.** The model learns strokes in the order they were written, and that
+  order must follow the text; so a stroke can never be rewritten in place.
+  - **Rückgängig** takes back the newest step, **Wiederholen** (icon only)
+    does it again. One history per line covers every stroke, every erase and
+    **Löschen** (whole line); writing a new stroke empties Wiederholen. It
+    lives in memory only and ends with the line (new prompt, Nochmal, skip,
+    pause, writer switch), or when the sheet moved while the line was empty.
+  - **Radieren** ("back to here"): the toolbar row turns into
+    [Abbrechen] status [Entfernen] at the same height. A pen tap (or slide)
+    on a stroke chooses it and everything written after it; those strokes are
+    marked red and the status says how many. Nothing goes before **Entfernen**;
+    Abbrechen changes nothing; Rückgängig brings an erase back. A stroke that
+    `qa.js` calls a stray mark (tiny, far from all ink) goes on its own.
+    Eraser contacts are never recorded or counted. A miss while nothing is
+    chosen says so and that Abbrechen goes back to writing. Holding the S Pen
+    side button (or using the eraser end) while touching the writing opens a
+    temporary eraser there; held over empty paper it does nothing special (the
+    stroke is recorded and flagged `button_pressed`), and the next contact
+    without the button closes the temporary eraser and writes. In finger mode a
+    pen contact takes the eraser over from a resting palm, as when writing.
+  - Removing only takes strokes out of the array: what stays keeps every
+    sample and timestamp, `t` stays strictly increasing, and new strokes come
+    after the last stored `t`. Timestamps are never shifted, so after a stray
+    first stroke was removed on its own, `t = 0` (and `t0_epoch_ms`) belongs
+    to that removed stroke: the first stored `t` is then above 0 and
+    `removed_t` starts at 0. When the line becomes empty its time base and
+    the recorder's anomaly counters start over (both come back with the
+    strokes on Rückgängig); the counters `touch_ignored`, `non_monotonic`,
+    `same_t_dropped` cover everything since the line was last empty, removed
+    writing included, while `cancelled`, `button_strokes` and `pointer.api`
+    come from the stored strokes. Removed strokes never reach the record;
+    `edits` counts what happened (`undo`, `redo`, `clear`, `erase`,
+    `erased_strokes`, `spot`) and `removed_t` holds the time spans of removed
+    writing in the record's time base (strokes from an earlier time base,
+    after a Löschen that was taken back, are moved into it).
+  - Drawing: live ink goes straight onto the low-latency canvas; any other
+    change of the sheet is composed off screen and shown with one
+    `drawImage`, so no wiped or half-drawn sheet reaches the screen.
+    Pictures of the sheet after every 8th stroke (the newest 3 and bare paper)
+    keep undo short; an erase keeps the newest picture it made untrue, so
+    taking the erase back does not redraw the whole line.
 - Automatic checks before accepting (`qa.js`); a failed check shows a short
   German hint and suggests "Nochmal", but the writer may still accept (the line
   is then stored with `status: "flagged"` and the flags): stroke count outside
   0.4–2.0 per non-space character, a tiny stroke far from everything else,
   samples outside the canvas, `pointercancel`, pen button pressed, sample rate
   below 200 Hz (this writer's S Pen delivers about 480 Hz; 120 Hz means the
-  browser is not passing on the intermediate samples), layout change during the line.
+  browser is not passing on the intermediate samples), layout change during the line,
+  a stroke added later well left of the ink before it (`late_stroke`: right
+  edge more than max(30 px, 4 median stroke heights) left of the rightmost ink
+  so far; dots and crosses right after a word stay well inside that).
 - Sessions of 20 lines with a progress display; the writer can stop at any
   time and continue later on any device (progress = which prompt ids already
   exist in the dataset under this writer's folder + this writer's lines in the

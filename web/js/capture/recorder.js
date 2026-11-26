@@ -22,6 +22,9 @@ export function createRecorder(canvas, opts = {}) {
   const onStrokeStart = opts.onStrokeStart || (() => {});
   const onStrokeEnd = opts.onStrokeEnd || (() => {});
   const onIgnored = opts.onIgnored || (() => {});
+  // claim(e) -> true takes a contact away from recording (the eraser): nothing is stored or counted.
+  const claim = opts.claim || (() => false);
+  const onDropped = opts.onDropped || (() => {});   // a drawn stroke was abandoned unstored
   const caps = capabilities();
 
   let timeBase = null;     // event.timeStamp of the first pen-down of this line
@@ -31,7 +34,6 @@ export function createRecorder(canvas, opts = {}) {
   let rect = null;
   let lastT = -Infinity;   // last stored (rounded) t, over the whole line
   let lastDropKey = '';    // last sample counted in same_t_dropped
-  let rawSamples = 0;      // samples that arrived first through pointerrawupdate
   let types = {};
   let anomalies;
   // cancelled and button_strokes are derived from the stored strokes in hwline.js,
@@ -63,7 +65,7 @@ export function createRecorder(canvas, opts = {}) {
     cur.tiltX.push(e.tiltX);            // 0 is a legal value
     cur.tiltY.push(e.tiltY);
     if (e.buttons & ~1) cur._btn = true;
-    if (viaRaw) rawSamples++;
+    if (viaRaw) cur.raw++;              // per stroke, so a removed stroke takes its share along
     return true;
   }
 
@@ -83,6 +85,7 @@ export function createRecorder(canvas, opts = {}) {
     if (e.target !== canvas) return;
     e.preventDefault();
     if (paused) return;
+    if (!cur && claim(e)) return;
     if (!accepts(e)) { anomalies.touch_ignored++; onIgnored(e); return; }
     if (cur) {
       anomalies.multi_pointer++;
@@ -90,7 +93,8 @@ export function createRecorder(canvas, opts = {}) {
       if (!(cur.pointerType !== 'pen' && e.pointerType === 'pen')) return;
       try { canvas.releasePointerCapture(cur.pointerId); } catch (_) {}
       cur = null;
-      if (!strokes.length) { timeBase = null; firstRect = null; lastT = -Infinity; rawSamples = 0; }
+      if (!strokes.length) { timeBase = null; firstRect = null; lastT = -Infinity; }
+      onDropped();
     }
     rect = canvas.getBoundingClientRect();   // once per stroke; layout must not move during a line
     if (timeBase === null) {
@@ -98,7 +102,7 @@ export function createRecorder(canvas, opts = {}) {
       firstRect = [rect.left, rect.top, rect.width, rect.height];
     }
     cur = { pointerId: e.pointerId, pointerType: e.pointerType, buttons: e.buttons,
-            x: [], y: [], t: [], p: [], tiltX: [], tiltY: [], end: null, up: null, _btn: false };
+            x: [], y: [], t: [], p: [], tiltX: [], tiltY: [], end: null, up: null, _btn: false, raw: 0 };
     if (e.button !== 0 || (e.buttons & ~1)) cur._btn = true;
     try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
     push(e, false);
@@ -162,31 +166,50 @@ export function createRecorder(canvas, opts = {}) {
     get timeBase() { return timeBase; },
     get firstRect() { return firstRect; },
     get active() { return !!cur; },
-    get rawSamples() { return rawSamples; },
+    /** Stored samples that arrived first through pointerrawupdate (removed strokes not counted). */
+    get rawSamples() { return strokes.reduce((n, s) => n + (s.raw || 0), 0); },
     get pointerTypes() { return Object.assign({}, types); },
     set penOnly(v) { penOnly = !!v; },
     get penOnly() { return penOnly; },
     set paused(v) { paused = !!v; if (paused) cur = null; },
-    /** Take every stroke out (for "Löschen") and return them so restore() can bring them back. */
-    stash() {
-      const s = { strokes, timeBase, firstRect, lastT, rawSamples, types, anomalies };
-      strokes = []; cur = null; timeBase = null; firstRect = null; lastT = -Infinity;
-      rawSamples = 0; types = {}; anomalies = freshAnomalies();
-      return s;
+    /**
+     * Take `count` strokes out from `index` on. Nothing else changes: the strokes that stay keep
+     * every sample and timestamp, and lastT never goes back, so new strokes always come after.
+     * When the line becomes empty it starts over: t = 0 is again the next pen-down and the
+     * anomaly counters start from zero (they cover what happened since the line was last
+     * empty, removed writing included). `base` then holds the old time base and counters so
+     * insertAt() can bring the strokes back exactly.
+     */
+    remove(index, count) {
+      if (cur) throw new Error('remove while a stroke is in progress');
+      const out = strokes.splice(index, count);
+      let base = null;
+      if (!strokes.length && out.length) {
+        base = { timeBase, firstRect, lastT, types, anomalies };
+        timeBase = null; firstRect = null; lastT = -Infinity; types = {}; anomalies = freshAnomalies();
+      }
+      return { strokes: out, base };
     },
-    restore(s) {
-      ({ strokes, timeBase, firstRect, lastT, rawSamples, types, anomalies } = s);
-      cur = null;
-    },
-    undo() {
-      const s = strokes.pop();
-      // With no stroke left the line starts over, so t = 0 is again the first pen-down.
-      if (!strokes.length) { timeBase = null; firstRect = null; lastT = -Infinity; rawSamples = 0; types = {}; }
-      return s;
+    /** Put strokes taken out by remove() back where they were (undo of an erase, redo of a stroke). */
+    insertAt(index, list, base) {
+      if (cur) throw new Error('insert while a stroke is in progress');
+      if (!list.length) return;
+      if (!strokes.length) {
+        if (!base) throw new Error('insert into an empty line needs its time base');
+        ({ timeBase, firstRect, lastT, types, anomalies } = base);
+      }
+      const prev = strokes[index - 1], next = strokes[index];
+      const first = list[0].t[0], last = list[list.length - 1];
+      const lastOf = (s) => s.t[s.t.length - 1];
+      if ((prev && !(first > lastOf(prev))) || (next && !(lastOf(last) < next.t[0]))) {
+        throw new Error('insertAt would break the time order');
+      }
+      strokes.splice(index, 0, ...list);
+      if (lastOf(last) > lastT) lastT = lastOf(last);
     },
     reset() {
       strokes = []; cur = null; timeBase = null; firstRect = null; lastT = -Infinity;
-      rawSamples = 0; types = {}; anomalies = freshAnomalies();
+      types = {}; anomalies = freshAnomalies();
     },
     destroy() {
       canvas.removeEventListener('pointerdown', down);

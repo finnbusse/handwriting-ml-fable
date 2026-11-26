@@ -32,6 +32,20 @@ export function displayMode() {
 }
 
 /**
+ * What the writer removed on this line (SPEC 2.3). Counts only; removed strokes themselves
+ * are never part of a record. removed_t: [t_first, t_last] spans (record time base) of
+ * strokes recorded on this line that are not in the record.
+ */
+function buildEdits(e) {
+  const n = (v) => (Number.isInteger(v) && v > 0 ? v : 0);
+  return {
+    undo: n(e.undo), clear: n(e.clear), redo: n(e.redo),
+    erase: n(e.erase), erased_strokes: n(e.erased_strokes), spot: n(e.spot),
+    removed_t: Array.isArray(e.removed_t) ? e.removed_t.map((s) => [s[0], s[1]]) : [],
+  };
+}
+
+/**
  * ctx: {
  *   cfg, writer:{id,name}, sessionId, seq, prompt:{id,set,text,lang}, status, flags, attempt, edits,
  *   rec (recorder), canvasCss:[w,h], canvasPx:[w,h], dpr, guides, uaData, layoutInfo
@@ -70,7 +84,7 @@ export function buildRecord(ctx) {
     text: nfc(ctx.prompt.text),
     status: ctx.flags.length ? 'flagged' : 'accepted',
     attempt: ctx.attempt,
-    edits: { undo: ctx.edits.undo, clear: ctx.edits.clear },
+    edits: buildEdits(ctx.edits || {}),
     flags: ctx.flags.slice(),
     time: { unit: 'ms', base: 'first_pen_down', t0_epoch_ms: r4(performance.timeOrigin + rec.timeBase),
             source: 'event.timeStamp', resolution_ms: resolutionMs(strokes) },
@@ -152,6 +166,15 @@ export function validate(r) {
     const te = r.text_edit;
     need(isObj(te) && typeof te.at === 'string' && te.at && typeof te.original === 'string'
          && (te.count === undefined || (Number.isInteger(te.count) && te.count >= 1)), 'text_edit');
+  }
+  if (isObj(r.edits)) {
+    for (const k of ['undo', 'clear', 'redo', 'erase', 'erased_strokes', 'spot']) {
+      if (r.edits[k] !== undefined) need(Number.isInteger(r.edits[k]) && r.edits[k] >= 0, `edits.${k}`);
+    }
+    if (r.edits.removed_t !== undefined) {
+      need(Array.isArray(r.edits.removed_t) && r.edits.removed_t.every((s) => Array.isArray(s) && s.length === 2
+        && isNum(s[0]) && isNum(s[1]) && s[0] <= s[1]), 'edits.removed_t');
+    }
   }
   need(isObj(r.screen), 'screen');
   need(isObj(r.device) && typeof r.device.ua === 'string', 'device');

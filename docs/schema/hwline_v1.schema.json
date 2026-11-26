@@ -24,11 +24,19 @@
       "count": {"type": "integer", "minimum": 1, "description": "how often the text was corrected"}}},
     "status": {"enum": ["accepted", "flagged"], "description": "skipped/redone attempts are never uploaded as samples"},
     "attempt": {"type": "integer", "minimum": 1},
-    "edits": {"type": "object", "properties": {"undo": {"type": "integer"}, "clear": {"type": "integer"}}},
-    "flags": {"type": "array", "items": {"type": "string"}, "description": "automatic QA flags, e.g. stroke_count_low, stroke_count_high, out_of_bounds, stray_stroke, pointercancel, touch_during_writing, button_pressed, low_rate, layout_changed"},
+    "edits": {"type": "object", "description": "what the writer removed on this line (counts only; removed strokes are never stored)", "properties": {
+      "undo": {"type": "integer", "minimum": 0, "description": "Rückgängig steps that changed the sheet (also taking back an erase or Löschen)"},
+      "clear": {"type": "integer", "minimum": 0, "description": "Löschen (whole line)"},
+      "redo": {"type": "integer", "minimum": 0, "description": "Wiederholen steps"},
+      "erase": {"type": "integer", "minimum": 0, "description": "Radieren: a stroke and everything written after it removed"},
+      "erased_strokes": {"type": "integer", "minimum": 0, "description": "strokes removed by those erases, counted when done"},
+      "spot": {"type": "integer", "minimum": 0, "description": "single stray marks removed (only strokes qa calls stray)"},
+      "removed_t": {"type": "array", "items": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+        "description": "[t_first, t_last] spans (this record's time base) of strokes recorded on this line but not stored; consecutive ones merged. A pause covering such a span contained removed writing"}}},
+    "flags": {"type": "array", "items": {"type": "string"}, "description": "automatic QA flags, e.g. stroke_count_low, stroke_count_high, out_of_bounds, stray_stroke, pointercancel, touch_during_writing, button_pressed, low_rate, layout_changed, late_stroke (a stroke added later well left of the ink before it)"},
     "time": {"type": "object", "required": ["unit", "base", "t0_epoch_ms"], "properties": {
       "unit": {"const": "ms"}, "base": {"const": "first_pen_down"},
-      "t0_epoch_ms": {"type": "number", "description": "performance.timeOrigin + event.timeStamp of the first pen-down"},
+      "t0_epoch_ms": {"type": "number", "description": "performance.timeOrigin + event.timeStamp of the first pen-down of the line (t = 0). That pen-down may belong to a stroke removed later on its own (a stray mark); the first stored t is then above 0 and edits.removed_t starts at 0. Timestamps are never shifted"},
       "source": {"type": "string", "description": "event.timeStamp of each (coalesced) PointerEvent"},
       "resolution_ms": {"type": "number"}}},
     "coord": {"type": "object", "required": ["unit", "origin", "y_down", "canvas_css", "dpr"], "properties": {
@@ -36,7 +44,7 @@
       "origin": {"const": "canvas_top_left"}, "y_down": {"const": true},
       "canvas_css": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2, "description": "[width,height] of the canvas in CSS px"},
       "canvas_px": {"type": "array", "items": {"type": "integer"}, "minItems": 2, "maxItems": 2, "description": "backing-store size"},
-      "canvas_client_rect": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4, "description": "[left,top,width,height] from getBoundingClientRect() at first pen-down"},
+      "canvas_client_rect": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4, "description": "[left,top,width,height] from getBoundingClientRect() at first pen-down (t = 0, see time.t0_epoch_ms); the layout cannot move during a line"},
       "dpr": {"type": "number"}, "visual_viewport_scale": {"type": "number"},
       "mm_per_unit": {"type": ["number", "null"], "description": "physical size of one coordinate unit, null if unknown"},
       "mm_source": {"enum": ["calibration", "model_lookup", "lattice_estimate", null]}}},
@@ -69,7 +77,7 @@
       "buttons": {"type": "integer", "description": "PointerEvent.buttons at pointerdown (1 = tip only)"},
       "end": {"enum": ["up", "cancel", "unknown"]},
       "up": {"type": ["object", "null"], "description": "the pointerup/pointercancel sample, kept OUT of the arrays (its pressure is 0 by spec)", "properties": {"t": {"type": "number"}, "x": {"type": "number"}, "y": {"type": "number"}}}}}},
-    "anomalies": {"type": "object", "description": "recorder counters: cancelled, touch_ignored, non_monotonic, dt_gt_10ms, button_strokes"},
+    "anomalies": {"type": "object", "description": "recorder counters. cancelled, button_strokes and dt_gt_10ms come from the stored strokes; touch_ignored, non_monotonic and same_t_dropped cover everything since the line was last empty (a Löschen starts them over), removed writing included"},
     "legacy": {"type": "object", "description": "only on converted old recordings: source path, old schema version, known defects"}
   }
 }
