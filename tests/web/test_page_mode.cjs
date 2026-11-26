@@ -44,10 +44,13 @@ async function modelRepo() {
 const LETTER = 'Liebe Anna,\n\nvielen Dank für die schönen Blumen. Sie stehen jetzt auf dem Küchentisch.';
 // One short word per line: enough lines for two squared pages at the large size, written quickly.
 const WORDS = 'Ahorn Birke Eiche Esche Linde Ulme Weide Pappel Kiefer Fichte Tanne Buche Erle Hasel Eibe Kirsche Apfel Birne Pflaume Quitte Feige Olive Zeder Akazie Platane Kastanie Holunder Ginster Efeu Lorbeer'.split(' ').join('\n');
+// Long, and none of its pieces in WORDS: written anew, not as an update of WORDS
+const LONG = ['baum', 'holz'].flatMap((s) => WORDS.split('\n').map((w) => `${w}${s}`)).join('\n');
 
 const ready = (page) => page.waitForSelector('#gen-work:not([hidden])', { timeout: 30000 });
 const dbg = (page) => page.evaluate(() => window.__hw.generate.pageDebug());
-const idle = (page, timeout = 240000) => L.until(async () => { const d = await dbg(page); return d.phase === 'idle' && d.rewriting.length === 0; }, timeout, 150);
+// idle: nothing being written and the pen ("Schreiben zeigen") done with what was
+const idle = (page, timeout = 240000) => L.until(async () => { const d = await dbg(page); return d.phase === 'idle' && d.rewriting.length === 0 && !d.pen.engaged; }, timeout, 150);
 const noErrors = (errors) => errors.filter((e) => !/Failed to load resource|ERR_/.test(e));
 const openStyle = async (page) => { if (!(await page.isVisible('#gen-style'))) await page.click('#gen-style-btn'); };
 const pick = async (page, key, value) => { await openStyle(page); await page.click(`.gen-choice[data-k="${key}"][data-v="${value}"]`); await page.waitForTimeout(150); };
@@ -126,6 +129,7 @@ async function tablet(browser, server) {
   const box = await page.evaluate(() => { const r = document.querySelector('#pg-pages .pg-page').getBoundingClientRect(); return [r.width, r.height, document.getElementById('pg-pages').clientWidth]; });
   L.check('the page is A4 and fills the column', Math.abs(box[1] / box[0] - 297 / 210) < 0.01 && Math.abs(box[0] - box[2]) < 1 && box[0] > 600, JSON.stringify(box));
   await page.click('#pg-write');
+  await L.until(async () => /Bitte tippe/.test(await page.textContent('#pg-note')), 3000, 50).catch(() => {});
   L.check('no text: asked for one, nothing starts', /Bitte tippe/.test(await page.textContent('#pg-note')) && (await dbg(page)).phase === 'idle');
 
   // ---- a short letter of two paragraphs ----
@@ -186,7 +190,7 @@ async function tablet(browser, server) {
   await page.fill('#pg-text', WORDS);
   const seen = new Set();
   await page.click('#pg-write');
-  await L.until(async () => { seen.add(await page.textContent('#pg-busy-text')); const d = await dbg(page); return d.phase === 'idle'; }, 240000, 100);
+  await L.until(async () => { seen.add(await page.textContent('#pg-busy-text')); const d = await dbg(page); return d.phase === 'idle' && !d.pen.engaged; }, 240000, 100);
   const d4 = await dbg(page);
   L.check('long text: two pages, all placed', d4.pages === 2 && d4.placed === d4.total && d4.total === 30 && (await page.$$('#pg-pages .pg-page')).length === 2, JSON.stringify([d4.pages, d4.placed, d4.total]));
   L.check('long text: the second page starts on its first line', d4.words.find((w) => w.page === 1).line === 0);
@@ -200,9 +204,9 @@ async function tablet(browser, server) {
   L.check('PDF: page count matches the pages shown', pdf2.pages === 2 && pdf2.count === 2, JSON.stringify(pdf2));
 
   // ---- cancel ----
-  await page.fill('#pg-text', `${WORDS}\n${WORDS}`);
+  await page.fill('#pg-text', LONG);
   await page.click('#pg-write');
-  await L.until(async () => (await dbg(page)).placed >= 3, 60000, 100);
+  await L.until(async () => { const d = await dbg(page); return d.phase === 'writing' && d.placed >= 3; }, 60000, 100);
   await page.click('#pg-cancel');
   await idle(page, 15000);
   const c1 = await dbg(page);
@@ -224,13 +228,13 @@ async function tablet(browser, server) {
   await page.click('a[data-route="schreiben"]');
   await page.waitForTimeout(400);
   const t1 = await dbg(page);
-  L.check('tab switch: mode, text, settings and the pages are still there', t1.mode === 'seite' && (await page.inputValue('#pg-text')) === `${WORDS}\n${WORDS}` && t1.settings.paper === 'kariert' && t1.placed === c2.placed && (await inked(page)) > 100);
+  L.check('tab switch: mode, text, settings and the pages are still there', t1.mode === 'seite' && (await page.inputValue('#pg-text')) === LONG && t1.settings.paper === 'kariert' && t1.placed === c2.placed && (await inked(page)) > 100);
   await page.waitForTimeout(400);
   await page.reload();
   await page.waitForFunction(() => window.__hwReady).then(() => page.evaluate(() => window.__hwReady));
   await ready(page);
   const t2 = await dbg(page);
-  L.check('reload: mode, text, paper and size restored (the pages are not stored)', t2.mode === 'seite' && (await page.inputValue('#pg-text')) === `${WORDS}\n${WORDS}` && t2.settings.paper === 'kariert' && t2.settings.size === 'gross' && t2.placed === 0 && await page.isVisible('#pg-stage'));
+  L.check('reload: mode, text, paper and size restored (the pages are not stored)', t2.mode === 'seite' && (await page.inputValue('#pg-text')) === LONG && t2.settings.paper === 'kariert' && t2.settings.size === 'gross' && t2.placed === 0 && await page.isVisible('#pg-stage'));
   L.check('reload: the quick sheet keeps its own text', (await page.inputValue('#gen-text')) === 'Guten Morgen');
 
   L.check('tablet: touch targets at least 48 px (page mode, Stil open)', await (async () => { await openStyle(page); if (!(await page.isVisible('#gen-more'))) await page.click('#gen-more-btn'); await page.waitForTimeout(100); const s = await smallTargets(page); if (s.length) console.log(JSON.stringify(s)); return s.length === 0; })());
@@ -280,7 +284,7 @@ async function robustness(browser, server) {
   // a rewrite asked for while writing, then "Abbrechen": the note says the rewrite went too
   await page.fill('#pg-text', `${WORDS}\n${WORDS}`);
   await page.click('#pg-write');
-  await L.until(async () => (await dbg(page)).placed >= 2, 60000, 100);
+  await L.until(async () => { const d = await dbg(page); return d.phase === 'writing' && d.placed >= 2; }, 60000, 100);
   const w = (await dbg(page)).words[0];
   const pt = await wordPoint(page, w);
   await page.mouse.click(pt.x, pt.y);
@@ -458,21 +462,30 @@ async function plainSame(browser, server) {
   const other = { url: `http://localhost:${srv.address().port}/index.html` };
   // the second look: a text long enough that lines are laid out again once the typical
   // size is fixed (the case where a region repaint would differ from a whole redraw)
-  const looks = [['default', LETTER, []], ['Bleistift, kariert, dunkel', `${LETTER}\n\n${WORDS.split('\n').slice(0, 18).join(' ')}`, [['pen', 'bleistift'], ['paper', 'kariert'], ['scheme', 'light_on_dark']]]];
+  // the second look: a text long enough that lines are laid out again once the typical size
+  // is fixed; the third: a document with marks and a table, whose canvas is compared drawn
+  // whole (another pen and back: a page written piece by piece has clipped regions, whose
+  // edge pixels depend on the order the pieces came in)
+  const looks = [['default', LETTER, []], ['Bleistift, kariert, dunkel', `${LETTER}\n\n${WORDS.split('\n').slice(0, 18).join(' ')}`, [['pen', 'bleistift'], ['paper', 'kariert'], ['scheme', 'light_on_dark']]],
+    ['marks and a table, Bleistift', PEN_DOC, [['pen', 'bleistift']]]];
   for (const [tag, text, sets] of looks) {
     const out = [];
-    for (const s of [server, other]) {
+    // this app with the pen, this app without it, the app before
+    for (const [s, pen] of [[server, true], [server, false], [other, null]]) {
       const hf = await modelRepo();
       const { page, ctx, errors } = await L.newApp(browser, s, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
       await ready(page);
       await page.click('.gen-modes [data-mode="seite"]');
       for (const [k, v] of sets) await pick(page, k, v);
       if (sets.length) await page.click('#gen-style-btn');
+      if (pen === false) await setAnimate(page, false);
       await page.fill('#pg-text', text);
       // the document seed comes from Math.random: fixed for this one click (and the field left
       // first, so that it shrinks now and not under the next click)
       await page.evaluate(() => { document.activeElement.blur(); const r = Math.random; Math.random = () => 0.25; document.getElementById('pg-write').click(); Math.random = r; });
-      await idle(page);
+      if (pen === null) await L.until(async () => { const d = await dbg(page); return d.phase === 'idle' && d.rewriting.length === 0; }, 240000, 150);
+      else await idle(page);
+      if (text === PEN_DOC && pen !== true) { await pick(page, 'pen', 'fineliner'); await pick(page, 'pen', 'bleistift'); await page.click('#gen-style-btn'); }
       const c = await page.evaluate(async () => {
         await window.__hw.generate.painted();
         const src = document.querySelector('#pg-pages .pg-page canvas');
@@ -485,10 +498,220 @@ async function plainSame(browser, server) {
       out.push({ canvas: c, pdf: fs.readFileSync(await dl.path()), errors: noErrors(errors) });
       await ctx.close();
     }
-    L.check(`plain text (${tag}): the same canvas pixels as before marks`, out[0].canvas === out[1].canvas, `${out[0].canvas} | ${out[1].canvas}`);
-    L.check(`plain text (${tag}): the same PDF bytes as before marks`, out[0].pdf.equals(out[1].pdf), `${out[0].pdf.length} | ${out[1].pdf.length}`);
-    L.check(`plain text (${tag}): no page errors`, !out[0].errors.length && !out[1].errors.length, [...out[0].errors, ...out[1].errors].join(' | '));
+    L.check(`${tag}: the same canvas pixels with the pen, without it and in the app before`, out[0].canvas === out[1].canvas && out[1].canvas === out[2].canvas, out.map((o) => o.canvas).join(' | '));
+    L.check(`${tag}: the same PDF bytes with the pen, without it and in the app before`, out[0].pdf.equals(out[1].pdf) && out[1].pdf.equals(out[2].pdf), out.map((o) => o.pdf.length).join(' | '));
+    L.check(`${tag}: no page errors`, out.every((o) => !o.errors.length), out.flatMap((o) => o.errors).join(' | '));
   }
+}
+
+// ---------- the pen ("Schreiben zeigen") ----------
+
+const PEN_DOC = `${RICH}\n\n${TABLE}`;
+/** Click "Schreiben" with the document seed fixed (Math.random for this one click). */
+const writeSeeded = (page) => page.evaluate(() => { document.activeElement.blur(); const r = Math.random; Math.random = () => 0.25; document.getElementById('pg-write').click(); Math.random = r; });
+const setAnimate = async (page, on) => {
+  await openStyle(page);
+  if (!(await page.isVisible('#gen-more'))) await page.click('#gen-more-btn');
+  if ((await page.isChecked('#pg-animate')) !== on) await page.click('label:has(#pg-animate)');
+  await page.click('#gen-style-btn');
+};
+/** With the pen stopped: page canvases against the same pages drawn whole with only what the
+ *  pen has written (the box of the stroke on its way left out).  big: pixels that differ like
+ *  ink from paper (ahead of the pen, or missing), worst page. */
+const aheadCheck = (page) => page.evaluate(async () => {
+  const g = window.__hw.generate;
+  g.pageDebug().pause(true);
+  await g.painted();
+  const out = { big: 0, pages: 0 };
+  const cs = document.querySelectorAll('#pg-pages .pg-page canvas');
+  const drawn = g.pageDebug().drawn;
+  for (let k = 0; k < cs.length; k++) {
+    if (!drawn[k] || !cs[k].width) continue;
+    const read = (src) => { const t = Object.assign(document.createElement('canvas'), { width: src.width, height: src.height }); t.getContext('2d').drawImage(src, 0, 0); return t.getContext('2d').getImageData(0, 0, src.width, src.height).data; };
+    const snap = g.pageDebug().shownSnapshot(k);
+    const a = read(cs[k]), b = read(snap), W = cs[k].width, box = snap.pen;
+    let big = 0;
+    for (let j = 0; j < a.length; j += 4) {
+      const x = (j / 4) % W, y = Math.floor(j / 4 / W);
+      if (box && x >= box[0] - 2 && x <= box[2] + 2 && y >= box[1] - 2 && y <= box[3] + 2) continue;
+      if (Math.abs(a[j] - b[j]) + Math.abs(a[j + 1] - b[j + 1]) + Math.abs(a[j + 2] - b[j + 2]) > 150) big++;
+    }
+    if (big > out.big) out.at = { page: k, box, log: g.pageDebug().pen.log.length };
+    out.big = Math.max(out.big, big); out.pages++;
+  }
+  g.pageDebug().pause(false);
+  return out;
+});
+
+/** The pen writes in reading order, decorations at their place, nothing ahead of it; a pen
+ *  change on the way; the PDF as soon as all is written; the finished page as drawn whole. */
+async function penWrites(browser, server) {
+  const hf = await modelRepo();
+  const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
+  await ready(page);
+  await page.click('.gen-modes [data-mode="seite"]');
+  L.check('pen: "Schreiben zeigen" is on by default', await page.isChecked('#pg-animate'));
+  await page.fill('#pg-text', PEN_DOC);
+  await writeSeeded(page);
+  let worst = 0, worstAt = null, samples = 0, changed = false, early = null, sawNow = false, rested = false;
+  for (let k = 0; k < 2000; k++) {
+    const d = await dbg(page);
+    if (d.phase === 'idle' && !d.pen.engaged) break;
+    if (d.pen.engaged && d.pen.frontier) sawNow = sawNow || d.pen.now;
+    if (d.phase === 'writing' && d.pen.log.length === 0 && d.done > 0) rested = true;
+    if (k % 3 === 0 && d.pen.log.length) { const c = await aheadCheck(page); if (c.big > worst) worstAt = { ...c.at, k, changed }; worst = Math.max(worst, c.big); samples++; }
+    if (!changed && d.pen.log.length > 30) { await pick(page, 'pen', 'fueller'); await page.click('#gen-style-btn'); changed = true; }
+    // the PDF as soon as everything is written, while the pen is still on its way
+    if (!early && d.phase === 'idle' && d.pen.engaged && !(await page.isDisabled('#pg-pdf'))) {
+      const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#pg-pdf')]);
+      early = fs.readFileSync(await dl.path());
+    }
+    await page.waitForTimeout(60);
+  }
+  await idle(page);
+  const d = await dbg(page);
+  L.check('pen: nothing on the canvas ahead of the pen, nothing missing behind it (also across a pen change)', samples >= 5 && worst === 0 && changed, JSON.stringify({ samples, worst, at: worstAt }));
+  L.check('pen: it rests until the first pieces fix the letter size, "Sofort zeigen" while it writes', rested && sawNow && await page.isHidden('#pg-now'));
+  // reading order: the log follows the document's final order, every entry once
+  const pos = new Map(d.pen.order.map((e, j) => [e[5], j]));
+  const seq = d.pen.log.map((e) => pos.get(e[4]));
+  L.check('pen: every stroke and band written once, in reading order', seq.length === d.pen.order.length && seq.every((v, j) => v === j), JSON.stringify(seq.slice(0, 40)));
+  // decorations at their place
+  const rp = d.rich.pages[0], kindOf = (e) => (e[1] < 0 ? 'band' : rp.strokes[e[1]].kind);
+  const ord = d.pen.order.filter((e) => e[0] === 0).map((e) => ({ kind: kindOf(e), i: e[1], box: e[1] < 0 ? rp.bands[-1 - e[1]].box : rp.strokes[e[1]].box }));
+  const at = (test) => ord.findIndex(test), wordAt = (w) => at((e) => e.kind === 'word' && e.i >= w.strokes[0] && e.i < w.strokes[1]);
+  const W = (t) => d.words.find((w) => w.page === 0 && w.text === t);
+  const firstBullet = at((e) => e.kind === 'bullet'), firstCheck = at((e) => e.kind === 'check'), tick = at((e) => e.kind === 'tick'), band = at((e) => e.kind === 'band');
+  const frame = at((e) => e.kind === 'frame'), grid = at((e) => e.kind === 'grid'), rule = at((e) => e.kind === 'rule');
+  const title = W('Zellatmung'), date = W('26.11.2026'), under = ord.map((e, j) => [e, j]).filter(([e]) => e.kind === 'underline' && e.box[1] < title.baseline + 3);
+  const boxed = d.words.filter((w) => w.page === 0 && w.frame != null), cells = d.words.filter((w) => w.page === 0 && d.rich.blocks[w.block].type === 'table');
+  const facts = {
+    date: wordAt(date) < wordAt(title),
+    title: under.length >= 2 && under.every(([, j]) => j > wordAt(title) && j < wordAt(W('Die'))),
+    bullet: firstBullet >= 0 && firstBullet + 1 === wordAt(W('Glukose')),
+    check: firstCheck >= 0 && ord[firstCheck + 1].kind === 'check' && tick === firstCheck + 2 && wordAt(W('Text')) === tick + 1,
+    band: band === wordAt(W('Mitochondrien')) + 1,
+    frame: frame > Math.max(...boxed.map(wordAt)) && ord.slice(frame, frame + 4).every((e) => e.kind === 'frame'),
+    grid: grid >= 0 && ord.slice(grid, grid + 8).every((e) => e.kind === 'grid') && Math.min(...cells.map(wordAt)) === grid + 8,
+    rule: rule > Math.max(...cells.map(wordAt)) || rule < Math.min(...cells.map(wordAt)),
+  };
+  L.check('pen: decorations come where a hand draws them (date, title lines, bullet, box and tick, marker, frame, grid before its cells)', Object.values(facts).every(Boolean), JSON.stringify(facts));
+  const c = await canvasData(page, 0);
+  L.check('pen: the finished page is the page drawn whole, pixel for pixel', c.diff === 0 && c.big === 0, JSON.stringify(c));
+  const [dl] = await Promise.all([page.waitForEvent('download'), page.click('#pg-pdf')]);
+  const late = fs.readFileSync(await dl.path());
+  L.check('pen: the PDF can be saved once all is written, the pen still on its way; the same bytes', !!early && early.equals(late), String(early && early.length));
+
+  // "Sofort zeigen": the rest at once, for this run
+  await page.fill('#pg-text', LETTER);
+  await page.click('#pg-write');
+  await L.until(async () => (await dbg(page)).pen.log.length > 0, 120000, 50);
+  await page.click('#pg-now');
+  const s1 = await dbg(page);
+  await idle(page);
+  const s2 = await dbg(page), c2 = await canvasData(page, 0);
+  L.check('"Sofort zeigen": the pen stops, the page is complete as without it', !s1.pen.engaged && s2.pen.log.length === s1.pen.log.length && c2.big === 0 && s2.placed === s2.total, JSON.stringify([s1.pen.log.length, s2.pen.log.length, c2]));
+
+  // a tap on a word while the pen writes: its piece is written again, by the pen
+  await page.fill('#pg-text', LONG);
+  await page.click('#pg-write');
+  await L.until(async () => { const x = await dbg(page); return x.pen.log.some((e) => e[2] >= 1); }, 120000, 50);
+  const t0 = (await dbg(page)).words.find((w) => w.piece === 0);
+  const pt = await wordPoint(page, t0);
+  await page.mouse.click(pt.x, pt.y);
+  await page.waitForTimeout(150);
+  await page.click('#pg-redo');
+  await idle(page);
+  const r1 = await dbg(page), c3 = await canvasData(page, 0);
+  const again = r1.pen.log.findIndex((e, j) => e[2] === 0 && r1.pen.log.slice(0, j).some((x) => x[2] >= 1));
+  L.check('tap-rewrite while the pen writes: the piece is written anew by the pen, the page right', r1.versions[0] === 1 && again > 0 && c3.big === 0 && r1.placed === r1.total, JSON.stringify([r1.versions[0], again, c3]));
+  L.check('pen: no page errors', noErrors(errors).length === 0, noErrors(errors).join(' | '));
+  await ctx.close();
+}
+
+/** "Schreiben zeigen" off: as before; the system asking for less motion: off until switched on. */
+async function penSwitch(browser, server) {
+  const hf = await modelRepo();
+  const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/schreiben', signedIn: true, hf });
+  await ready(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.click('.gen-modes [data-mode="seite"]');
+  await page.waitForTimeout(100);
+  L.check('reduced motion: "Schreiben zeigen" is off', !(await page.isChecked('#pg-animate')));
+  await page.fill('#pg-text', LETTER);
+  await page.click('#pg-write');
+  let shownEarly = false;
+  await L.until(async () => { const d = await dbg(page); if (d.phase === 'writing' && d.placed > 0) shownEarly = true; return d.phase === 'idle'; }, 120000, 50);
+  const d = await dbg(page);
+  L.check('switch off: no pen, each piece shown as it comes, as before', !d.pen.used && !d.pen.engaged && d.pen.log.length === 0 && shownEarly && await page.isHidden('#pg-now'));
+  await setAnimate(page, true);
+  await page.waitForTimeout(800);       // the settings are stored a moment after a change
+  await page.reload();
+  await page.waitForFunction(() => window.__hwReady);
+  await ready(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.waitForTimeout(100);
+  L.check('reduced motion, switched on by hand: stored, on after a reload', await page.isChecked('#pg-animate'));
+  await page.click('#pg-write');
+  await idle(page);
+  L.check('switched on: the pen writes', (await dbg(page)).pen.used && (await dbg(page)).pen.log.length > 0);
+  L.check('switch: no page errors', noErrors(errors).length === 0, noErrors(errors).join(' | '));
+  await ctx.close();
+}
+
+/** Aktualisieren: only the pieces that changed are written; the result is the document
+ *  written anew from the same inks; cancelling leaves the document before it. */
+async function update(browser, server) {
+  const hf = await modelRepo();
+  const { page, ctx, errors } = await L.newApp(browser, server, { hash: '#/schreiben', signedIn: true, hf, init: FIXED_DAY });
+  await ready(page);
+  await page.click('.gen-modes [data-mode="seite"]');
+  L.check('button: "Schreiben" without a document', (await page.textContent('#pg-write')).trim() === 'Schreiben');
+  await page.fill('#pg-text', PEN_DOC);
+  await writeSeeded(page);
+  await idle(page);
+  const d0 = await dbg(page);
+  L.check('button: "Schreiben" while the text is as written', (await page.textContent('#pg-write')).trim() === 'Schreiben');
+  // a paragraph at the top and one line changed
+  const edited = `Neu oben steht das hier\n\n${PEN_DOC.replace('Das ist [wichtig]{rot} fuer uns.', 'Das ist [wichtig]{rot} fuer alle.')}`;
+  await page.fill('#pg-text', edited);
+  L.check('button: "Aktualisieren" once the text changed', (await page.textContent('#pg-write')).trim() === 'Aktualisieren');
+  // what the new plan holds as before (text and place among equal texts), counted here
+  await page.click('#pg-write');
+  await L.until(async () => (await dbg(page)).total > 0 && (await dbg(page)).pieces.length > 0, 10000, 50);
+  await idle(page);
+  const d1 = await dbg(page);
+  const left = new Map();
+  for (const t of d0.pieces) left.set(t, (left.get(t) || 0) + 1);
+  let fresh = 0;
+  for (const t of d1.pieces) { if (left.get(t)) left.set(t, left.get(t) - 1); else fresh++; }
+  L.check('update: only the new pieces are given to the engines', d1.pen.asked === fresh && fresh >= 2 && fresh <= 6 && d1.pen.kept === d1.total - fresh, JSON.stringify({ asked: d1.pen.asked, fresh, kept: d1.pen.kept, total: d1.total }));
+  const inkOf = (d) => { const m = new Map(); d.pieces.forEach((t, i) => { if (!m.has(t)) m.set(t, []); m.get(t).push(JSON.stringify(d.ink[i])); }); return m; };
+  const a = inkOf(d0), b = inkOf(d1);
+  L.check('update: the kept pieces keep their ink', d0.pieces.every((t) => !b.has(t) || JSON.stringify(a.get(t)) === JSON.stringify(b.get(t).slice(0, a.get(t).length))) && d1.seed === d0.seed);
+  const sc = await page.evaluate(() => window.__hw.generate.pageDebug().scratch());
+  L.check('update: the document equals one laid out anew from the same inks', sc && sc.same, JSON.stringify(sc));
+  L.check('update: the pen wrote only the new pieces', d1.pen.log.length > 0 && d1.pen.log.every((e) => d1.pen.order.some((o) => o[5] === e[4])) && new Set(d1.pen.log.map((e) => e[2])).size <= fresh + 1, JSON.stringify([...new Set(d1.pen.log.map((e) => e[2]))]));
+  const cu = await canvasData(page, 0);
+  L.check('update: the page as drawn whole', cu.big === 0 && cu.diff === 0, JSON.stringify(cu));
+  L.check('button: "Schreiben" again after the update', (await page.textContent('#pg-write')).trim() === 'Schreiben');
+  // cancelled: the document before stays
+  await page.fill('#pg-text', `${edited}\nNoch eine ganz neue Zeile am Ende`);
+  await page.click('#pg-write');
+  await page.click('#pg-cancel');
+  await L.until(async () => (await dbg(page)).phase === 'idle', 15000, 50);
+  await idle(page);
+  const d2 = await dbg(page);
+  L.check('update cancelled: the document before it stays, said so', JSON.stringify(d2.words) === JSON.stringify(d1.words) && JSON.stringify(d2.ink) === JSON.stringify(d1.ink) && /bleiben, wie sie waren/.test(await page.textContent('#pg-note')), await page.textContent('#pg-note'));
+  L.check('button: "Aktualisieren" after the cancel (the text still differs)', (await page.textContent('#pg-write')).trim() === 'Aktualisieren');
+  // the same text again: everything anew with a new seed
+  await page.fill('#pg-text', edited);
+  await page.click('#pg-write');
+  await idle(page);
+  const d3 = await dbg(page);
+  L.check('"Schreiben" with the text unchanged: all pieces anew, a new seed', d3.pen.asked === d3.total && d3.pen.kept === 0 && d3.seed !== d1.seed, JSON.stringify([d3.pen.asked, d3.total, d3.seed, d1.seed]));
+  L.check('update: no page errors', noErrors(errors).length === 0, noErrors(errors).join(' | '));
+  await ctx.close();
 }
 
 async function phoneDark(browser, server) {
@@ -567,7 +790,7 @@ async function unwrap(browser, server) {
   const browser = await L.launch();
   try {
     const only = (process.env.PAGE_ONLY || '').split(',').filter(Boolean);
-    for (const part of [tablet, workersAgree, robustness, rich, table, unwrap, plainSame, phoneDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
+    for (const part of [tablet, workersAgree, robustness, rich, table, unwrap, plainSame, penWrites, penSwitch, update, phoneDark]) if (!only.length || only.includes(part.name)) await part(browser, server);
   } catch (e) {
     console.error(e); L.check('test ran without exception', false, String(e));
   } finally {

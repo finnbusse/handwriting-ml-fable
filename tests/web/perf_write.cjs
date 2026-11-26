@@ -106,13 +106,13 @@ const now = (page) => page.evaluate(() => performance.now());
 // One short word per line: two squared pages at the large size with few pieces (as test_page_mode).
 const WORDS = 'Ahorn Birke Eiche Esche Linde Ulme Weide Pappel Kiefer Fichte Tanne Buche Erle Hasel Eibe Kirsche Apfel Birne Pflaume Quitte Feige Olive Zeder Akazie Platane Kastanie Holunder Ginster Efeu Lorbeer Ulme Linde Eiche Buche'.split(' ');
 
-async function open(browser, server) {
+async function open(browser, server, cores = 4) {
   const hf = await modelRepo();
   const routes = (ctx) => ctx.route(/paint-worker\.js$/, async (route) => {
     const resp = await route.fetch();
     route.fulfill({ response: resp, body: WORKER_PRELUDE + (await resp.text()), headers: { ...resp.headers(), 'content-type': 'application/javascript' } });
   });
-  const init = `Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 4 }); ${PAGE_INIT}`;
+  const init = `Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => ${cores} }); ${PAGE_INIT}`;
   const app = await L.newApp(browser, server, { hash: '#/schreiben', signedIn: true, hf, init, routes, dsf: 2.5 });
   await app.page.waitForSelector('#gen-work:not([hidden])', { timeout: 30000 });
   return app;
@@ -148,6 +148,7 @@ async function pages(browser, server) {
   const c1 = await counts(page);
   const later = p.total - p.done;
   await L.until(async () => !(await progress(page)).writing, 300000, 150);
+  await penDone(page);      // and the pen ("Schreiben zeigen") through
   await settled(page);
   const c2 = await counts(page);
   const d = await page.evaluate(() => window.__hw.generate.pageDebug());
@@ -218,6 +219,7 @@ async function rich(browser, server) {
   await page.click('#pg-write');
   await page.waitForTimeout(500);
   await L.until(async () => !(await progress(page)).writing, 300000, 150);
+  await penDone(page);      // and the pen ("Schreiben zeigen") through
   await settled(page);
   const writingLong = await longSince(page, l0);
   const d = await page.evaluate(() => window.__hw.generate.pageDebug());
@@ -239,6 +241,107 @@ async function rich(browser, server) {
   console.log(`      rich, Bleistift: longest task on the page while scrolling ${scrollLong} ms`);
   L.check('rich, Bleistift: scrolling the finished pages draws nothing, no task over 50 ms', s1.pages === 0 && s1.stroke + s1.fill === 0 && scrollLong <= 50, JSON.stringify({ scrollLong, pages: s1.pages, calls: s1.stroke + s1.fill }));
   L.check('rich: no errors', errors.filter((e) => !/Failed to load resource|ERR_/.test(e)).length === 0, errors.join(' | '));
+  await ctx.close();
+}
+
+// Frame times on the page: every requestAnimationFrame interval from start to stop.
+const framesOn = (page) => page.evaluate(() => { window.__ft = []; window.__ftOn = true; let last = performance.now(); const f = (t) => { window.__ft.push(t - last); last = t; if (window.__ftOn) requestAnimationFrame(f); }; requestAnimationFrame(f); });
+const framesOff = (page) => page.evaluate(() => { window.__ftOn = false; const a = window.__ft.slice(1).sort((x, y) => x - y); return { frames: a.length, p95: Math.round(a[Math.floor(0.95 * (a.length - 1))] || 0), within34: a.length ? +(a.filter((x) => x <= 34).length / a.length).toFixed(3) : 0 }; });
+// done writing and the pen done, read from the page itself (the debug object is too heavy to
+// ask for while frames are measured on a slowed CPU)
+const penDone = (page) => L.until(async () => page.evaluate(() => document.getElementById('pg-busy').hidden && document.getElementById('pg-now').hidden && !document.getElementById('pg-write').hidden), 600000, 250);
+const THROTTLE = 4;
+
+// A five-page document with lists, boxes, marks and a table (218 pieces): its layout takes
+// 14-23 ms in Node, so 60-90 ms on a CPU slowed 4x, once per frame while pieces arrive.
+const LONG = `# {datum} {mitte} Wiederholung\n${[1, 2, 3, 4, 5, 6].map((n) => `## Abschnitt ${n}
+Die ==Zelle== ist die *kleinste* Einheit des Lebens und hat viele Teile.
+- Kern und Plasma mit vielen kleinen Teilen
+  - Erbgut im Kern liegt dort sicher
+- [x] Text gelesen und verstanden
+- [ ] Skizze zeichnen bis Montag
+1. erster Punkt der Liste
+2. zweiter Punkt der Liste
+Licht -> Zucker und Sauerstoff
+> Merke: alles Leben kommt aus Zellen, das ist wichtig.
+> Auch Pflanzen bestehen aus Zellen.
+Das ist [wichtig]{rot} und ~~falsch~~ und **fett** gesetzt.
+
+| Teil | Aufgabe |
+|---|---|
+| Kern | steuert die Zelle |
+| Wand | gibt Halt |
+
+---`).join('\n')}`;
+
+/** Part 3: a long structured document with the Bleistift and the pen, on a CPU slowed 4x:
+ *  writing, an update and scrolling keep every task on the page under 50 ms and 95 % of the
+ *  frames within 34 ms; the layout runs in its worker (pen.js). */
+async function longDoc(browser, server) {
+  // one engine: on this 4-core machine shared with other jobs, three engines, the paint and
+  // the layout worker leave the page's thread too little to measure what it does itself
+  const { page, ctx, cdp, errors } = await open(browser, server, 2);
+  await pick(page, 'pen', 'bleistift');
+  await page.click('.gen-modes [data-mode="seite"]');
+  await closeStyle(page);
+  await page.fill('#pg-text', LONG);
+  await page.evaluate(() => document.getElementById('pg-text').blur());
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+  const phase = async (name, act) => {
+    const t = await now(page);
+    await framesOn(page);
+    await act();
+    const f = await framesOff(page), long = await longSince(page, t);
+    console.log(`      ${name} (CPU / ${THROTTLE}): longest task ${long} ms, frames ${f.frames}, p95 ${f.p95} ms, ${Math.round(100 * f.within34)} % within 34 ms`);
+    return { ...f, long };
+  };
+  const w = await phase('writing five pages', async () => { await page.click('#pg-write'); await page.waitForTimeout(500); await penDone(page); });
+  const d = await page.evaluate(() => window.__hw.generate.pageDebug());
+  L.check('long document: five pages, all placed, written with the pen', d.pages >= 5 && d.placed === d.total && d.pen.used && d.pen.log.length > 0, JSON.stringify([d.pages, d.placed, d.total]));
+  // what the layout costs here, on the page (it runs in the worker while writing)
+  const lay = await page.evaluate(() => { const ts = []; for (let k = 0; k < 3; k++) { const a = performance.now(); window.__hw.generate.pageDebug().scratch(); ts.push(performance.now() - a); } return ts.map(Math.round); });
+  console.log(`      one layout of the whole document on the page (CPU / ${THROTTLE}, with the debug read around it): ${lay.join(', ')} ms`);
+  L.check('long document, writing: no task over 50 ms, 95 % of the frames within 34 ms', w.long <= 50 && w.within34 >= 0.95, JSON.stringify(w));
+  const u = await phase('update (one line changed)', async () => {
+    await page.evaluate(() => { const t = document.getElementById('pg-text'); t.value = t.value.replace('## Abschnitt 3', '## Abschnitt drei'); t.dispatchEvent(new Event('input')); });
+    await page.click('#pg-write');
+    await page.waitForTimeout(300);
+    await penDone(page);
+  });
+  const d2 = await page.evaluate(() => window.__hw.generate.pageDebug());
+  L.check('long document, update: only the changed piece written', d2.pen.asked >= 1 && d2.pen.asked <= 2 && d2.placed === d2.total, JSON.stringify([d2.pen.asked, d2.pen.kept]));
+  L.check('long document, update: no task over 50 ms, 95 % of the frames within 34 ms', u.long <= 50 && u.within34 >= 0.95, JSON.stringify(u));
+  await page.evaluate(() => { document.getElementById('pg-stage').scrollTop = 0; });
+  await settled(page);
+  const box = await page.evaluate(() => { const r = document.getElementById('pg-stage').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; });
+  await page.mouse.move(box[0], box[1]);
+  const s = await phase('scrolling', async () => { for (const sign of [1, -1]) for (let k = 0; k < 60; k++) { await page.mouse.wheel(0, 90 * sign); await page.waitForTimeout(16); } await page.waitForTimeout(300); });
+  L.check('long document, scrolling: no task over 50 ms, 95 % of the frames within 34 ms', s.long <= 50 && s.within34 >= 0.95, JSON.stringify(s));
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  L.check('long document: no errors', errors.filter((e) => !/Failed to load resource|ERR_/.test(e)).length === 0, errors.join(' | '));
+  await ctx.close();
+}
+
+/** One Bleistift page written with the pen on a CPU slowed 4x. */
+async function penPage(browser, server) {
+  const { page, ctx, cdp, errors } = await open(browser, server, 2);
+  await pick(page, 'pen', 'bleistift');
+  await page.click('.gen-modes [data-mode="seite"]');
+  await closeStyle(page);
+  await page.fill('#pg-text', WORDS.join(' '));
+  await page.evaluate(() => document.getElementById('pg-text').blur());
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+  const t = await now(page);
+  await framesOn(page);
+  await page.click('#pg-write');
+  await page.waitForTimeout(500);
+  await penDone(page);
+  const f = await framesOff(page), long = await longSince(page, t);
+  await cdp.send('Emulation.setCPUThrottlingRate', { rate: 1 });
+  const d = await page.evaluate(() => window.__hw.generate.pageDebug());
+  console.log(`      Bleistift page with the pen (CPU / ${THROTTLE}): longest task ${long} ms, frames ${f.frames}, p95 ${f.p95} ms, ${Math.round(100 * f.within34)} % within 34 ms, ${d.pen.log.length} strokes by the pen`);
+  L.check('Bleistift page with the pen: no task over 50 ms, 95 % of the frames within 34 ms', d.pen.log.length > 20 && long <= 50 && f.within34 >= 0.95, JSON.stringify({ long, ...f }));
+  L.check('Bleistift page with the pen: no errors', errors.filter((e) => !/Failed to load resource|ERR_/.test(e)).length === 0, errors.join(' | '));
   await ctx.close();
 }
 
@@ -275,7 +378,10 @@ async function sheet(browser, server) {
   const browser = await L.launch();
   const only = process.argv.slice(2);
   try {
-    for (const part of [pages, rich, sheet]) if (!only.length || only.includes(part.name)) await part(browser, server);
+    // the long document takes six minutes with one engine of the small test model, more than
+    // run.cjs gives a file: asked for by name (node tests/web/perf_write.cjs longDoc) or PERF_LONG=1
+    if (!only.length && !process.env.PERF_LONG) console.log('SKIP longDoc: node tests/web/perf_write.cjs longDoc (or PERF_LONG=1) runs it');
+    for (const part of [pages, rich, sheet, penPage, longDoc]) if (only.length ? only.includes(part.name) : part !== longDoc || process.env.PERF_LONG) await part(browser, server);
   } catch (e) {
     console.error(e);
     L.check('no exception', false, String(e && e.message));

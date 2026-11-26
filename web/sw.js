@@ -12,7 +12,7 @@ const SHELL = [
   'js/engine/engine.js', 'js/engine/worker.js',
   'js/generate/layout.js', 'js/generate/page-writer.js', 'js/generate/render.js',
   'js/generate/model-store.js', 'js/generate/engine-client.js', 'js/generate/view.js',
-  'js/generate/document.js', 'js/generate/pdf.js', 'js/generate/page-view.js', 'js/generate/paint-worker.js',
+  'js/generate/document.js', 'js/generate/pdf.js', 'js/generate/page-view.js', 'js/generate/paint-worker.js', 'js/generate/pen.js',
   'js/generate/markup.js', 'js/generate/unwrap.js', 'js/generate/decor.js', 'js/generate/format-help.js', 'js/generate/editor-tools.js',
   'js/capture/ink.js', 'js/capture/look.js',
   'js/library.js', 'library.css',

@@ -492,7 +492,8 @@ reloaded.
 - Workers: `engine-client.js: createEnginePool`, hardwareConcurrency − 1, at
   most 4, 2 with deviceMemory ≤ 4 and 1 with ≤ 2; each worker holds its own
   copy of the model, read on its own thread from one Blob of `model.bin`.
-  Pieces are handed out in text order; piece i always gets
+  Pieces are handed out in text order (the pen writes in that order, so the
+  engines work ahead of it); piece i always gets
   `pieceSeed(seed, i, version)`, so one worker and several write identical pages
   (tested). A rewrite goes ahead of the queue. A piece that fails is tried once
   more; an engine whose worker died is replaced by a fresh one (at most `size`
@@ -509,6 +510,62 @@ reloaded.
   "schreibt … 26 von 79 · Seite 2 · noch etwa 2 Min." with a bar; the time left
   is (time so far / pieces done) × pieces left, shown once every worker has
   finished one piece. "Abbrechen" stops all workers; what is written stays.
+- The pen ("Schreiben zeigen", a switch in Erweitert, stored with the page settings
+  as `animate`; on by default, off while the system asks for reduced motion and the
+  writer has not switched it on). The pages show only what the pen has written, in
+  reading order (`pen.js: penOrder`): row by row, the words of a row left to right, a
+  bullet or check box before its item, the tick after its box, an arrow in its place,
+  an underline, strike or highlighter after the last of its words on the row, the
+  heading's lines after the heading, a frame after the last row it holds, a rule in one
+  stroke, a table's grid line by line before its cells, then the cells one after the
+  other, row by row; a band is swept over its words and then drawn under them (a
+  clipped region, as below). The stroke on its way is drawn up to the pen (the quick
+  sheet's hold / unhold: its box kept and put back every frame); a finished stroke is
+  drawn exactly as without the pen. Pace: 260 points a second when nothing waits (the
+  quick sheet's); when written pieces wait, so fast that they are 2 s of writing (it
+  gathers speed over about a second, it slows down at once); once
+  the last piece is written, the rest is on the page within 1.8 s. The pen rests where
+  the next entry's pieces can still move (`settledPieces`): until the first 12 pieces
+  have fixed the letter size (`TYPICAL_PIECES`; a text of fewer pieces: until all are
+  written), and before a box, a heading with the row after it, a numbered list, a
+  centred or right-aligned line, a line in parts or a table until all of it is written;
+  so nothing the pen wrote ever moves (checked in Node: of the 68 446 entries the pen
+  could draw at the prefixes of a five-page document of 218 pieces, and those of two
+  shorter ones with a table, none changed in the finished document). Its place is
+  the piece of the entry and how many entries of that piece came before, so it survives
+  a new layout. The view follows the pen (also upwards, after an update) until the
+  writer scrolls. "Sofort zeigen" (beside Stil while the pen writes) shows the rest at
+  once for this run; switching the pen off does the same. A page the pen left with
+  strokes drawn out of their order is drawn whole once more when the pen is done, so
+  the finished canvas is the page drawn whole, pixel for pixel; with the pen off the
+  pages are drawn as before. A tap-rewrite with the pen on: the new ink of the piece is
+  written by the pen; what moved with it is there at once. The PDF can be saved as soon
+  as everything is written, also while the pen is on its way (the same bytes).
+- Aktualisieren: once a document is shown and its text (or the format choice) has
+  changed, the button says "Aktualisieren". The new plan's pieces are matched with the
+  old one's by their text and their place among equal texts (the n-th "die Reise" to
+  the n-th), and those written by the same model with the same Lesbarkeit keep their
+  ink and their document seed; only the others go to the engines, and the document is
+  laid out from kept and new ink together, exactly as one written anew from those inks
+  (tested). The document before stays on the screen until the new one's letter size is
+  fixed; with the pen, the kept ink is there at once and the pen writes the new pieces.
+  "Abbrechen" during an update leaves the document before as it was. The same text
+  again ("Schreiben") writes everything anew with a new seed. Kept ink is the previous
+  document only: about 300 bytes of points per character, so at most about 12 MB for
+  the field's 40 000 characters, on the page and again in the layout worker.
+- Layout off the main thread (`pen.js: createLayouts`, a module worker; without one the
+  same code runs on the page): the plan once per run, each piece as it is written; the
+  layout (at most one at a time, again afterwards if pieces came meanwhile) returns the
+  document, the pen's order and the settled count; a page that came out as before is
+  not sent again (the page keeps its object, so nothing about it is worked out again),
+  the strokes of the others are handed over. Measured on the five-page document with
+  lists, boxes and a table (218 pieces): one layout takes 14-23 ms in Node and 85-90 ms
+  on the page with the CPU slowed 4x. Written with one engine at CPU / 4 (a 4-core
+  machine shared with other jobs), the app before had 40 tasks over 50 ms (longest
+  119 ms, `layoutRich` and the hand-drawn lines on top); with the layout in the worker,
+  the parse and the plan in tasks of their own and the pen on, no task over 50 ms and
+  every frame within 34 ms while writing, updating and scrolling, Bleistift
+  (`perf_write.cjs`).
 - Tap to rewrite: a tap (pointer moving less than 10 px) within 3 mm (finger),
   2 mm (pen) or 1.5 mm (mouse) of a word marks its piece and shows
   "Neu schreiben" next to it, under or over the piece where it hides the
@@ -528,7 +585,9 @@ reloaded.
   meets it. More than 40 % of the page: the whole page. A plain text (no `rich`) draws
   the whole page whenever anything on it went, as before: same pixels, tested against
   the earlier app in two looks. A document is laid out again at most once per frame
-  while pieces arrive, not once per piece.
+  while pieces arrive, not once per piece; with or without the pen, a plain text, a
+  document with marks and a table give the same canvas and PDF bytes as the earlier
+  app (the document with marks compared drawn whole, tested).
 - Formatierung (`js/generate/format-help.js`): a quiet button under the Seite text field
   opens a panel in the style of Stil (one of the two at a time) that scrolls inside
   itself; Escape, a tap outside or the button close it, and focus goes in on opening and

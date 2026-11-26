@@ -240,6 +240,7 @@
             <span class="gen-info" id="gen-info"><span id="gi-text" role="status"></span><span class="pbar" id="gi-bar" hidden><span id="gi-fill"></span></span></span>
           </div>
           <div class="gen-tools">
+            <button class="gen-tool" id="pg-now" data-only="seite" type="button" aria-label="Sofort zeigen" hidden><svg class="ic" aria-hidden="true"><use href="#i-skip"/></svg><span class="pg-long">Sofort zeigen</span></button>
             <button class="gen-tool" id="gen-again" data-only="zettel" type="button" title="Denselben Text noch einmal schreiben" disabled><svg class="ic" aria-hidden="true"><use href="#i-again"/></svg><span>Nochmal</span></button>
             <button class="gen-tool" id="gen-style-btn" type="button" aria-expanded="false" aria-controls="gen-style"><svg class="ic" aria-hidden="true"><use href="#i-nib"/></svg><span>Stil</span></button>
             <div class="gen-menu-wrap" data-only="zettel">
@@ -323,6 +324,9 @@
                 <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="black" aria-label="Schwarz" title="Schwarz"><i></i></button>
                 <button class="gen-ink" type="button" role="radio" aria-checked="false" data-ink="blue" aria-label="Königsblau" title="Königsblau"><i></i></button>
               </div>
+            </div>
+            <div class="gen-opt" data-only="seite"><span class="gen-opt-l">Ansicht</span>
+              <label class="pg-switch"><input type="checkbox" role="switch" id="pg-animate" checked><span>Schreiben zeigen</span></label>
             </div>
             <div class="gen-opt" data-only="seite"><span class="gen-opt-l">PDF</span>
               <label class="pg-switch"><input type="checkbox" role="switch" id="pg-textlayer" checked><span>Text durchsuchbar</span></label>

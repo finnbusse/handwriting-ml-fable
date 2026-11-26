@@ -100,9 +100,22 @@ export function createPainter() {
       ctx.drawImage(u.canvas, 0, 0, u.w, u.h, u.x, u.y, u.w, u.h);
       if (!keep) c.under = null;
     },
-    /** The first n points of a word (the writing animation). */
-    partial(c, { word, n, scale, look, colors }) {
-      if (meets(c, rows(word, scale, look))) drawPartial(c.canvas.getContext('2d'), word, n, { scale, look, colors, offsetY: -c.y });
+    /** The first n points of a word (the writing animation); xh, style: a document's
+     *  stroke in mm, drawn as the words step draws it. */
+    partial(c, { word, n, scale, look, colors, xh, style = null }) {
+      const p = xh ? docWordXh(word, xh) : word, s = xh ? scale * xh : scale;
+      if (meets(c, rows(p, s, look))) drawPartial(c.canvas.getContext('2d'), p, n, { scale: s, look, colors, offsetY: -c.y, style });
+    },
+    /** A highlighter band (mm) as far as x (mm): the marker going over its words.  Drawn
+     *  over the ink; once it is through, its region is drawn anew with the band under it. */
+    sweep(c, { band, x, scale, colors }) {
+      const ctx = c.canvas.getContext('2d');
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, Math.max(0, x * scale), c.canvas.height);
+      ctx.clip();
+      drawBands(ctx, [band], { scale, colors, offsetY: -c.y });
+      ctx.restore();
     },
     /** No bitmap at all (a page far from the viewport gives its memory back). */
     free(c) { c.canvas.width = 0; c.canvas.height = 0; c.under = null; },
