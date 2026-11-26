@@ -4,7 +4,7 @@
 
 export const MIN_LINES = 20;
 /** The driver's defaults (EPOCHS, LINES_ONLY, SAMPLE_EVERY in scripts/retrain.py). */
-export const DEFAULTS = { epochs: 12, lines_only: false, sample_every: 1 };
+export const DEFAULTS = { epochs: 20, lines_only: false, sample_every: 1 };
 /** From the start on GitHub to the first status.json: queue, checkout, installing. */
 export const START_MINUTES = 2;
 

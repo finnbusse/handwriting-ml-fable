@@ -11,8 +11,23 @@ What makes this work with little data
   * real recorded lines are mixed in with their true spacing
   * the alphabet is extended (umlauts, sharp s ...) without disturbing the
     known characters
-  * a fixed, short budget of updates with a falling learning rate; what is
-    saved is a running average of the weights (steadier than any single step)
+  * a fixed budget of 20 rounds with a falling learning rate; what is saved
+    is a running average of the weights (steadier than any single step), and
+    the last round is the one kept: the held-out likelihood prefers a round
+    near 12, yet on written samples the last round is as steady and sets more
+    dots (old recipe: 69 % against 63 % of the dots, 11 % against 13 % of the
+    delivered pieces lacking one)
+  * the dots of i, j and the umlauts count four times in the loss: whether to
+    go back for a dot is one decision in hundreds of points and the one the
+    network got wrong most often (pieces lacking a dot at the first attempt:
+    16 % without the weight, 4 % with it; no more false dots)
+  * the pen position the network is shown carries a small random error and the
+    target leads back to the true path (jittered): teacher forcing never shows
+    the network its own deviations.  A reader trained on the real recordings
+    misreads 7 points fewer of the written pieces with it
+  * every word of a recorded line is set on the line first, and a line keeps
+    only half of its deviation from its session's letter size: written pages
+    then vary less in level and size
   * held-out lines are judged after correcting for over-confidence: with
     little data the network soon predicts too narrow a spread, which makes the
     plain likelihood worse although the writing keeps getting better.  One
@@ -326,17 +341,18 @@ def main(argv=None, hooks=None):
     ap.add_argument("--augment", type=float, nargs=2, default=[1.0, 1.0], metavar=("SHAPE", "PLACE"),
                     help="strength of the random changes to every training piece: width and slant, size and rotation "
                          "(1 1 = as always, 0 0 = none)")
-    ap.add_argument("--dot-weight", type=float, default=1.0,
-                    help="weight in the loss of the dots of i, j, ä, ö, ü and of the pen jumps to and from them")
-    ap.add_argument("--input-noise", type=float, default=0.0,
+    ap.add_argument("--dot-weight", type=float, default=4.0,
+                    help="weight in the loss of the dots of i, j, ä, ö, ü and of the pen jumps to and from them "
+                         "(1 = none; 3, 4 and 6 gave the same result within noise)")
+    ap.add_argument("--input-noise", type=float, default=0.01,
                     help="train against drift: random error of the pen position the network sees, in units of the "
-                         "offset normalisation (see jittered)")
-    ap.add_argument("--level-words", action="store_true",
+                         "offset normalisation (see jittered); 0 = off, 0.02 was no better than 0.01")
+    ap.add_argument("--level-words", action=argparse.BooleanOptionalAction, default=True,
                     help="set every word of the recorded lines on the line before training (dataset.level_words)")
     ap.add_argument("--calibration", choices=("letters", "chars"), default="letters",
                     help="how characters are counted when the points per character are matched to the base model: "
                          "'letters' without spaces, 'chars' with spaces as the base statistics do (dataset.calibrate)")
-    ap.add_argument("--line-size", choices=("session", "blend"), default="session",
+    ap.add_argument("--line-size", choices=("session", "blend"), default="blend",
                     help="x-height of a recorded line: its session's median, or that median moved halfway towards "
                          "the line's own size, at most 15 %% (dataset.measure)")
     ap.add_argument("--max-points", type=int, default=dataset.MAX_POINTS,
@@ -344,8 +360,8 @@ def main(argv=None, hooks=None):
                          "--calibration chars a character takes more points: at 700 the windows of real lines shrink "
                          "to a median of 22 characters (55 %% with 22 or more); 800 gives 24 and 70 %% as 'letters' "
                          "does at 700")
-    ap.add_argument("--epochs", type=int, default=12,
-                    help="a fixed budget: with little data more rounds only learn the lines by heart")
+    ap.add_argument("--epochs", type=int, default=20,
+                    help="a fixed budget (30 rounds measured no better than 20)")
     ap.add_argument("--epoch-items", type=int, default=960, help="training lines per epoch")
     ap.add_argument("--real-share", type=float, default=0.7,
                     help="share of an epoch taken from real written lines; the rest is composed of single words")
@@ -590,15 +606,17 @@ def main(argv=None, hooks=None):
         if args.max_minutes and (time.time() - t0) / 60 > args.max_minutes:
             print("time limit reached, stopping")
             break
-    # The held-out lines cannot tell epochs apart whose scores differ by less than about 0.01 (two standard
-    # errors).  Among those the last one has seen the rare characters most often, so it is the one to keep.
+    # A run that used its whole budget keeps its last epoch, whatever the held-out score says: the score
+    # prefers an epoch near 12 of 20, but written samples of the last epoch are as steady and carry more dots,
+    # and it has seen the rare characters most often.  (A run that was stopped or ran out of time keeps the
+    # epoch with the best score.)
     last = history[-1]
-    if not stopped and last["epoch"] != best_epoch and last.get("score", float("inf")) <= best + 0.01:
+    if not stopped and last["epoch"] >= args.epochs and last["epoch"] != best_epoch:
         shutil.copytree(os.path.join(args.out, "last"), os.path.join(args.out, "best"), dirs_exist_ok=True)
         raw = os.path.join(args.out, "best", "raw.pt")
         if os.path.exists(raw):
             os.remove(raw)
-        print(f"epoch {last['epoch']} is within 0.01 of the best epoch {best_epoch}: keeping epoch {last['epoch']}")
+        print(f"keeping the last epoch {last['epoch']} (best held-out score: epoch {best_epoch})")
         best_epoch = last["epoch"]
     print(f"best epoch {best_epoch}, score {best:.4f}, total {(time.time() - t0) / 60:.1f} min")
     # How large the kept model writes at each legibility setting; the page layout scales words back with it.

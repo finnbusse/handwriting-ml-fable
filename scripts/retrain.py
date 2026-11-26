@@ -37,7 +37,7 @@ MODEL = "handwriting-fable-model"
 
 # Defaults of `run` (the Training tab of the web app shows and uses these).
 LINES_ONLY = False      # train on whole written lines only, without the early single words and digits
-EPOCHS = 12             # a fixed budget of rounds (hw/train.py explains why it is short and fixed)
+EPOCHS = 20             # a fixed budget of rounds (hw/train.py explains why; about 110 minutes on a free runner)
 SAMPLE_EVERY = 1        # draw training/sample.png every this many epochs (it takes a few seconds)
 CHECKPOINT_EVERY = 4    # store training/checkpoint/ every this many epochs (about 30 MB each time)
 MAX_MINUTES = 240       # stop training after this long and publish the best model so far
